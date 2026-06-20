@@ -79,6 +79,59 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 | GET | `/api/submissions/user/{userId}` | User submission history |
 | GET | `/api/submissions/problem/{problemId}` | Submissions for a problem |
 
+### Users
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/user/getUsers` | List all users |
+| GET | `/api/user/getUser/{id}` | Get user by ID |
+| POST | `/api/user/register` | Register a new user |
+| DELETE | `/api/user/deleteUser/{id}` | Delete a user |
+
+### Competitions
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/competitions/create` | Create a competition | Admin (`createdBy` must be an ADMIN user) |
+| GET | `/api/competitions/getAllCompetitions` | List all competitions | Public |
+| GET | `/api/competitions/get/{id}` | Get competition by ID | Public |
+| POST | `/api/competitions/addProblemsTo/{competitionsId}/problems` | Add problems to a competition | Admin (`userId` in body) |
+| GET | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get problem IDs for a competition | Public |
+
+#### Create competition example
+
+```json
+{
+  "title": "Weekly Contest",
+  "description": "Beginner-friendly contest",
+  "startTime": "2026-06-20 10:00:00",
+  "endTime": "2026-06-20 12:00:00",
+  "createdBy": 1,
+  "status": "ACTIVE"
+}
+```
+
+#### Add problems to competition example
+
+```http
+POST /api/competitions/addProblemsTo/1/problems
+```
+
+```json
+{
+  "userId": 1,
+  "problemIds": [1, 2, 3]
+}
+```
+
+#### Get competition problems example
+
+```http
+GET /api/competitions/getProblemsOf/1/problems
+```
+
+Response: `[1, 2, 3]`
+
 ## Submit Flow
 
 1. Client sends user code with `problemId`.
@@ -139,6 +192,7 @@ src/main/java/com/codeit/
 ├── config/          # App configuration (RestTemplate, ObjectMapper)
 ├── modules/
 │   ├── auth/        # Authentication
+│   ├── competition/ # Competition CRUD and problem linking
 │   ├── problems/    # Problem CRUD and public DTOs
 │   ├── submission/  # Judge0 integration and test case judging
 │   └── user/        # User management

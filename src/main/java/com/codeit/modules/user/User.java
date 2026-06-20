@@ -15,12 +15,14 @@ public class User {
     private String email;
     @NotEmpty(message = "Password cant be empty")
     private String password;
+    private String role;
 
-    public User(String id, String name, String email, String password) {
+    public User(String id, String name, String email, String password , String role) {
         this.id = id;
         this.username = name;
         this.email = email;
         this.password = password;
+        this.role = role;
     }
 
     public User() {

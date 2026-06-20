@@ -31,6 +31,11 @@ public class ProblemRepository {
         });
     }
 
+    public boolean existsById(Integer id) {
+        String sql = "SELECT 1 FROM problems WHERE id = ? LIMIT 1";
+        return Boolean.TRUE.equals(jdbcTemplate.query(sql, rs -> rs.next() ? true : null, id));
+    }
+
     public Problem getProblemById(Integer id) {
         String sql = """
                 SELECT * FROM problems
