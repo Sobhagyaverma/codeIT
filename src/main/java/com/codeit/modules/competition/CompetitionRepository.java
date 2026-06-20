@@ -11,33 +11,34 @@ import org.springframework.stereotype.Repository;
 public class CompetitionRepository {
     @Autowired
     private JdbcTemplate jdbcTemplate;
-    public int createCompetition(Competition competition){
+
+    public int createCompetition(Competition competition) {
         String sql = """
                 INSERT INTO competitions ( title , description ,start_time , end_time , created_by , status)
                 VALUES(?,?,?,?,?,?)
                 """;
-        try{
+        try {
             int result = jdbcTemplate.update(
-                sql,
-                competition.getTitle(),
-                competition.getDescription(),
-                competition.getStartTime(),
-                competition.getEndTime(),
-                competition.getCreatedBy(),
-                competition.getStatus()
-            );
+                    sql,
+                    competition.getTitle(),
+                    competition.getDescription(),
+                    competition.getStartTime(),
+                    competition.getEndTime(),
+                    competition.getCreatedBy(),
+                    competition.getStatus());
             return result;
-        }catch(Exception e){
+        } catch (Exception e) {
             System.err.println(e.getMessage());
             return 0;
         }
     }
-    public List<Competition> getAllCompetitions(){
-        String sql ="""
+
+    public List<Competition> getAllCompetitions() {
+        String sql = """
                 SELECT * FROM competitions;
                 """;
         try {
-            return jdbcTemplate.query(sql ,(rs ,rowNum)->{
+            return jdbcTemplate.query(sql, (rs, rowNum) -> {
                 Competition competition = new Competition();
                 competition.setId(rs.getInt("id"));
                 competition.setTitle(rs.getString("title"));
@@ -52,12 +53,13 @@ public class CompetitionRepository {
             throw new RuntimeException("Failed to fetch users", e);
         }
     }
-    public Competition getCompetitionById(Integer id){
+
+    public Competition getCompetitionById(Integer id) {
         String sql = """
                 SELECT * FROM competitions WHERE id = ?
                 """;
         try {
-            return jdbcTemplate.queryForObject(sql,(rs,rowNum)->{
+            return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> {
                 Competition competition = new Competition();
                 competition.setId(rs.getInt("id"));
                 competition.setTitle(rs.getString("title"));
@@ -68,7 +70,7 @@ public class CompetitionRepository {
                 competition.setStatus(rs.getString("status"));
                 return competition;
 
-            },id);
+            }, id);
         } catch (Exception e) {
             System.err.println(e.getMessage());
             return null;
@@ -98,5 +100,31 @@ public class CompetitionRepository {
         return jdbcTemplate.queryForList(sql, Integer.class, competitionId);
     }
 
-}
+    public int joinCompetition(Integer competitionId, Integer userId) {
+        String sql = """
+                INSERT INTO competition_participants(competition_id,user_id)
+                VALUES (?, ?)
+                """;
+        return jdbcTemplate.update(sql, competitionId, userId);
+    }
 
+    public Integer alreadyJoined(Integer competitionId, Integer userId) {
+        String sql = """
+                SELECT COUNT (*) FROM competition_participants
+                WHERE competition_id = ?
+                AND user_id = ?
+                """;
+
+        return jdbcTemplate.queryForObject(sql, Integer.class, competitionId, userId);
+    }
+
+    public List<Integer> getParticipants(Integer competitionId){
+        String sql = """
+                SELECT user_id
+                FROM competition_participants
+                WHERE competition_id = ? 
+                """;
+        return jdbcTemplate.queryForList(sql,Integer.class,competitionId);
+    }
+
+}

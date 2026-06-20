@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.codeit.modules.competition.dto.AddProblemsRequest;
@@ -48,5 +49,15 @@ public class CompetitionController {
     @GetMapping("/getProblemsOf/{competitionId}/problems")
     public List<Integer> getProblems(@PathVariable("competitionId") Integer competitionId) {
         return competitionService.getCompetitionProblems(competitionId);
+    }
+
+    @PostMapping("/{competitionId}/join")
+    public String joinCompetition(@PathVariable Integer competitionId,
+            @RequestParam Integer userId) {
+        return competitionService.joinCompetition(competitionId, userId);
+    }
+    @GetMapping("/{competitionId}/participants")
+    public List<Integer> getParticipants(@PathVariable Integer competitionId) {
+        return competitionService.getParticipants(competitionId);
     }
 }

@@ -73,4 +73,28 @@ public class CompetitionService {
             throw new RuntimeException("Only admin can perform this action");
         }
     }
+
+    public String joinCompetition(Integer competitionId, Integer userID) {
+        if (getCompetitionById(competitionId) == null) {
+            return "Competition not found";
+        }
+
+        User user = userRepository.getUserById(userID).orElse(null);
+        if (user == null) {
+            return "User not found";
+        }
+
+        Integer count = competitionRepository.alreadyJoined(competitionId, userID);
+        if (count > 0) {
+            return "User already joined";
+        }
+        competitionRepository.joinCompetition(competitionId, userID);
+        return "joined suksexfully";
+    }
+    public List<Integer> getParticipants(Integer competitionId) {
+        if (getCompetitionById(competitionId) == null) {
+            throw new RuntimeException("Competition not found");
+        }
+        return competitionRepository.getParticipants(competitionId);
+    }
 }
