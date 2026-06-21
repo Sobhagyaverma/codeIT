@@ -30,7 +30,7 @@ public class SubmissionRowMapper implements RowMapper<Submission> {
         submission.setMemoryUsed(
                 (int) rs.getFloat("memory")
         );
-
+        submission.setCompetitionId(rs.getInt("competitionId"));
         return submission;
     }
 }

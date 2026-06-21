@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.codeit.modules.competition.dto.AddProblemsRequest;
+import com.codeit.modules.competition.dto.ContestSubmissionRequest;
+import com.codeit.modules.submission.dto.JudgeVerdictDTO;
 
 import jakarta.validation.Valid;
 
@@ -60,4 +62,14 @@ public class CompetitionController {
     public List<Integer> getParticipants(@PathVariable Integer competitionId) {
         return competitionService.getParticipants(competitionId);
     }
+
+    @PostMapping("/{competitionId}/submit")
+    public JudgeVerdictDTO submitCompetitionSolution(@PathVariable Integer competitionId ,
+                                @RequestBody ContestSubmissionRequest request) {
+        
+        
+        return competitionService.submitCompetitionSolution(competitionId, request);
+    }
+    
+
 }

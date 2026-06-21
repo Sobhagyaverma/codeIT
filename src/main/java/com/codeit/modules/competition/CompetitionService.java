@@ -1,11 +1,17 @@
 package com.codeit.modules.competition;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.codeit.modules.competition.dto.ContestSubmissionRequest;
 import com.codeit.modules.problems.ProblemRepository;
+import com.codeit.modules.submission.Submission;
+import com.codeit.modules.submission.SubmissionService;
+import com.codeit.modules.submission.dto.Judge0Result;
+import com.codeit.modules.submission.dto.JudgeVerdictDTO;
 import com.codeit.modules.user.User;
 import com.codeit.modules.user.UserRepository;
 
@@ -17,6 +23,8 @@ public class CompetitionService {
     private UserRepository userRepository;
     @Autowired
     private ProblemRepository problemRepository;
+    @Autowired
+    private SubmissionService submissionService;
 
     public String createCompetition(Competition competition) {
         if (competition.getCreatedBy() == null) {
@@ -91,10 +99,75 @@ public class CompetitionService {
         competitionRepository.joinCompetition(competitionId, userID);
         return "joined suksexfully";
     }
+
     public List<Integer> getParticipants(Integer competitionId) {
         if (getCompetitionById(competitionId) == null) {
             throw new RuntimeException("Competition not found");
         }
         return competitionRepository.getParticipants(competitionId);
     }
+
+    public JudgeVerdictDTO submitCompetitionSolution(Integer competitionId, ContestSubmissionRequest request) {
+        Competition competition = competitionRepository.getCompetitionById(competitionId);
+        if (competition == null) {
+            throw new RuntimeException("Competition not found");
+        }
+
+        Integer count = competitionRepository.alreadyJoined(competitionId, request.getUserId());
+        if (count == 0) {
+            throw new RuntimeException("user not joined this Competition");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        // if (now.isBefore(competition.getStartTime().toLocalDateTime())) {
+        // throw new RuntimeException(
+        // "Competition has not started");
+        // }
+
+        // if (now.isAfter(competition.getEndTime().toLocalDateTime())) {
+        // throw new RuntimeException("Competition id Ended");
+        // }
+        Submission submission =
+
+                new Submission();
+
+        submission.setUserId(
+
+                request.getUserId()
+
+        );
+
+        submission.setProblemId(
+
+                request.getProblemId()
+
+        );
+
+        submission.setCompetitionId(
+
+                competitionId
+
+        );
+
+        submission.setLanguage(
+
+                request.getLanguage()
+
+        );
+
+        submission.setLanguageId(
+
+                request.getLanguageId()
+
+        );
+
+        submission.setCode(
+
+                request.getCode()
+
+        );
+
+        return submissionService.submit(submission);
+
+    }
+
 }

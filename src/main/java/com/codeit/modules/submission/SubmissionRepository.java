@@ -24,9 +24,10 @@ public class SubmissionRepository {
                         code,
                         status,
                         runtime,
+                        competition_id,
                         memory
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?,?)
                 """;
 
         return jdbcTemplate.update(
@@ -37,6 +38,7 @@ public class SubmissionRepository {
                 submission.getCode(),
                 submission.getVerdict(),
                 submission.getExecutionTime(),
+                submission.getCompetitionId(),
                 submission.getMemoryUsed());
     }
 

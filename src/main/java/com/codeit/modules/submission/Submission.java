@@ -19,4 +19,5 @@ public class Submission {
     private String output;
     private Double executionTime;
     private Integer memoryUsed;
+    private Integer competitionId;
 }
