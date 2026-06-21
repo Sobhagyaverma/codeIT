@@ -124,7 +124,7 @@ public class CompetitionService {
         // }
 
         // if (now.isAfter(competition.getEndTime().toLocalDateTime())) {
-        // throw new RuntimeException("Competition id Ended");
+        // throw new RuntimeException("Competition id helloEnded");
         // }
         Submission submission =
 
