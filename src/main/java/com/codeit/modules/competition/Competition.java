@@ -1,6 +1,5 @@
 package com.codeit.modules.competition;
 
-
 import java.sql.Timestamp;
 
 import lombok.Data;
@@ -15,5 +14,6 @@ public class Competition {
     private Timestamp endTime;
     private Integer createdBy;
     private String status;
+    private Integer durationMinutes;
 
 }

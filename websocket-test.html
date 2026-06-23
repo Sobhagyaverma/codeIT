@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>CodeIT WebSocket Test</title>
+</head>
+
+<body>
+  <h1>WebSocket Test</h1>
+  <p>Open DevTools Console (F12) to see messages.</p>
+
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <script>
+    const competitionId = 1;
+    const userId = 1;
+    const socket = new SockJS('http://localhost:8081/ws');
+    const client = Stomp.over(socket);
+
+    client.connect({}, function () {
+      console.log('Connected to /ws');
+
+      client.subscribe('/topic/competitions/' + competitionId + '/leaderboard', function (message) {
+        const leaderboard = JSON.parse(message.body);
+        console.log('Leaderboard update:', leaderboard);
+      });
+
+      client.subscribe('/topic/competitions/' + competitionId + '/status', function (message) {
+        const status = JSON.parse(message.body);
+        console.log('Status update:', status);
+      });
+
+      client.subscribe('/topic/competitions/' + competitionId + '/users/' + userId + '/session', function (message) {
+        const session = JSON.parse(message.body);
+        console.log('Session update:', session);
+      });
+
+      console.log('Subscribed to leaderboard, status, and session for competition', competitionId);
+    }, function (error) {
+      console.error('Connection failed:', error);
+    });
+  </script>
+</body>
+
+</html>

@@ -8,6 +8,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 - Spring Boot 4
 - PostgreSQL
 - Judge0 (code execution)
+- WebSocket (STOMP over SockJS)
 - Maven
 
 ## Prerequisites
@@ -97,6 +98,71 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 | GET | `/api/competitions/get/{id}` | Get competition by ID | Public |
 | POST | `/api/competitions/addProblemsTo/{competitionsId}/problems` | Add problems to a competition | Admin (`userId` in body) |
 | GET | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get problem IDs for a competition | Public |
+| POST | `/api/competitions/{competitionId}/join` | Join a competition | Public |
+| POST | `/api/competitions/{competitionId}/start` | Start personal contest timer | Public (must have joined) |
+| GET | `/api/competitions/{competitionId}/session` | Get session state and deadline | Public |
+| GET | `/api/competitions/{competitionId}/participants` | List participant user IDs | Public |
+| POST | `/api/competitions/{competitionId}/submit` | Submit solution during an active competition | Public |
+| GET | `/api/competitions/{competitionId}/leaderboard` | Competition leaderboard | Public |
+| PATCH | `/api/competitions/{competitionId}/times` | Update start/end times (status auto-recalculated) | Admin (`userId` in body) |
+
+#### Competition status (auto-computed)
+
+Status is **never set manually**. It is derived from `startTime` and `endTime`:
+
+| Status | Condition |
+|--------|-----------|
+| `UPCOMING` | Current time is before `startTime` |
+| `ACTIVE` | Current time is between `startTime` and `endTime` |
+| `ENDED` | Current time is after `endTime` |
+
+Status is recomputed on create, read, admin time updates, and synced to the database every minute by a scheduler.
+
+#### Per-user session timer
+
+Each participant has a personal timer that starts when they call `POST /start`:
+
+| Session status | Meaning |
+|----------------|---------|
+| `JOINED` | Registered but timer not started |
+| `IN_PROGRESS` | Personal timer running |
+| `ENDED` | Personal time expired |
+
+`durationMinutes` on the competition (default 120) sets how long each user gets after starting. The personal deadline is capped by the global contest `endTime`.
+
+Run the migration before using sessions:
+
+```bash
+psql -U postgres -d codeit -f schema/competition_session.sql
+```
+
+#### Start session example
+
+```http
+POST /api/competitions/1/start?userId=1
+```
+
+Response:
+
+```json
+{
+  "competitionId": 1,
+  "userId": 1,
+  "sessionStatus": "IN_PROGRESS",
+  "startedAt": "2026-06-22T10:00:00Z",
+  "deadlineAt": "2026-06-22T12:00:00Z",
+  "serverTime": "2026-06-22T10:00:01Z",
+  "remainingSeconds": 7199
+}
+```
+
+#### Get session example
+
+```http
+GET /api/competitions/1/session?userId=1
+```
+
+Submissions require `IN_PROGRESS` session and time before `deadlineAt`. When the timer ends, the frontend should auto-submit via `POST /submit`; the backend scheduler also marks the session `ENDED`.
 
 #### Create competition example
 
@@ -106,8 +172,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
   "description": "Beginner-friendly contest",
   "startTime": "2026-06-20 10:00:00",
   "endTime": "2026-06-20 12:00:00",
-  "createdBy": 1,
-  "status": "ACTIVE"
+  "createdBy": 1
 }
 ```
 
@@ -131,6 +196,117 @@ GET /api/competitions/getProblemsOf/1/problems
 ```
 
 Response: `[1, 2, 3]`
+
+#### Update competition times (admin)
+
+```http
+PATCH /api/competitions/1/times
+```
+
+```json
+{
+  "userId": 1,
+  "startTime": "2026-06-20 10:00:00",
+  "endTime": "2026-06-20 12:00:00"
+}
+```
+
+Response returns the updated competition with the recomputed `status` (`UPCOMING`, `ACTIVE`, or `ENDED`).
+
+## WebSocket (Real-Time Updates)
+
+The backend pushes live competition events over STOMP WebSocket. Clients connect once and subscribe to topics — no polling required.
+
+### Connection
+
+| Setting | Value |
+|---------|-------|
+| Endpoint | `http://localhost:8081/ws` |
+| Protocol | STOMP over SockJS |
+| Broker prefix | `/topic` |
+
+### Topics
+
+| Topic | Trigger | Payload |
+|-------|---------|---------|
+| `/topic/competitions/{id}/leaderboard` | Accepted contest submission | `List<LeaderboardEntry>` |
+| `/topic/competitions/{id}/status` | Global status change or admin time update | `ContestStatusEvent` |
+| `/topic/competitions/{id}/users/{userId}/session` | User starts session or session expires | `ContestSessionEvent` |
+
+### ContestStatusEvent payload
+
+```json
+{
+  "competitionId": 1,
+  "status": "ACTIVE",
+  "startTime": "2026-06-22T05:00:00Z",
+  "endTime": "2026-06-22T23:59:59Z",
+  "serverTime": "2026-06-22T07:55:06.530564Z"
+}
+```
+
+`serverTime` lets the client correct clock drift when showing a countdown.
+
+### ContestSessionEvent payload
+
+```json
+{
+  "competitionId": 1,
+  "userId": 1,
+  "sessionStatus": "IN_PROGRESS",
+  "startedAt": "2026-06-22T10:00:00Z",
+  "deadlineAt": "2026-06-22T12:00:00Z",
+  "serverTime": "2026-06-22T10:00:01Z",
+  "remainingSeconds": 7199
+}
+```
+
+### Client example
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script>
+  const competitionId = 1;
+  const socket = new SockJS('http://localhost:8081/ws');
+  const client = Stomp.over(socket);
+
+  client.connect({}, () => {
+    client.subscribe('/topic/competitions/' + competitionId + '/leaderboard', (msg) => {
+      console.log('Leaderboard:', JSON.parse(msg.body));
+    });
+
+    client.subscribe('/topic/competitions/' + competitionId + '/status', (msg) => {
+      console.log('Status:', JSON.parse(msg.body));
+    });
+
+    client.subscribe('/topic/competitions/' + competitionId + '/users/' + userId + '/session', (msg) => {
+      console.log('Session:', JSON.parse(msg.body));
+    });
+  });
+</script>
+```
+
+A local test page is available at [`websocket-test.html`](websocket-test.html).
+
+### How it works (backend)
+
+```
+CompetitionService / CompetitionStatusScheduler
+        ↓
+CompetitionEventPublisher  (SimpMessagingTemplate)
+        ↓
+/topic/competitions/{id}/leaderboard  or  /status
+        ↓
+All subscribed browsers
+```
+
+| Component | Role |
+|-----------|------|
+| `WebSocketConfig` | Enables STOMP broker on `/topic`, endpoint at `/ws` |
+| `CompetitionEventPublisher` | Pushes messages to topics |
+| `CompetitionService` | Publishes leaderboard after Accepted submit; session on start; status on admin time update |
+| `CompetitionStatusScheduler` | Publishes global status transitions; expires personal sessions (every 60s) |
 
 ## Submit Flow
 
@@ -189,10 +365,10 @@ User code should be a full program that reads from stdin and prints to stdout (C
 
 ```
 src/main/java/com/codeit/
-├── config/          # App configuration (RestTemplate, ObjectMapper)
+├── config/          # App configuration (WebSocket, RestTemplate, ObjectMapper)
 ├── modules/
 │   ├── auth/        # Authentication
-│   ├── competition/ # Competition CRUD and problem linking
+│   ├── competition/ # Competition CRUD, WebSocket event publishing
 │   ├── problems/    # Problem CRUD and public DTOs
 │   ├── submission/  # Judge0 integration and test case judging
 │   └── user/        # User management

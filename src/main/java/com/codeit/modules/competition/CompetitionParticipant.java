@@ -14,4 +14,6 @@ public class CompetitionParticipant {
     private Integer userId;
     
     private Timestamp joinedAt;
+    private Timestamp startedAt;
+    private String sessionStatus;
 }
