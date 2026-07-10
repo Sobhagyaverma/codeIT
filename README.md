@@ -7,6 +7,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 - Java 21
 - Spring Boot 4
 - PostgreSQL
+- Redis (caching)
 - Judge0 (code execution)
 - WebSocket (STOMP over SockJS)
 - Maven
@@ -16,6 +17,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 - JDK 21+
 - Maven 3.9+
 - PostgreSQL (database: `codeit`)
+- Redis (default: `localhost:6379`)
 - Judge0 running locally (default: `http://localhost:2358`)
 
 ## Setup
@@ -51,6 +53,77 @@ A Spring Boot coding platform backend where users browse problems, run code, and
    ```
 
    The API starts on **http://localhost:9091**.
+
+## Redis Caching
+
+CodeIT uses **cache-aside** Redis caching to reduce PostgreSQL load during problem reads, submissions, and competitions.
+
+### Start Redis
+
+```bash
+# Docker (recommended)
+docker run -d --name redis -p 6379:6379 redis:7
+
+# Or Homebrew
+brew services start redis
+
+redis-cli ping   # expect PONG
+```
+
+### Configuration
+
+[`application.properties`](src/main/resources/application.properties):
+
+```properties
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+codeit.cache.leaderboard-ttl-seconds=60
+codeit.cache.competition-ttl-seconds=120
+codeit.cache.problem-ttl-seconds=1800
+codeit.cache.testcase-ttl-seconds=1800
+codeit.judge.max-parallelism=8
+```
+
+### Cache keys
+
+| Key | Value | TTL | Used by |
+|-----|-------|-----|---------|
+| `problem:public:{id}` | Problem JSON (no test cases) | 30 min | `GET /api/problems/{id}` |
+| `problem:judge:{id}` | Full problem JSON | 30 min | Submit / judge path |
+| `problem:all` | Problem list JSON | 30 min | `GET /api/problems` |
+| `testcases:problem:{id}` | Parsed test cases JSON | 30 min | `POST /api/submissions/submit` |
+| `leaderboard:competition:{id}` | Leaderboard entries JSON | 60s | `GET /api/competitions/{id}/leaderboard` |
+| `competitions:all` | Competition list JSON | 2 min | `GET /api/competitions/getAllCompetitions` |
+| `competition:{id}` | Single competition JSON | 2 min | `GET /api/competitions/get/{id}` |
+
+### Health check
+
+```bash
+curl http://localhost:9091/api/health/redis
+```
+
+### Verification commands
+
+```bash
+# Problem cache
+curl http://localhost:9091/api/problems/1
+redis-cli GET problem:public:1
+
+# Leaderboard cache
+curl http://localhost:9091/api/competitions/1/leaderboard
+redis-cli GET leaderboard:competition:1
+
+# Competition cache
+curl http://localhost:9091/api/competitions/getAllCompetitions
+redis-cli GET competitions:all
+
+# Test case cache (after a submit)
+redis-cli GET testcases:problem:1
+```
+
+### Parallel judging
+
+Test cases run in parallel via a bounded thread pool (`codeit.judge.max-parallelism`). Results are evaluated in **original order** so early-exit on Wrong Answer / Runtime Error still works. Judge0 URL is read from `judge0.api.url`.
 
 ## API Overview
 

@@ -30,6 +30,10 @@ public class CompetitionService {
     private SubmissionService submissionService;
     @Autowired
     private CompetitionEventPublisher competitionEventPublisher;
+    @Autowired
+    private LeaderboardCacheService leaderboardCacheService;
+    @Autowired
+    private CompetitionCacheService competitionCacheService;
 
     public String createCompetition(Competition competition) {
         if (competition.getCreatedBy() == null) {
@@ -47,17 +51,34 @@ public class CompetitionService {
         requireAdmin(competition.getCreatedBy());
         CompetitionStatusResolver.applyStatus(competition);
         competitionRepository.createCompetition(competition);
+        competitionCacheService.invalidateAll();
         return "Competition created successfully";
     }
 
     public List<Competition> getAllCompetitions() {
-        return competitionRepository.getAllCompetitions().stream()
-                .map(CompetitionStatusResolver::applyStatus)
-                .toList();
+        return competitionCacheService.getAll()
+                .map(competitions -> competitions.stream()
+                        .map(CompetitionStatusResolver::applyStatus)
+                        .toList())
+                .orElseGet(() -> {
+                    List<Competition> competitions = competitionRepository.getAllCompetitions().stream()
+                            .map(CompetitionStatusResolver::applyStatus)
+                            .toList();
+                    competitionCacheService.putAll(competitions);
+                    return competitions;
+                });
     }
 
     public Competition getCompetitionById(Integer id) {
-        Competition competition = competitionRepository.getCompetitionById(id);
+        Competition competition = competitionCacheService.getById(id)
+                .orElseGet(() -> {
+                    Competition fromDb = competitionRepository.getCompetitionById(id);
+                    if (fromDb != null) {
+                        CompetitionStatusResolver.applyStatus(fromDb);
+                        competitionCacheService.putById(id, fromDb);
+                    }
+                    return fromDb;
+                });
         if (competition == null) {
             return null;
         }
@@ -80,6 +101,7 @@ public class CompetitionService {
         for (Integer problemId : problemIds) {
             competitionRepository.addProblemsToCompetitions(competitionId, problemId);
         }
+        competitionCacheService.invalidate(competitionId);
         return "Problems added successfully";
     }
 
@@ -235,7 +257,7 @@ public class CompetitionService {
         JudgeVerdictDTO verdict = submissionService.submit(submission);
 
         if ("Accepted".equals(verdict.getVerdict())) {
-            List<LeaderboardEntry> leaderboard = competitionRepository.getLeaderboard(competitionId);
+            List<LeaderboardEntry> leaderboard = leaderboardCacheService.refresh(competitionId);
             competitionEventPublisher.publishLeaderboard(competitionId, leaderboard);
         }
 
@@ -246,7 +268,12 @@ public class CompetitionService {
         if (getCompetitionById(competitionId) == null) {
             throw new RuntimeException("Competition not found");
         }
-        return competitionRepository.getLeaderboard(competitionId);
+        return leaderboardCacheService.get(competitionId)
+                .orElseGet(() -> {
+                    List<LeaderboardEntry> entries = competitionRepository.getLeaderboard(competitionId);
+                    leaderboardCacheService.put(competitionId, entries);
+                    return entries;
+                });
     }
 
     public Competition updateCompetitionTimes(Integer competitionId, UpdateCompetitionTimesRequest request) {
@@ -270,6 +297,8 @@ public class CompetitionService {
                 request.getStartTime(),
                 request.getEndTime(),
                 status);
+
+        competitionCacheService.invalidate(competitionId);
 
         Competition updated = getCompetitionById(competitionId);
         competitionEventPublisher.publishStatus(

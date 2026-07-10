@@ -19,22 +19,31 @@ public class CompetitionStatusScheduler {
     @Autowired
     private CompetitionEventPublisher competitionEventPublisher;
 
+    @Autowired
+    private CompetitionCacheService competitionCacheService;
+
     private final Map<Integer, CompetitionStatus> lastKnownStatus = new ConcurrentHashMap<>();
 
     @Scheduled(fixedRate = 60_000)
     public void syncStatuses() {
         List<Competition> competitions = competitionRepository.getAllCompetitions();
+        boolean statusChanged = false;
 
         for (Competition competition : competitions) {
             CompetitionStatus current = CompetitionStatusResolver.resolve(competition);
             CompetitionStatus previous = lastKnownStatus.get(competition.getId());
 
             if (previous != null && previous != current) {
+                statusChanged = true;
                 competitionEventPublisher.publishStatus(
                         competition.getId(),
                         CompetitionEventPublisher.buildStatusEvent(competition));
             }
             lastKnownStatus.put(competition.getId(), current);
+        }
+
+        if (statusChanged) {
+            competitionCacheService.invalidateAll();
         }
 
         competitionRepository.syncAllCompetitionStatuses();
