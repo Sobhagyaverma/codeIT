@@ -14,7 +14,7 @@
   <script>
     const competitionId = 1;
     const userId = 1;
-    const socket = new SockJS('http://localhost:8081/ws');
+    const socket = new SockJS('http://localhost:9091/ws');
     const client = Stomp.over(socket);
 
     client.connect({}, function () {

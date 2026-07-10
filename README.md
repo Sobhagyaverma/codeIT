@@ -50,7 +50,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
    ./mvnw spring-boot:run
    ```
 
-   The API starts on **http://localhost:8081**.
+   The API starts on **http://localhost:9091**.
 
 ## API Overview
 
@@ -75,6 +75,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/api/submissions/languages` | List supported languages (slug, name, languageId) |
 | POST | `/api/submissions/run` | Run code once (no DB save) |
 | POST | `/api/submissions/submit` | Run all hidden test cases, save verdict |
 | GET | `/api/submissions/user/{userId}` | User submission history |
@@ -221,7 +222,7 @@ The backend pushes live competition events over STOMP WebSocket. Clients connect
 
 | Setting | Value |
 |---------|-------|
-| Endpoint | `http://localhost:8081/ws` |
+| Endpoint | `http://localhost:9091/ws` |
 | Protocol | STOMP over SockJS |
 | Broker prefix | `/topic` |
 
@@ -268,7 +269,7 @@ The backend pushes live competition events over STOMP WebSocket. Clients connect
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 <script>
   const competitionId = 1;
-  const socket = new SockJS('http://localhost:8081/ws');
+  const socket = new SockJS('http://localhost:9091/ws');
   const client = Stomp.over(socket);
 
   client.connect({}, () => {
@@ -354,12 +355,65 @@ Store test cases in the `problems.test_cases` JSONB column:
 
 User code should be a full program that reads from stdin and prints to stdout (Codeforces/HackerRank style).
 
+### stdin/stdout conventions
+
+| Language | Slug | Typical I/O pattern |
+|----------|------|---------------------|
+| Java | `java` | `Scanner` on `System.in`; public class `Main` |
+| Python | `python` | `input()` / `print()` |
+| JavaScript | `javascript` | `readline` or `fs.readFileSync(0, 'utf8')`; `console.log()` |
+| TypeScript | `typescript` | Same as JavaScript |
+| C++ | `cpp` | `cin` / `cout`; `int main()` |
+| C | `c` | `scanf` / `printf`; `int main()` |
+| Go | `go` | `fmt.Scan` / `fmt.Println`; `func main()` |
+| Rust | `rust` | `use std::io`; `fn main()` |
+| C# | `csharp` | `Console.ReadLine()` / `Console.WriteLine()`; class `Program` |
+| Ruby | `ruby` | `gets` / `puts` |
+| PHP | `php` | `fgets(STDIN)` / `echo` |
+
+## Supported Languages
+
+Fetch the canonical list at runtime:
+
+```http
+GET /api/submissions/languages
+```
+
+Response example:
+
+```json
+[
+  { "slug": "c", "name": "C", "languageId": 50 },
+  { "slug": "cpp", "name": "C++", "languageId": 54 },
+  { "slug": "csharp", "name": "C#", "languageId": 51 },
+  { "slug": "go", "name": "Go", "languageId": 60 },
+  { "slug": "java", "name": "Java", "languageId": 62 },
+  { "slug": "javascript", "name": "JavaScript", "languageId": 63 },
+  { "slug": "php", "name": "PHP", "languageId": 68 },
+  { "slug": "python", "name": "Python", "languageId": 71 },
+  { "slug": "ruby", "name": "Ruby", "languageId": 72 },
+  { "slug": "rust", "name": "Rust", "languageId": 73 },
+  { "slug": "typescript", "name": "TypeScript", "languageId": 74 }
+]
+```
+
 ## Judge0 Language IDs
 
-| Language | ID |
-|----------|----|
-| Java | 62 |
-| Python | 71 |
+| Slug | Language | ID |
+|------|----------|----|
+| `java` | Java | 62 |
+| `python` | Python | 71 |
+| `javascript` | JavaScript | 63 |
+| `typescript` | TypeScript | 74 |
+| `cpp` | C++ | 54 |
+| `c` | C | 50 |
+| `go` | Go | 60 |
+| `rust` | Rust | 73 |
+| `csharp` | C# | 51 |
+| `ruby` | Ruby | 72 |
+| `php` | PHP | 68 |
+
+Unsupported `languageId` values are rejected on `/run` and `/submit`. If both `language` and `languageId` are sent, they must match.
 
 ## Project Structure
 

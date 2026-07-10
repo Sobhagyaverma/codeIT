@@ -1,6 +1,7 @@
 package com.codeit.modules.problems;
 
 import com.codeit.modules.problems.dto.ProblemPublicDTO;
+import com.codeit.modules.submission.TestCaseCacheService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -12,20 +13,50 @@ public class ProblemService {
     @Autowired
     private ProblemRepository problemRepository;
 
+    @Autowired
+    private ProblemCacheService problemCacheService;
+
+    @Autowired
+    private TestCaseCacheService testCaseCacheService;
+
     public List<Problem> getAllProblems() {
-        return problemRepository.getAllProblems();
+        return problemCacheService.getAll()
+                .orElseGet(() -> {
+                    List<Problem> problems = problemRepository.getAllProblems();
+                    problemCacheService.putAll(problems);
+                    return problems;
+                });
     }
 
     public Problem getProblemById(Integer id) {
-        return problemRepository.getProblemById(id);
+        return problemCacheService.getPublicById(id)
+                .orElseGet(() -> {
+                    Problem problem = problemRepository.getProblemById(id);
+                    if (problem != null) {
+                        problemCacheService.putPublic(id, problem);
+                    }
+                    return problem;
+                });
     }
 
     public Problem getProblemForJudge(Integer id) {
-        return problemRepository.getProblemById(id);
+        return problemCacheService.getForJudge(id)
+                .orElseGet(() -> {
+                    Problem problem = problemRepository.getProblemById(id);
+                    if (problem != null) {
+                        problemCacheService.putForJudge(id, problem);
+                    }
+                    return problem;
+                });
     }
 
     public int createProblem(Problem problem) {
-        return problemRepository.createProblem(problem);
+        int result = problemRepository.createProblem(problem);
+        if (result > 0) {
+            problemCacheService.invalidateAll();
+            testCaseCacheService.invalidateAll();
+        }
+        return result;
     }
 
     public List<Problem> getProblemsByDifficulty(String difficulty) {

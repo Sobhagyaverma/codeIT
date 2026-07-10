@@ -19,7 +19,7 @@ public class SubmissionService {
     private ProblemService problemService;
 
     @Autowired
-    private TestCaseParser testCaseParser;
+    private TestCaseCacheService testCaseCacheService;
 
     @Autowired
     private TestCaseJudgeService testCaseJudgeService;
@@ -32,7 +32,9 @@ public class SubmissionService {
             throw new IllegalArgumentException("Problem not found");
         }
 
-        List<TestCaseDTO> testCases = testCaseParser.parse(problem.getTestCases());
+        List<TestCaseDTO> testCases = testCaseCacheService.get(
+                submission.getProblemId(),
+                problem.getTestCases());
 
         JudgeVerdictDTO verdict = testCaseJudgeService.judge(
                 submission.getCode(),
@@ -60,6 +62,10 @@ public class SubmissionService {
         if (submission.getLanguageId() == null) {
             throw new IllegalArgumentException("languageId is required");
         }
+        SupportedLanguage language = SupportedLanguage.resolve(
+                submission.getLanguageId(),
+                submission.getLanguage());
+        submission.setLanguage(language.getSlug());
     }
 
     public List<Submission> getUserSubmissions(Integer userId) {
