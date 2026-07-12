@@ -1,9 +1,8 @@
 package com.codeit.modules.user;
 
-import java.sql.Struct;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
@@ -13,7 +12,7 @@ public class User {
     private String username;
     @NotEmpty(message = "Email cant be empty")
     private String email;
-    @NotEmpty(message = "Password cant be empty")
+    @JsonIgnore
     private String password;
     private String role;
 

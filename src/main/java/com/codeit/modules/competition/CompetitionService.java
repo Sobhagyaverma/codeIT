@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.codeit.modules.auth.SecurityUtils;
 import com.codeit.modules.competition.dto.ContestSessionEvent;
 import com.codeit.modules.competition.dto.ContestSubmissionRequest;
 import com.codeit.modules.competition.dto.LeaderboardEntry;
@@ -36,9 +37,6 @@ public class CompetitionService {
     private CompetitionCacheService competitionCacheService;
 
     public String createCompetition(Competition competition) {
-        if (competition.getCreatedBy() == null) {
-            return "createdBy is required";
-        }
         if (competition.getStartTime() == null || competition.getEndTime() == null) {
             return "startTime and endTime are required";
         }
@@ -48,7 +46,7 @@ public class CompetitionService {
         if (competition.getDurationMinutes() == null) {
             competition.setDurationMinutes(120);
         }
-        requireAdmin(competition.getCreatedBy());
+        competition.setCreatedBy(SecurityUtils.currentUserId());
         CompetitionStatusResolver.applyStatus(competition);
         competitionRepository.createCompetition(competition);
         competitionCacheService.invalidateAll();
@@ -85,9 +83,7 @@ public class CompetitionService {
         return CompetitionStatusResolver.applyStatus(competition);
     }
 
-    public String addProblems(Integer competitionId, Integer userId, List<Integer> problemIds) {
-        requireAdmin(userId);
-
+    public String addProblems(Integer competitionId, List<Integer> problemIds) {
         if (getCompetitionById(competitionId) == null) {
             return "Competition not found";
         }
@@ -110,19 +106,6 @@ public class CompetitionService {
             throw new RuntimeException("Competition not found");
         }
         return competitionRepository.getCompetitionProblems(competitionId);
-    }
-
-    private void requireAdmin(Integer userId) {
-        if (userId == null) {
-            throw new RuntimeException("userId is required");
-        }
-        User user = userRepository.getUserById(userId).orElse(null);
-        if (user == null) {
-            throw new RuntimeException("User not found");
-        }
-        if (!"ADMIN".equals(user.getRole())) {
-            throw new RuntimeException("Only admin can perform this action");
-        }
     }
 
     public String joinCompetition(Integer competitionId, Integer userID) {
@@ -211,12 +194,14 @@ public class CompetitionService {
     }
 
     public JudgeVerdictDTO submitCompetitionSolution(Integer competitionId, ContestSubmissionRequest request) {
+        Integer userId = SecurityUtils.currentUserId();
+
         Competition competition = getCompetitionById(competitionId);
         if (competition == null) {
             throw new RuntimeException("Competition not found");
         }
 
-        Integer count = competitionRepository.alreadyJoined(competitionId, request.getUserId());
+        Integer count = competitionRepository.alreadyJoined(competitionId, userId);
         if (count == 0) {
             throw new RuntimeException("user not joined this Competition");
         }
@@ -229,7 +214,7 @@ public class CompetitionService {
                             : "Competition has ended");
         }
 
-        CompetitionParticipant participant = competitionRepository.getParticipantSession(competitionId, request.getUserId());
+        CompetitionParticipant participant = competitionRepository.getParticipantSession(competitionId, userId);
         if (participant == null) {
             throw new RuntimeException("User has not joined this competition");
         }
@@ -242,12 +227,12 @@ public class CompetitionService {
         }
 
         if (isSessionExpired(competition, participant)) {
-            competitionRepository.endSession(competitionId, request.getUserId());
+            competitionRepository.endSession(competitionId, userId);
             throw new RuntimeException("Your competition time has ended");
         }
 
         Submission submission = new Submission();
-        submission.setUserId(request.getUserId());
+        submission.setUserId(userId);
         submission.setProblemId(request.getProblemId());
         submission.setCompetitionId(competitionId);
         submission.setLanguage(request.getLanguage());
@@ -277,8 +262,6 @@ public class CompetitionService {
     }
 
     public Competition updateCompetitionTimes(Integer competitionId, UpdateCompetitionTimesRequest request) {
-        requireAdmin(request.getUserId());
-
         if (getCompetitionById(competitionId) == null) {
             throw new RuntimeException("Competition not found");
         }

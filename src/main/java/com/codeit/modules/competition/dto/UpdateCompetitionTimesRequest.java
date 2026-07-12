@@ -7,9 +7,6 @@ import lombok.Data;
 
 @Data
 public class UpdateCompetitionTimesRequest {
-    @NotNull(message = "userId is required")
-    private Integer userId;
-
     @NotNull(message = "startTime is required")
     private Timestamp startTime;
 

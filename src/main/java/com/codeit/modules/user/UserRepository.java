@@ -21,19 +21,15 @@ public class UserRepository {
 
     public int createUser(User user) {
         String sql = """
-                INSERT INTO users(username, email, password)
-                VALUES (?, ?, ?)
+                INSERT INTO users(username, email, password , role)
+                VALUES (?, ?, ? , ?)
                 """;
-        try {
-            return jdbcTemplate.update(
-                    sql,
-                    user.getUsername(),
-                    user.getEmail(),
-                    user.getPassword());
-        } catch (Exception e) {
-            System.err.println(e.getMessage());
-            return 0;
-        }
+        return jdbcTemplate.update(
+                sql,
+                user.getUsername(),
+                user.getEmail(),
+                user.getPassword(),
+                user.getRole());
     }
 
     public List<User> getUsers() {

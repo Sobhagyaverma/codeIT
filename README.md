@@ -8,6 +8,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 - Spring Boot 4
 - PostgreSQL
 - Redis (caching)
+- Spring Security + JWT
 - Judge0 (code execution)
 - WebSocket (STOMP over SockJS)
 - Maven
@@ -42,6 +43,7 @@ A Spring Boot coding platform backend where users browse problems, run code, and
    export SPRING_DATASOURCE_USERNAME=postgres
    export SPRING_DATASOURCE_PASSWORD=your_password
    export JUDGE0_API_URL=http://localhost:2358
+   export CODEIT_JWT_SECRET=change-me-to-a-secret-at-least-32-characters-long
    ```
 
    Alternatively, create `src/main/resources/application-local.properties` (gitignored) with your local values.
@@ -53,6 +55,107 @@ A Spring Boot coding platform backend where users browse problems, run code, and
    ```
 
    The API starts on **http://localhost:9091**.
+
+## Authentication (JWT)
+
+Stateless JWT auth via Spring Security. Passwords are stored with **BCrypt**. Most REST APIs require `Authorization: Bearer <token>`.
+
+### JWT config
+
+[`application.properties`](src/main/resources/application.properties):
+
+```properties
+codeit.jwt.secret=${CODEIT_JWT_SECRET:change-me-to-a-secret-at-least-32-characters-long}
+codeit.jwt.expiration-ms=86400000
+```
+
+Set `CODEIT_JWT_SECRET` in production (at least 32 characters). Default expiry is **24 hours**.
+
+Token claims: `sub` (email), `userId`, `role` (`USER` or `ADMIN`), `exp`.
+
+### Register
+
+```bash
+curl -X POST http://localhost:9091/api/user/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","email":"alice@test.com","password":"secret123"}'
+```
+
+Returns `201` with `User created successfully`. Public register always creates role `USER` (client-supplied `role` is ignored). Password hashes are never returned in API responses.
+
+### Login
+
+```bash
+curl -X POST http://localhost:9091/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@test.com","password":"secret123"}'
+```
+
+Success (`200`):
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "userId": 1,
+  "email": "alice@test.com",
+  "role": "USER",
+  "expiresIn": 86400000
+}
+```
+
+Invalid credentials → `401` JSON: `{ "status": 401, "error": "Unauthorized", "message": "Invalid email or password" }`.
+
+### Call protected APIs
+
+```bash
+curl http://localhost:9091/api/problems \
+  -H "Authorization: Bearer <token>"
+```
+
+| Situation | HTTP |
+|-----------|------|
+| Missing / invalid token on protected route | `401 Unauthorized` |
+| Authenticated but lacking `ADMIN` role | `403 Forbidden` |
+
+### Access rules
+
+| Endpoints | Access |
+|-----------|--------|
+| `POST /api/auth/login`, `POST /api/user/register` | Public |
+| `GET /api/health/**` | Public |
+| `/ws/**` | Public (WebSocket JWT deferred) |
+| Most `/api/**` | Authenticated (Bearer JWT) |
+| `POST /api/problems` | `ADMIN` |
+| `POST /api/competitions/create`, `addProblemsTo/**`, `PATCH .../times` | `ADMIN` |
+| `GET/DELETE /api/user/**` (except register) | `ADMIN` |
+| `GET /api/submissions/user/{userId}` | Own `userId`, or `ADMIN` |
+
+Identity for join / start / session / submit is taken from the JWT — do **not** send `userId` in query params or body.
+
+### Promote an admin (SQL)
+
+```sql
+UPDATE users SET role = 'ADMIN' WHERE email = 'alice@test.com';
+```
+
+Log in again so the new token includes `role: ADMIN`.
+
+### Migration note
+
+Users created before JWT/BCrypt was added have plain-text passwords and cannot log in. Delete them and re-register, or update passwords to BCrypt hashes.
+
+### Quick check
+
+```bash
+# Public
+curl http://localhost:9091/api/health/redis
+
+# No token → 401
+curl http://localhost:9091/api/problems
+
+# With token → 200
+curl http://localhost:9091/api/problems -H "Authorization: Bearer <token>"
+```
 
 ## Redis Caching
 
@@ -109,17 +212,20 @@ curl http://localhost:9091/api/health/redis
 curl http://localhost:9091/api/problems/1
 redis-cli GET problem:public:1
 
-# Leaderboard cache
-curl http://localhost:9091/api/competitions/1/leaderboard
+# Leaderboard cache (requires JWT)
+curl http://localhost:9091/api/competitions/1/leaderboard \
+  -H "Authorization: Bearer <token>"
 redis-cli GET leaderboard:competition:1
 
-# Competition cache
-curl http://localhost:9091/api/competitions/getAllCompetitions
+# Competition cache (requires JWT)
+curl http://localhost:9091/api/competitions/getAllCompetitions \
+  -H "Authorization: Bearer <token>"
 redis-cli GET competitions:all
 
-# Test case cache (after a submit)
+# Test case cache (after an authenticated submit)
 redis-cli GET testcases:problem:1
 ```
+
 
 ### Parallel judging
 
@@ -127,58 +233,66 @@ Test cases run in parallel via a bounded thread pool (`codeit.judge.max-parallel
 
 ## API Overview
 
+Auth column: **Public** | **JWT** (any authenticated user) | **ADMIN** (JWT + `ADMIN` role).
+
+### Health
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/health/redis` | Redis connectivity smoke test | Public |
+
 ### Auth
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | User login |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/auth/login` | Login; returns JWT | Public |
 
 ### Problems
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/problems` | List all problems (test cases hidden) |
-| GET | `/api/problems/{id}` | Get problem by ID |
-| GET | `/api/problems/difficulty/{difficulty}` | Filter by difficulty |
-| GET | `/api/problems/topic/{topic}` | Filter by topic |
-| GET | `/api/problems/search?keyword=` | Search problems |
-| POST | `/api/problems` | Create a problem |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/problems` | List all problems (test cases hidden) | JWT |
+| GET | `/api/problems/{id}` | Get problem by ID | JWT |
+| GET | `/api/problems/difficulty/{difficulty}` | Filter by difficulty | JWT |
+| GET | `/api/problems/topic/{topic}` | Filter by topic | JWT |
+| GET | `/api/problems/search?keyword=` | Search problems | JWT |
+| POST | `/api/problems` | Create a problem | ADMIN |
 
 ### Submissions
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/submissions/languages` | List supported languages (slug, name, languageId) |
-| POST | `/api/submissions/run` | Run code once (no DB save) |
-| POST | `/api/submissions/submit` | Run all hidden test cases, save verdict |
-| GET | `/api/submissions/user/{userId}` | User submission history |
-| GET | `/api/submissions/problem/{problemId}` | Submissions for a problem |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/submissions/languages` | List supported languages (slug, name, languageId) | JWT |
+| POST | `/api/submissions/run` | Run code once (no DB save) | JWT |
+| POST | `/api/submissions/submit` | Run all hidden test cases, save verdict (`userId` from JWT) | JWT |
+| GET | `/api/submissions/user/{userId}` | Submission history (own user, or ADMIN) | JWT |
+| GET | `/api/submissions/problem/{problemId}` | Submissions for a problem | JWT |
 
 ### Users
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/user/getUsers` | List all users |
-| GET | `/api/user/getUser/{id}` | Get user by ID |
-| POST | `/api/user/register` | Register a new user |
-| DELETE | `/api/user/deleteUser/{id}` | Delete a user |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/user/register` | Register a new user (role forced to `USER`) | Public |
+| GET | `/api/user/getUsers` | List all users (password omitted) | ADMIN |
+| GET | `/api/user/getUser/{id}` | Get user by ID (password omitted) | ADMIN |
+| DELETE | `/api/user/deleteUser/{id}` | Delete a user | ADMIN |
 
 ### Competitions
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | `/api/competitions/create` | Create a competition | Admin (`createdBy` must be an ADMIN user) |
-| GET | `/api/competitions/getAllCompetitions` | List all competitions | Public |
-| GET | `/api/competitions/get/{id}` | Get competition by ID | Public |
-| POST | `/api/competitions/addProblemsTo/{competitionsId}/problems` | Add problems to a competition | Admin (`userId` in body) |
-| GET | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get problem IDs for a competition | Public |
-| POST | `/api/competitions/{competitionId}/join` | Join a competition | Public |
-| POST | `/api/competitions/{competitionId}/start` | Start personal contest timer | Public (must have joined) |
-| GET | `/api/competitions/{competitionId}/session` | Get session state and deadline | Public |
-| GET | `/api/competitions/{competitionId}/participants` | List participant user IDs | Public |
-| POST | `/api/competitions/{competitionId}/submit` | Submit solution during an active competition | Public |
-| GET | `/api/competitions/{competitionId}/leaderboard` | Competition leaderboard | Public |
-| PATCH | `/api/competitions/{competitionId}/times` | Update start/end times (status auto-recalculated) | Admin (`userId` in body) |
+| POST | `/api/competitions/create` | Create a competition (`createdBy` from JWT) | ADMIN |
+| GET | `/api/competitions/getAllCompetitions` | List all competitions | JWT |
+| GET | `/api/competitions/get/{id}` | Get competition by ID | JWT |
+| POST | `/api/competitions/addProblemsTo/{competitionsId}/problems` | Add problems to a competition | ADMIN |
+| GET | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get problem IDs for a competition | JWT |
+| POST | `/api/competitions/{competitionId}/join` | Join (user from JWT; no `userId` param) | JWT |
+| POST | `/api/competitions/{competitionId}/start` | Start personal contest timer | JWT |
+| GET | `/api/competitions/{competitionId}/session` | Get session state and deadline | JWT |
+| GET | `/api/competitions/{competitionId}/participants` | List participant user IDs | JWT |
+| POST | `/api/competitions/{competitionId}/submit` | Contest submit (`userId` from JWT) | JWT |
+| GET | `/api/competitions/{competitionId}/leaderboard` | Competition leaderboard | JWT |
+| PATCH | `/api/competitions/{competitionId}/times` | Update start/end times | ADMIN |
 
 #### Competition status (auto-computed)
 
@@ -213,7 +327,8 @@ psql -U postgres -d codeit -f schema/competition_session.sql
 #### Start session example
 
 ```http
-POST /api/competitions/1/start?userId=1
+POST /api/competitions/1/start
+Authorization: Bearer <token>
 ```
 
 Response:
@@ -233,32 +348,39 @@ Response:
 #### Get session example
 
 ```http
-GET /api/competitions/1/session?userId=1
+GET /api/competitions/1/session
+Authorization: Bearer <token>
 ```
 
 Submissions require `IN_PROGRESS` session and time before `deadlineAt`. When the timer ends, the frontend should auto-submit via `POST /submit`; the backend scheduler also marks the session `ENDED`.
 
 #### Create competition example
 
+```http
+POST /api/competitions/create
+Authorization: Bearer <admin-token>
+```
+
 ```json
 {
   "title": "Weekly Contest",
   "description": "Beginner-friendly contest",
   "startTime": "2026-06-20 10:00:00",
-  "endTime": "2026-06-20 12:00:00",
-  "createdBy": 1
+  "endTime": "2026-06-20 12:00:00"
 }
 ```
+
+`createdBy` is set from the JWT admin user.
 
 #### Add problems to competition example
 
 ```http
 POST /api/competitions/addProblemsTo/1/problems
+Authorization: Bearer <admin-token>
 ```
 
 ```json
 {
-  "userId": 1,
   "problemIds": [1, 2, 3]
 }
 ```
@@ -267,6 +389,7 @@ POST /api/competitions/addProblemsTo/1/problems
 
 ```http
 GET /api/competitions/getProblemsOf/1/problems
+Authorization: Bearer <token>
 ```
 
 Response: `[1, 2, 3]`
@@ -275,11 +398,11 @@ Response: `[1, 2, 3]`
 
 ```http
 PATCH /api/competitions/1/times
+Authorization: Bearer <admin-token>
 ```
 
 ```json
 {
-  "userId": 1,
   "startTime": "2026-06-20 10:00:00",
   "endTime": "2026-06-20 12:00:00"
 }
@@ -287,9 +410,36 @@ PATCH /api/competitions/1/times
 
 Response returns the updated competition with the recomputed `status` (`UPCOMING`, `ACTIVE`, or `ENDED`).
 
+#### Join / contest submit examples
+
+```http
+POST /api/competitions/1/join
+Authorization: Bearer <token>
+```
+
+No body or `userId` query param — the authenticated user is joined.
+
+```http
+POST /api/competitions/1/submit
+Authorization: Bearer <token>
+```
+
+```json
+{
+  "problemId": 1,
+  "languageId": 62,
+  "language": "java",
+  "code": "..."
+}
+```
+
+Do not send `userId` in the body.
+
 ## WebSocket (Real-Time Updates)
 
 The backend pushes live competition events over STOMP WebSocket. Clients connect once and subscribe to topics — no polling required.
+
+> **Note:** `/ws` is currently **public** (no JWT on STOMP connect). Securing WebSocket is a follow-up.
 
 ### Connection
 
@@ -392,15 +542,21 @@ All subscribed browsers
 
 ### Submit request example
 
+```http
+POST /api/submissions/submit
+Authorization: Bearer <token>
+```
+
 ```json
 {
-  "userId": 1,
   "problemId": 1,
   "languageId": 62,
   "language": "java",
   "code": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int n = sc.nextInt();\n        int[] nums = new int[n];\n        for (int i = 0; i < n; i++) nums[i] = sc.nextInt();\n        int target = sc.nextInt();\n        Map<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < n; i++) {\n            int complement = target - nums[i];\n            if (map.containsKey(complement)) {\n                System.out.println(map.get(complement) + \" \" + i);\n                return;\n            }\n            map.put(nums[i], i);\n        }\n    }\n}"
 }
 ```
+
+`userId` is taken from the JWT.
 
 ### Submit response example
 
@@ -450,7 +606,9 @@ Fetch the canonical list at runtime:
 
 ```http
 GET /api/submissions/languages
+Authorization: Bearer <token>
 ```
+
 
 Response example:
 
@@ -492,13 +650,13 @@ Unsupported `languageId` values are rejected on `/run` and `/submit`. If both `l
 
 ```
 src/main/java/com/codeit/
-├── config/          # App configuration (WebSocket, RestTemplate, ObjectMapper)
+├── config/          # SecurityConfig, JwtAuthFilter, Redis, WebSocket, GlobalExceptionHandler
 ├── modules/
-│   ├── auth/        # Authentication
-│   ├── competition/ # Competition CRUD, WebSocket event publishing
+│   ├── auth/        # JWT (JwtService), login, AuthUserPrincipal, SecurityUtils
+│   ├── competition/ # Competition CRUD, sessions, WebSocket event publishing
 │   ├── problems/    # Problem CRUD and public DTOs
 │   ├── submission/  # Judge0 integration and test case judging
-│   └── user/        # User management
+│   └── user/        # Register (BCrypt), admin user APIs
 ```
 
 ## License

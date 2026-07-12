@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.codeit.modules.auth.SecurityUtils;
 import com.codeit.modules.competition.dto.AddProblemsRequest;
 import com.codeit.modules.competition.dto.ContestSessionEvent;
 import com.codeit.modules.competition.dto.ContestSubmissionRequest;
@@ -22,8 +22,9 @@ import com.codeit.modules.submission.dto.JudgeVerdictDTO;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("api/competitions")
+@RequestMapping("/api/competitions")
 public class CompetitionController {
+
     @Autowired
     private CompetitionService competitionService;
 
@@ -46,10 +47,7 @@ public class CompetitionController {
     public String addProblems(
             @PathVariable("competitionsId") Integer competitionsId,
             @Valid @RequestBody AddProblemsRequest request) {
-        return competitionService.addProblems(
-                competitionsId,
-                request.getUserId(),
-                request.getProblemIds());
+        return competitionService.addProblems(competitionsId, request.getProblemIds());
     }
 
     @GetMapping("/getProblemsOf/{competitionId}/problems")
@@ -58,23 +56,18 @@ public class CompetitionController {
     }
 
     @PostMapping("/{competitionId}/join")
-    public String joinCompetition(@PathVariable Integer competitionId,
-            @RequestParam Integer userId) {
-        return competitionService.joinCompetition(competitionId, userId);
+    public String joinCompetition(@PathVariable Integer competitionId) {
+        return competitionService.joinCompetition(competitionId, SecurityUtils.currentUserId());
     }
 
     @PostMapping("/{competitionId}/start")
-    public ContestSessionEvent startCompetitionSession(
-            @PathVariable Integer competitionId,
-            @RequestParam Integer userId) {
-        return competitionService.startCompetitionSession(competitionId, userId);
+    public ContestSessionEvent startCompetitionSession(@PathVariable Integer competitionId) {
+        return competitionService.startCompetitionSession(competitionId, SecurityUtils.currentUserId());
     }
 
     @GetMapping("/{competitionId}/session")
-    public ContestSessionEvent getCompetitionSession(
-            @PathVariable Integer competitionId,
-            @RequestParam Integer userId) {
-        return competitionService.getCompetitionSession(competitionId, userId);
+    public ContestSessionEvent getCompetitionSession(@PathVariable Integer competitionId) {
+        return competitionService.getCompetitionSession(competitionId, SecurityUtils.currentUserId());
     }
 
     @GetMapping("/{competitionId}/participants")
@@ -83,9 +76,9 @@ public class CompetitionController {
     }
 
     @PostMapping("/{competitionId}/submit")
-    public JudgeVerdictDTO submitCompetitionSolution(@PathVariable Integer competitionId,
+    public JudgeVerdictDTO submitCompetitionSolution(
+            @PathVariable Integer competitionId,
             @RequestBody ContestSubmissionRequest request) {
-
         return competitionService.submitCompetitionSolution(competitionId, request);
     }
 
@@ -100,5 +93,4 @@ public class CompetitionController {
             @Valid @RequestBody UpdateCompetitionTimesRequest request) {
         return competitionService.updateCompetitionTimes(competitionId, request);
     }
-
 }

@@ -8,9 +8,6 @@ import lombok.Data;
 
 @Data
 public class AddProblemsRequest {
-    @NotNull(message = "userId is required")
-    private Integer userId;
-
     @NotEmpty(message = "problemIds is required")
     private List<@NotNull Integer> problemIds;
 }
