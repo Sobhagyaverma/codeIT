@@ -30,11 +30,18 @@ A Spring Boot coding platform backend where users browse problems, run code, and
    cd codeIT
    ```
 
-2. **Create the database**
+2. **Create the database and load the schema**
 
    ```sql
    CREATE DATABASE codeit;
    ```
+
+   ```bash
+   psql -U postgres -d codeit -f schema/schema.sql
+   ```
+
+   That creates `users`, `problems`, `competitions`, `competition_participants`, `competition_problems`, and `submissions`.  
+   If you already have an older DB without per-user session columns, run `schema/competition_session.sql` instead of recreating everything.
 
 3. **Configure environment variables**
 
@@ -318,7 +325,7 @@ Each participant has a personal timer that starts when they call `POST /start`:
 
 `durationMinutes` on the competition (default 120) sets how long each user gets after starting. The personal deadline is capped by the global contest `endTime`.
 
-Run the migration before using sessions:
+Fresh installs already include these columns via `schema/schema.sql`. For older databases, run:
 
 ```bash
 psql -U postgres -d codeit -f schema/competition_session.sql

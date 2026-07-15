@@ -1,4 +1,6 @@
 -- Per-user competition session timer migration
+-- Only needed for databases created before schema/schema.sql included these columns.
+-- Fresh installs: use schema/schema.sql instead.
 
 ALTER TABLE competitions
 ADD COLUMN IF NOT EXISTS duration_minutes INTEGER NOT NULL DEFAULT 120;
