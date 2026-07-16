@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0d12;
+  --bg-raised: #10141b;
+  --bg-inset: #060809;
+  --line: #1e2530;
+  --text: #e7ebf1;
+  --text-dim: #8b93a3;
+  --accent: #f5a623;   /* signal amber - CTAs, running/pending */
+  --ok: #3ddc84;       /* accepted */
+  --err: #ff5c5c;      /* wrong answer / runtime error */
+  --warn: #f5d90a;     /* TLE */
+  --info: #5ba8ff;     /* links, active */
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -0.01em; }
+code, pre, .mono { font-family: var(--font-mono); }
+
+::selection { background: var(--accent); color: #0a0d12; }
+
+/* verdict strip - the signature motif: a terminal status line used across the app */
+.verdict-strip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3341; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
