@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserLoginDTO {
-    @NotEmpty(message = "Email cant be empty")
-    private String email;
+    @NotEmpty(message = "Email or unique user ID is required")
+    private String login;
     @NotEmpty(message = "Password cant be empty")
     private String password;
 }

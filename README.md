@@ -85,17 +85,34 @@ Token claims: `sub` (email), `userId`, `role` (`USER` or `ADMIN`), `exp`.
 ```bash
 curl -X POST http://localhost:9091/api/user/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"alice","email":"alice@test.com","password":"secret123"}'
+  -d '{"name":"Alice","uniqueUserId":"alice1","email":"alice@test.com","password":"secret123"}'
 ```
+
+| Field | Meaning | Unique? |
+|-------|---------|---------|
+| `name` | Display name (leaderboard, profile) | No — duplicates allowed |
+| `uniqueUserId` | Login handle | Yes (case-insensitive) |
+| `email` | Contact + login | Yes |
+| `password` | Plain password (stored as BCrypt) | — |
 
 Returns `201` with `User created successfully`. Public register always creates role `USER` (client-supplied `role` is ignored). Password hashes are never returned in API responses.
 
+Duplicate `uniqueUserId` or `email` → `409 Conflict`.
+
 ### Login
 
+Login accepts **email** or **uniqueUserId** in a single `login` field. Backend detects email if the value contains `@`. Display `name` cannot be used to log in.
+
 ```bash
+# By email
 curl -X POST http://localhost:9091/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@test.com","password":"secret123"}'
+  -d '{"login":"alice@test.com","password":"secret123"}'
+
+# By uniqueUserId
+curl -X POST http://localhost:9091/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"login":"alice1","password":"secret123"}'
 ```
 
 Success (`200`):
@@ -110,7 +127,7 @@ Success (`200`):
 }
 ```
 
-Invalid credentials → `401` JSON: `{ "status": 401, "error": "Unauthorized", "message": "Invalid email or password" }`.
+Invalid credentials → `401` JSON: `{ "status": 401, "error": "Unauthorized", "message": "Invalid credentials" }`.
 
 ### Call protected APIs
 
@@ -149,7 +166,15 @@ Log in again so the new token includes `role: ADMIN`.
 
 ### Migration note
 
-Users created before JWT/BCrypt was added have plain-text passwords and cannot log in. Delete them and re-register, or update passwords to BCrypt hashes.
+**Users table (`name` + `uniqueuserid`):** if your DB still has the old `username` column, run:
+
+```bash
+psql -U postgres -d codeit -f schema/users_name_uniqueuserid.sql
+```
+
+This renames `username` → `name`, adds unique `uniqueuserid`, and backfills existing rows as `user{id}`. Skip if already applied in pgAdmin.
+
+**Passwords:** users created before JWT/BCrypt was added have plain-text passwords and cannot log in. Delete them and re-register, or update passwords to BCrypt hashes.
 
 ### Quick check
 
@@ -252,7 +277,7 @@ Auth column: **Public** | **JWT** (any authenticated user) | **ADMIN** (JWT + `A
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | `/api/auth/login` | Login; returns JWT | Public |
+| POST | `/api/auth/login` | Login with email or uniqueUserId; returns JWT | Public |
 
 ### Problems
 
@@ -279,7 +304,7 @@ Auth column: **Public** | **JWT** (any authenticated user) | **ADMIN** (JWT + `A
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | `/api/user/register` | Register a new user (role forced to `USER`) | Public |
+| POST | `/api/user/register` | Register (`name`, `uniqueUserId`, `email`, `password`; role = `USER`) | Public |
 | GET | `/api/user/getUsers` | List all users (password omitted) | ADMIN |
 | GET | `/api/user/getUser/{id}` | Get user by ID (password omitted) | ADMIN |
 | DELETE | `/api/user/deleteUser/{id}` | Delete a user | ADMIN |

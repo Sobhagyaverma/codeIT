@@ -169,21 +169,21 @@ public class CompetitionRepository {
         String sql = """
                 SELECT
                     s.user_id,
-                    u.username,
+                    u.name,
                     COUNT(DISTINCT s.problem_id) AS solved,
                     COALESCE(SUM(s.runtime), 0) AS total_time
                 FROM submissions s
                 JOIN users u ON u.id = s.user_id
                 WHERE s.competition_id = ?
                   AND s.status = 'Accepted'
-                GROUP BY s.user_id, u.username
+                GROUP BY s.user_id, u.name
                 ORDER BY solved DESC, total_time ASC
                 """;
 
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             LeaderboardEntry entry = new LeaderboardEntry();
             entry.setUserId(rs.getInt("user_id"));
-            entry.setUserName(rs.getString("username"));
+            entry.setUserName(rs.getString("name"));
             entry.setSolved(rs.getInt("solved"));
             entry.setTotalTime(rs.getDouble("total_time"));
             entry.setRank(rowNum + 1);

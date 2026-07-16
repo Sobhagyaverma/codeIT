@@ -23,15 +23,19 @@ public class AuthService {
     @Autowired
     private JwtService jwtService;
 
-    public AuthResponse login(UserLoginDTO user) {
-        User userByDB = userService.getUserByEmail(user);
+    public AuthResponse login(UserLoginDTO dto) {
+        String login = dto.getLogin().trim();
+        User userByDB = looksLikeEmail(login)
+                ? userService.getUserByEmail(login)
+                : userService.getUserByUniqueUserId(login);
+
         if (userByDB == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        boolean passwordOk = passwordEncoder.matches(user.getPassword(), userByDB.getPassword());
+        boolean passwordOk = passwordEncoder.matches(dto.getPassword(), userByDB.getPassword());
         if (!passwordOk) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
         String token = jwtService.generateToken(userByDB);
@@ -42,5 +46,9 @@ public class AuthService {
                 userByDB.getEmail(),
                 userByDB.getRole() != null ? userByDB.getRole() : "USER",
                 jwtService.getExpirationMs());
+    }
+
+    private boolean looksLikeEmail(String value) {
+        return value.contains("@");
     }
 }

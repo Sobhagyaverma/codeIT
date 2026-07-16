@@ -7,8 +7,11 @@ import lombok.Data;
 @Data
 public class RegisterRequest {
 
-    @NotEmpty(message = "Username cant be empty")
-    private String username;
+    @NotEmpty(message = "Name cant be empty")
+    private String name;
+
+    @NotEmpty(message = "Unique user ID cant be empty")
+    private String uniqueUserId;
 
     @NotEmpty(message = "Email cant be empty")
     private String email;

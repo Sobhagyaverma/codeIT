@@ -4,11 +4,12 @@
 --   psql -U postgres -d codeit -f schema/schema.sql
 
 CREATE TABLE IF NOT EXISTS users (
-    id          SERIAL PRIMARY KEY,
-    username    VARCHAR(100) NOT NULL,
-    email       VARCHAR(255) NOT NULL UNIQUE,
-    password    VARCHAR(255) NOT NULL,
-    role        VARCHAR(20)  NOT NULL DEFAULT 'USER'
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(100) NOT NULL,
+    uniqueuserid  VARCHAR(100) NOT NULL UNIQUE,
+    email         VARCHAR(255) NOT NULL UNIQUE,
+    password      VARCHAR(255) NOT NULL,
+    role          VARCHAR(20)  NOT NULL DEFAULT 'USER'
 );
 
 CREATE TABLE IF NOT EXISTS problems (

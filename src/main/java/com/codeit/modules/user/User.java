@@ -9,22 +9,23 @@ import lombok.Data;
 public class User {
 
     private String id;
-    private String username;
+    private String name;
+    private String uniqueUserId;
     @NotEmpty(message = "Email cant be empty")
     private String email;
     @JsonIgnore
     private String password;
     private String role;
 
-    public User(String id, String name, String email, String password , String role) {
+    public User(String id, String name, String uniqueUserId, String email, String password, String role) {
         this.id = id;
-        this.username = name;
+        this.name = name;
+        this.uniqueUserId = uniqueUserId;
         this.email = email;
         this.password = password;
         this.role = role;
     }
 
     public User() {
-
     }
 }

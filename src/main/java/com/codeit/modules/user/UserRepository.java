@@ -21,12 +21,13 @@ public class UserRepository {
 
     public int createUser(User user) {
         String sql = """
-                INSERT INTO users(username, email, password , role)
-                VALUES (?, ?, ? , ?)
+                INSERT INTO users(name, uniqueuserid, email, password, role)
+                VALUES (?, ?, ?, ?, ?)
                 """;
         return jdbcTemplate.update(
                 sql,
-                user.getUsername(),
+                user.getName(),
+                user.getUniqueUserId(),
                 user.getEmail(),
                 user.getPassword(),
                 user.getRole());
@@ -60,6 +61,20 @@ public class UserRepository {
         }
     }
 
+    public User getUserByUniqueUserId(String uniqueUserId) {
+        String sql = """
+                SELECT * FROM users WHERE LOWER(uniqueuserid) = LOWER(?)
+                """;
+        try {
+            return jdbcTemplate.queryForObject(sql, userRowMapper, uniqueUserId);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+            return null;
+        }
+    }
+
     public Optional<User> getUserById(int id) {
         String sql = """
                 SELECT * FROM users WHERE id = ?
@@ -74,11 +89,11 @@ public class UserRepository {
     private User mapUser(ResultSet rs) throws SQLException {
         User user = new User();
         user.setId(rs.getString("id"));
-        user.setUsername(rs.getString("username"));
+        user.setName(rs.getString("name"));
+        user.setUniqueUserId(rs.getString("uniqueuserid"));
         user.setEmail(rs.getString("email"));
         user.setPassword(rs.getString("password"));
         user.setRole(rs.getString("role"));
         return user;
     }
-
 }
