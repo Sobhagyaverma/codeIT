@@ -10,6 +10,9 @@ public class Judge0Request {
     @JsonProperty("language_id")
     private Integer languageId;
 
+    @JsonProperty("stdin")
+    private String stdin;
+
     public String getSourceCode() {
         return sourceCode;
     }
@@ -24,5 +27,13 @@ public class Judge0Request {
 
     public void setLanguageId(Integer languageId) {
         this.languageId = languageId;
+    }
+
+    public String getStdin() {
+        return stdin;
+    }
+
+    public void setStdin(String stdin) {
+        this.stdin = stdin;
     }
 }

@@ -29,7 +29,7 @@ public class CompetitionController {
     private CompetitionService competitionService;
 
     @PostMapping("/create")
-    public String createCompetition(@Valid @RequestBody Competition competition) {
+    public Competition createCompetition(@Valid @RequestBody Competition competition) {
         return competitionService.createCompetition(competition);
     }
 
@@ -63,6 +63,11 @@ public class CompetitionController {
     @PostMapping("/{competitionId}/start")
     public ContestSessionEvent startCompetitionSession(@PathVariable Integer competitionId) {
         return competitionService.startCompetitionSession(competitionId, SecurityUtils.currentUserId());
+    }
+
+    @PostMapping("/{competitionId}/end")
+    public ContestSessionEvent endCompetitionSession(@PathVariable Integer competitionId) {
+        return competitionService.endCompetitionSession(competitionId, SecurityUtils.currentUserId());
     }
 
     @GetMapping("/{competitionId}/session")

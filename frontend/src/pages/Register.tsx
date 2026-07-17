@@ -4,7 +4,12 @@ import { register } from "../lib/api";
 import { ErrorState } from "../components/Loading";
 
 export default function Register() {
-  const [form, setForm] = useState({ username: "", email: "", password: "" });
+  const [form, setForm] = useState({
+    name: "",
+    uniqueUserId: "",
+    email: "",
+    password: "",
+  });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -15,7 +20,7 @@ export default function Register() {
     setError(null);
     setLoading(true);
     try {
-      await register({ ...form, role: "USER" });
+      await register(form);
       setDone(true);
       setTimeout(() => navigate("/login"), 1200);
     } catch (err) {
@@ -37,12 +42,22 @@ export default function Register() {
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs text-[var(--text-dim)]">Username</label>
+            <label className="mb-1 block text-xs text-[var(--text-dim)]">Name</label>
             <input
               required
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-[var(--text-dim)]">Unique user ID</label>
+            <input
+              required
+              value={form.uniqueUserId}
+              onChange={(e) => setForm({ ...form, uniqueUserId: e.target.value })}
+              className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
+              placeholder="e.g. alice1"
             />
           </div>
           <div>
@@ -60,6 +75,7 @@ export default function Register() {
             <input
               type="password"
               required
+              minLength={6}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"

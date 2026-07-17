@@ -22,12 +22,13 @@ export default function Login() {
       const auth = await login(identifier, password);
 
       setUser({
-       id: auth.userId,
-       username: "",
-       email: auth.email,
-       role: auth.role as "USER" | "ADMIN",
-       token: auth.token,
-    });
+        id: auth.userId,
+        name: auth.name,
+        uniqueUserId: auth.uniqueUserId,
+        email: auth.email,
+        role: auth.role as "USER" | "ADMIN",
+        token: auth.token,
+      });
 
       localStorage.setItem("token", auth.token);
 
@@ -52,7 +53,7 @@ export default function Login() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1 block text-xs text-[var(--text-dim)]">
-            Username/Email 
+            Email or unique user ID
           </label>
 
           <input

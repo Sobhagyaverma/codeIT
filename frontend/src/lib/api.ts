@@ -66,36 +66,32 @@ async function request<T>(
 export interface LoginResponse {
   token: string;
   userId: number;
+  name: string;
+  uniqueUserId: string;
   email: string;
   role: "USER" | "ADMIN";
   expiresIn: number;
 }
 
-export const login = (
-  email: string,
-  password: string
-) =>
+export const login = (login: string, password: string) =>
   request<LoginResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({
-      email,
+      login,
       password,
     }),
   });
 
 export const register = (data: {
-  username: string;
+  name: string;
+  uniqueUserId: string;
   email: string;
   password: string;
-  role: "USER" | "ADMIN";
 }) =>
-  request<User | string>(
-    "/api/user/register",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
+  request<string>("/api/user/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 
 export const getUsers = () =>
   request<User[]>("/api/user/getUsers");
@@ -225,15 +221,14 @@ export const getCompetition = (
 
 export const addProblemsToCompetition = (
   id: number,
-  userId: number,
+  _userId: number,
   problemIds: number[]
 ) =>
-  request<void>(
+  request<string>(
     `/api/competitions/addProblemsTo/${id}/problems`,
     {
       method: "POST",
       body: JSON.stringify({
-        userId,
         problemIds,
       }),
     }
@@ -267,6 +262,11 @@ export const startCompetition = (
       method: "POST",
     }
   );
+
+export const endCompetition = (id: number) =>
+  request<ContestSession>(`/api/competitions/${id}/end`, {
+    method: "POST",
+  });
 
 export const getCompetitionSession = (
   id: number,

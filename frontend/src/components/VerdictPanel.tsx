@@ -15,8 +15,8 @@ export default function VerdictPanel({
 }) {
   const color = VERDICT_COLOR[verdict.verdict] || "var(--info)";
 
-  const passed = verdict.hiddenSummary?.passed ?? 0;
-  const total = verdict.hiddenSummary?.total ?? 0;
+  const passed = verdict.hiddenSummary?.passed ?? verdict.passedCount ?? 0;
+  const total = verdict.hiddenSummary?.total ?? verdict.totalCount ?? 0;
   const progress = total > 0 ? (passed / total) * 100 : 0;
 
   return (

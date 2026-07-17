@@ -46,7 +46,8 @@ public class SubmissionController {
         SupportedLanguage.resolve(request.getLanguageId(), null);
         return judge0Service.executeCode(
                 request.getSourceCode(),
-                request.getLanguageId());
+                request.getLanguageId(),
+                request.getStdin());
     }
 
     @GetMapping("/user/{userId}")

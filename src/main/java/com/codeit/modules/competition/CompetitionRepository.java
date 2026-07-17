@@ -1,5 +1,6 @@
 package com.codeit.modules.competition;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -9,6 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import com.codeit.modules.competition.dto.LeaderboardEntry;
@@ -18,7 +21,7 @@ public class CompetitionRepository {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public int createCompetition(Competition competition) {
+    public Competition createCompetition(Competition competition) {
         String sql = """
                 INSERT INTO competitions (title, description, start_time, end_time, created_by, status, duration_minutes)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -27,18 +30,33 @@ public class CompetitionRepository {
             int durationMinutes = competition.getDurationMinutes() != null
                     ? competition.getDurationMinutes()
                     : 120;
-            return jdbcTemplate.update(
-                    sql,
-                    competition.getTitle(),
-                    competition.getDescription(),
-                    competition.getStartTime(),
-                    competition.getEndTime(),
-                    competition.getCreatedBy(),
-                    competition.getStatus(),
-                    durationMinutes);
+            KeyHolder keyHolder = new GeneratedKeyHolder();
+            jdbcTemplate.update(connection -> {
+                PreparedStatement ps = connection.prepareStatement(sql, new String[] { "id" });
+                ps.setString(1, competition.getTitle());
+                ps.setString(2, competition.getDescription());
+                ps.setTimestamp(3, competition.getStartTime());
+                ps.setTimestamp(4, competition.getEndTime());
+                if (competition.getCreatedBy() != null) {
+                    ps.setInt(5, competition.getCreatedBy());
+                } else {
+                    ps.setNull(5, java.sql.Types.INTEGER);
+                }
+                ps.setString(6, competition.getStatus());
+                ps.setInt(7, durationMinutes);
+                return ps;
+            }, keyHolder);
+
+            Number key = keyHolder.getKey();
+            if (key == null) {
+                throw new RuntimeException("Failed to create competition: no ID returned");
+            }
+            competition.setId(key.intValue());
+            return competition;
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
-            System.err.println(e.getMessage());
-            return 0;
+            throw new RuntimeException("Failed to create competition", e);
         }
     }
 

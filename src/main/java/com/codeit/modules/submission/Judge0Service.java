@@ -38,9 +38,8 @@ public class Judge0Service {
             Map<String, Object> body = new HashMap<>();
             body.put("source_code", sourceCode);
             body.put("language_id", languageId);
-            if (stdin != null) {
-                body.put("stdin", stdin);
-            }
+            // Always send stdin so Scanner/input() get an empty stream instead of null omit
+            body.put("stdin", stdin != null ? stdin : "");
 
             String jsonBody = objectMapper.writeValueAsString(body);
             HttpHeaders headers = new HttpHeaders();

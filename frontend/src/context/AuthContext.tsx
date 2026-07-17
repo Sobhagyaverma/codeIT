@@ -23,7 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const setUser = (u: User | null) => setUserState(u);
-  const logout = () => setUserState(null);
+  const logout = () => {
+    setUserState(null);
+    localStorage.removeItem("token");
+  };
   return (
     <AuthContext.Provider value={{ user, setUser, logout }}>
       {children}

@@ -43,6 +43,8 @@ public class AuthService {
         return new AuthResponse(
                 token,
                 Integer.parseInt(userByDB.getId()),
+                userByDB.getName(),
+                userByDB.getUniqueUserId(),
                 userByDB.getEmail(),
                 userByDB.getRole() != null ? userByDB.getRole() : "USER",
                 jwtService.getExpirationMs());

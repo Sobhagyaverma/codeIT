@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  addProblemsToCompetition,
   createCompetition,
   createProblem,
   getProblems,
@@ -256,21 +257,38 @@ const [endDate, setEndDate] = useState<Date | null>(null);
     setStatus(null);
 
     try {
-  await createCompetition({
-  title: form.title,
-  createdBy: userId,
-  startTime: startDate?.toISOString() ?? "",
-  endTime: endDate?.toISOString() ?? "",
-});
+      if (selectedProblems.length === 0) {
+        setError("Select at least one problem for the competition.");
+        return;
+      }
 
-      setStatus("Competition created successfully.");
+      const competition = await createCompetition({
+        title: form.title,
+        createdBy: userId,
+        startTime: startDate?.toISOString() ?? "",
+        endTime: endDate?.toISOString() ?? "",
+      });
 
-setForm({
-  title: "",
-});
+      if (!competition?.id) {
+        throw new Error("Competition was created but no ID was returned.");
+      }
 
-setStartDate(null);
-setEndDate(null);
+      await addProblemsToCompetition(
+        competition.id,
+        userId,
+        selectedProblems.map((p) => p.id)
+      );
+
+      setStatus(
+        `Competition created with ${selectedProblems.length} problem(s).`
+      );
+
+      setForm({
+        title: "",
+      });
+
+      setStartDate(null);
+      setEndDate(null);
 
       setSelectedProblems([]);
     } catch (err) {

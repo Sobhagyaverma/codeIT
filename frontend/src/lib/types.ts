@@ -3,7 +3,8 @@
 
 export interface User {
   id: number;
-  username: string;
+  name: string;
+  uniqueUserId: string;
   email: string;
   role: "USER" | "ADMIN";
   token?: string;
@@ -28,6 +29,7 @@ export interface LanguageDTO {
 export interface RunRequest {
   source_code: string;
   language_id: number;
+  stdin?: string;
 }
 
 export interface RunResult {
@@ -52,6 +54,10 @@ export type JudgeVerdictDTO = {
   verdict: string;
   passed: boolean;
   failedTestIndex?: number | null;
+
+  // hidden test-case counts (sent by the backend)
+  passedCount?: number;
+  totalCount?: number;
 
     // overall performance
   time?: number;    // seconds
@@ -91,9 +97,13 @@ export interface Competition {
 }
 
 export interface ContestSession {
-  status: "JOINED" | "IN_PROGRESS" | "ENDED";
-  remainingSeconds: number;
-  serverTime: number | string;
+  sessionStatus: "JOINED" | "IN_PROGRESS" | "ENDED";
+  remainingSeconds?: number | null;
+  serverTime?: number | string;
+  competitionId?: number;
+  userId?: number;
+  startedAt?: string;
+  deadlineAt?: string;
   [key: string]: unknown;
 }
 

@@ -88,12 +88,12 @@ curl -X POST http://localhost:9091/api/user/register \
   -d '{"name":"Alice","uniqueUserId":"alice1","email":"alice@test.com","password":"secret123"}'
 ```
 
-| Field | Meaning | Unique? |
-|-------|---------|---------|
-| `name` | Display name (leaderboard, profile) | No — duplicates allowed |
-| `uniqueUserId` | Login handle | Yes (case-insensitive) |
-| `email` | Contact + login | Yes |
-| `password` | Plain password (stored as BCrypt) | — |
+| Field          | Meaning                             | Unique?                 |
+| -------------- | ----------------------------------- | ----------------------- |
+| `name`         | Display name (leaderboard, profile) | No — duplicates allowed |
+| `uniqueUserId` | Login handle                        | Yes (case-insensitive)  |
+| `email`        | Contact + login                     | Yes                     |
+| `password`     | Plain password (stored as BCrypt)   | —                       |
 
 Returns `201` with `User created successfully`. Public register always creates role `USER` (client-supplied `role` is ignored). Password hashes are never returned in API responses.
 
@@ -136,23 +136,23 @@ curl http://localhost:9091/api/problems \
   -H "Authorization: Bearer <token>"
 ```
 
-| Situation | HTTP |
-|-----------|------|
+| Situation                                  | HTTP               |
+| ------------------------------------------ | ------------------ |
 | Missing / invalid token on protected route | `401 Unauthorized` |
-| Authenticated but lacking `ADMIN` role | `403 Forbidden` |
+| Authenticated but lacking `ADMIN` role     | `403 Forbidden`    |
 
 ### Access rules
 
-| Endpoints | Access |
-|-----------|--------|
-| `POST /api/auth/login`, `POST /api/user/register` | Public |
-| `GET /api/health/**` | Public |
-| `/ws/**` | Public (WebSocket JWT deferred) |
-| Most `/api/**` | Authenticated (Bearer JWT) |
-| `POST /api/problems` | `ADMIN` |
-| `POST /api/competitions/create`, `addProblemsTo/**`, `PATCH .../times` | `ADMIN` |
-| `GET/DELETE /api/user/**` (except register) | `ADMIN` |
-| `GET /api/submissions/user/{userId}` | Own `userId`, or `ADMIN` |
+| Endpoints                                                              | Access                          |
+| ---------------------------------------------------------------------- | ------------------------------- |
+| `POST /api/auth/login`, `POST /api/user/register`                      | Public                          |
+| `GET /api/health/**`                                                   | Public                          |
+| `/ws/**`                                                               | Public (WebSocket JWT deferred) |
+| Most `/api/**`                                                         | Authenticated (Bearer JWT)      |
+| `POST /api/problems`                                                   | `ADMIN`                         |
+| `POST /api/competitions/create`, `addProblemsTo/**`, `PATCH .../times` | `ADMIN`                         |
+| `GET/DELETE /api/user/**` (except register)                            | `ADMIN`                         |
+| `GET /api/submissions/user/{userId}`                                   | Own `userId`, or `ADMIN`        |
 
 Identity for join / start / session / submit is taken from the JWT — do **not** send `userId` in query params or body.
 
@@ -221,15 +221,15 @@ codeit.judge.max-parallelism=8
 
 ### Cache keys
 
-| Key | Value | TTL | Used by |
-|-----|-------|-----|---------|
-| `problem:public:{id}` | Problem JSON (no test cases) | 30 min | `GET /api/problems/{id}` |
-| `problem:judge:{id}` | Full problem JSON | 30 min | Submit / judge path |
-| `problem:all` | Problem list JSON | 30 min | `GET /api/problems` |
-| `testcases:problem:{id}` | Parsed test cases JSON | 30 min | `POST /api/submissions/submit` |
-| `leaderboard:competition:{id}` | Leaderboard entries JSON | 60s | `GET /api/competitions/{id}/leaderboard` |
-| `competitions:all` | Competition list JSON | 2 min | `GET /api/competitions/getAllCompetitions` |
-| `competition:{id}` | Single competition JSON | 2 min | `GET /api/competitions/get/{id}` |
+| Key                            | Value                        | TTL    | Used by                                    |
+| ------------------------------ | ---------------------------- | ------ | ------------------------------------------ |
+| `problem:public:{id}`          | Problem JSON (no test cases) | 30 min | `GET /api/problems/{id}`                   |
+| `problem:judge:{id}`           | Full problem JSON            | 30 min | Submit / judge path                        |
+| `problem:all`                  | Problem list JSON            | 30 min | `GET /api/problems`                        |
+| `testcases:problem:{id}`       | Parsed test cases JSON       | 30 min | `POST /api/submissions/submit`             |
+| `leaderboard:competition:{id}` | Leaderboard entries JSON     | 60s    | `GET /api/competitions/{id}/leaderboard`   |
+| `competitions:all`             | Competition list JSON        | 2 min  | `GET /api/competitions/getAllCompetitions` |
+| `competition:{id}`             | Single competition JSON      | 2 min  | `GET /api/competitions/get/{id}`           |
 
 ### Health check
 
@@ -258,7 +258,6 @@ redis-cli GET competitions:all
 redis-cli GET testcases:problem:1
 ```
 
-
 ### Parallel judging
 
 Test cases run in parallel via a bounded thread pool (`codeit.judge.max-parallelism`). Results are evaluated in **original order** so early-exit on Wrong Answer / Runtime Error still works. Judge0 URL is read from `judge0.api.url`.
@@ -269,72 +268,72 @@ Auth column: **Public** | **JWT** (any authenticated user) | **ADMIN** (JWT + `A
 
 ### Health
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/health/redis` | Redis connectivity smoke test | Public |
+| Method | Endpoint            | Description                   | Auth   |
+| ------ | ------------------- | ----------------------------- | ------ |
+| GET    | `/api/health/redis` | Redis connectivity smoke test | Public |
 
 ### Auth
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/auth/login` | Login with email or uniqueUserId; returns JWT | Public |
+| Method | Endpoint          | Description                                   | Auth   |
+| ------ | ----------------- | --------------------------------------------- | ------ |
+| POST   | `/api/auth/login` | Login with email or uniqueUserId; returns JWT | Public |
 
 ### Problems
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/problems` | List all problems (test cases hidden) | JWT |
-| GET | `/api/problems/{id}` | Get problem by ID | JWT |
-| GET | `/api/problems/difficulty/{difficulty}` | Filter by difficulty | JWT |
-| GET | `/api/problems/topic/{topic}` | Filter by topic | JWT |
-| GET | `/api/problems/search?keyword=` | Search problems | JWT |
-| POST | `/api/problems` | Create a problem | ADMIN |
+| Method | Endpoint                                | Description                           | Auth  |
+| ------ | --------------------------------------- | ------------------------------------- | ----- |
+| GET    | `/api/problems`                         | List all problems (test cases hidden) | JWT   |
+| GET    | `/api/problems/{id}`                    | Get problem by ID                     | JWT   |
+| GET    | `/api/problems/difficulty/{difficulty}` | Filter by difficulty                  | JWT   |
+| GET    | `/api/problems/topic/{topic}`           | Filter by topic                       | JWT   |
+| GET    | `/api/problems/search?keyword=`         | Search problems                       | JWT   |
+| POST   | `/api/problems`                         | Create a problem                      | ADMIN |
 
 ### Submissions
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/submissions/languages` | List supported languages (slug, name, languageId) | JWT |
-| POST | `/api/submissions/run` | Run code once (no DB save) | JWT |
-| POST | `/api/submissions/submit` | Run all hidden test cases, save verdict (`userId` from JWT) | JWT |
-| GET | `/api/submissions/user/{userId}` | Submission history (own user, or ADMIN) | JWT |
-| GET | `/api/submissions/problem/{problemId}` | Submissions for a problem | JWT |
+| Method | Endpoint                               | Description                                                 | Auth |
+| ------ | -------------------------------------- | ----------------------------------------------------------- | ---- |
+| GET    | `/api/submissions/languages`           | List supported languages (slug, name, languageId)           | JWT  |
+| POST   | `/api/submissions/run`                 | Run code once (no DB save)                                  | JWT  |
+| POST   | `/api/submissions/submit`              | Run all hidden test cases, save verdict (`userId` from JWT) | JWT  |
+| GET    | `/api/submissions/user/{userId}`       | Submission history (own user, or ADMIN)                     | JWT  |
+| GET    | `/api/submissions/problem/{problemId}` | Submissions for a problem                                   | JWT  |
 
 ### Users
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/user/register` | Register (`name`, `uniqueUserId`, `email`, `password`; role = `USER`) | Public |
-| GET | `/api/user/getUsers` | List all users (password omitted) | ADMIN |
-| GET | `/api/user/getUser/{id}` | Get user by ID (password omitted) | ADMIN |
-| DELETE | `/api/user/deleteUser/{id}` | Delete a user | ADMIN |
+| Method | Endpoint                    | Description                                                           | Auth   |
+| ------ | --------------------------- | --------------------------------------------------------------------- | ------ |
+| POST   | `/api/user/register`        | Register (`name`, `uniqueUserId`, `email`, `password`; role = `USER`) | Public |
+| GET    | `/api/user/getUsers`        | List all users (password omitted)                                     | ADMIN  |
+| GET    | `/api/user/getUser/{id}`    | Get user by ID (password omitted)                                     | ADMIN  |
+| DELETE | `/api/user/deleteUser/{id}` | Delete a user                                                         | ADMIN  |
 
 ### Competitions
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/competitions/create` | Create a competition (`createdBy` from JWT) | ADMIN |
-| GET | `/api/competitions/getAllCompetitions` | List all competitions | JWT |
-| GET | `/api/competitions/get/{id}` | Get competition by ID | JWT |
-| POST | `/api/competitions/addProblemsTo/{competitionsId}/problems` | Add problems to a competition | ADMIN |
-| GET | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get problem IDs for a competition | JWT |
-| POST | `/api/competitions/{competitionId}/join` | Join (user from JWT; no `userId` param) | JWT |
-| POST | `/api/competitions/{competitionId}/start` | Start personal contest timer | JWT |
-| GET | `/api/competitions/{competitionId}/session` | Get session state and deadline | JWT |
-| GET | `/api/competitions/{competitionId}/participants` | List participant user IDs | JWT |
-| POST | `/api/competitions/{competitionId}/submit` | Contest submit (`userId` from JWT) | JWT |
-| GET | `/api/competitions/{competitionId}/leaderboard` | Competition leaderboard | JWT |
-| PATCH | `/api/competitions/{competitionId}/times` | Update start/end times | ADMIN |
+| Method | Endpoint                                                    | Description                                 | Auth  |
+| ------ | ----------------------------------------------------------- | ------------------------------------------- | ----- |
+| POST   | `/api/competitions/create`                                  | Create a competition (`createdBy` from JWT) | ADMIN |
+| GET    | `/api/competitions/getAllCompetitions`                      | List all competitions                       | JWT   |
+| GET    | `/api/competitions/get/{id}`                                | Get competition by ID                       | JWT   |
+| POST   | `/api/competitions/addProblemsTo/{competitionsId}/problems` | Add problems to a competition               | ADMIN |
+| GET    | `/api/competitions/getProblemsOf/{competitionId}/problems`  | Get problem IDs for a competition           | JWT   |
+| POST   | `/api/competitions/{competitionId}/join`                    | Join (user from JWT; no `userId` param)     | JWT   |
+| POST   | `/api/competitions/{competitionId}/start`                   | Start personal contest timer                | JWT   |
+| GET    | `/api/competitions/{competitionId}/session`                 | Get session state and deadline              | JWT   |
+| GET    | `/api/competitions/{competitionId}/participants`            | List participant user IDs                   | JWT   |
+| POST   | `/api/competitions/{competitionId}/submit`                  | Contest submit (`userId` from JWT)          | JWT   |
+| GET    | `/api/competitions/{competitionId}/leaderboard`             | Competition leaderboard                     | JWT   |
+| PATCH  | `/api/competitions/{competitionId}/times`                   | Update start/end times                      | ADMIN |
 
 #### Competition status (auto-computed)
 
 Status is **never set manually**. It is derived from `startTime` and `endTime`:
 
-| Status | Condition |
-|--------|-----------|
-| `UPCOMING` | Current time is before `startTime` |
-| `ACTIVE` | Current time is between `startTime` and `endTime` |
-| `ENDED` | Current time is after `endTime` |
+| Status     | Condition                                         |
+| ---------- | ------------------------------------------------- |
+| `UPCOMING` | Current time is before `startTime`                |
+| `ACTIVE`   | Current time is between `startTime` and `endTime` |
+| `ENDED`    | Current time is after `endTime`                   |
 
 Status is recomputed on create, read, admin time updates, and synced to the database every minute by a scheduler.
 
@@ -342,11 +341,11 @@ Status is recomputed on create, read, admin time updates, and synced to the data
 
 Each participant has a personal timer that starts when they call `POST /start`:
 
-| Session status | Meaning |
-|----------------|---------|
-| `JOINED` | Registered but timer not started |
-| `IN_PROGRESS` | Personal timer running |
-| `ENDED` | Personal time expired |
+| Session status | Meaning                          |
+| -------------- | -------------------------------- |
+| `JOINED`       | Registered but timer not started |
+| `IN_PROGRESS`  | Personal timer running           |
+| `ENDED`        | Personal time expired            |
 
 `durationMinutes` on the competition (default 120) sets how long each user gets after starting. The personal deadline is capped by the global contest `endTime`.
 
@@ -475,19 +474,19 @@ The backend pushes live competition events over STOMP WebSocket. Clients connect
 
 ### Connection
 
-| Setting | Value |
-|---------|-------|
-| Endpoint | `http://localhost:9091/ws` |
-| Protocol | STOMP over SockJS |
-| Broker prefix | `/topic` |
+| Setting       | Value                      |
+| ------------- | -------------------------- |
+| Endpoint      | `http://localhost:9091/ws` |
+| Protocol      | STOMP over SockJS          |
+| Broker prefix | `/topic`                   |
 
 ### Topics
 
-| Topic | Trigger | Payload |
-|-------|---------|---------|
-| `/topic/competitions/{id}/leaderboard` | Accepted contest submission | `List<LeaderboardEntry>` |
-| `/topic/competitions/{id}/status` | Global status change or admin time update | `ContestStatusEvent` |
-| `/topic/competitions/{id}/users/{userId}/session` | User starts session or session expires | `ContestSessionEvent` |
+| Topic                                             | Trigger                                   | Payload                  |
+| ------------------------------------------------- | ----------------------------------------- | ------------------------ |
+| `/topic/competitions/{id}/leaderboard`            | Accepted contest submission               | `List<LeaderboardEntry>` |
+| `/topic/competitions/{id}/status`                 | Global status change or admin time update | `ContestStatusEvent`     |
+| `/topic/competitions/{id}/users/{userId}/session` | User starts session or session expires    | `ContestSessionEvent`    |
 
 ### ContestStatusEvent payload
 
@@ -524,21 +523,30 @@ The backend pushes live competition events over STOMP WebSocket. Clients connect
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 <script>
   const competitionId = 1;
-  const socket = new SockJS('http://localhost:9091/ws');
+  const socket = new SockJS("http://localhost:9091/ws");
   const client = Stomp.over(socket);
 
   client.connect({}, () => {
-    client.subscribe('/topic/competitions/' + competitionId + '/leaderboard', (msg) => {
-      console.log('Leaderboard:', JSON.parse(msg.body));
-    });
+    client.subscribe(
+      "/topic/competitions/" + competitionId + "/leaderboard",
+      (msg) => {
+        console.log("Leaderboard:", JSON.parse(msg.body));
+      },
+    );
 
-    client.subscribe('/topic/competitions/' + competitionId + '/status', (msg) => {
-      console.log('Status:', JSON.parse(msg.body));
-    });
+    client.subscribe(
+      "/topic/competitions/" + competitionId + "/status",
+      (msg) => {
+        console.log("Status:", JSON.parse(msg.body));
+      },
+    );
 
-    client.subscribe('/topic/competitions/' + competitionId + '/users/' + userId + '/session', (msg) => {
-      console.log('Session:', JSON.parse(msg.body));
-    });
+    client.subscribe(
+      "/topic/competitions/" + competitionId + "/users/" + userId + "/session",
+      (msg) => {
+        console.log("Session:", JSON.parse(msg.body));
+      },
+    );
   });
 </script>
 ```
@@ -557,12 +565,12 @@ CompetitionEventPublisher  (SimpMessagingTemplate)
 All subscribed browsers
 ```
 
-| Component | Role |
-|-----------|------|
-| `WebSocketConfig` | Enables STOMP broker on `/topic`, endpoint at `/ws` |
-| `CompetitionEventPublisher` | Pushes messages to topics |
-| `CompetitionService` | Publishes leaderboard after Accepted submit; session on start; status on admin time update |
-| `CompetitionStatusScheduler` | Publishes global status transitions; expires personal sessions (every 60s) |
+| Component                    | Role                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `WebSocketConfig`            | Enables STOMP broker on `/topic`, endpoint at `/ws`                                        |
+| `CompetitionEventPublisher`  | Pushes messages to topics                                                                  |
+| `CompetitionService`         | Publishes leaderboard after Accepted submit; session on start; status on admin time update |
+| `CompetitionStatusScheduler` | Publishes global status transitions; expires personal sessions (every 60s)                 |
 
 ## Submit Flow
 
@@ -618,19 +626,19 @@ User code should be a full program that reads from stdin and prints to stdout (C
 
 ### stdin/stdout conventions
 
-| Language | Slug | Typical I/O pattern |
-|----------|------|---------------------|
-| Java | `java` | `Scanner` on `System.in`; public class `Main` |
-| Python | `python` | `input()` / `print()` |
-| JavaScript | `javascript` | `readline` or `fs.readFileSync(0, 'utf8')`; `console.log()` |
-| TypeScript | `typescript` | Same as JavaScript |
-| C++ | `cpp` | `cin` / `cout`; `int main()` |
-| C | `c` | `scanf` / `printf`; `int main()` |
-| Go | `go` | `fmt.Scan` / `fmt.Println`; `func main()` |
-| Rust | `rust` | `use std::io`; `fn main()` |
-| C# | `csharp` | `Console.ReadLine()` / `Console.WriteLine()`; class `Program` |
-| Ruby | `ruby` | `gets` / `puts` |
-| PHP | `php` | `fgets(STDIN)` / `echo` |
+| Language   | Slug         | Typical I/O pattern                                           |
+| ---------- | ------------ | ------------------------------------------------------------- |
+| Java       | `java`       | `Scanner` on `System.in`; public class `Main`                 |
+| Python     | `python`     | `input()` / `print()`                                         |
+| JavaScript | `javascript` | `readline` or `fs.readFileSync(0, 'utf8')`; `console.log()`   |
+| TypeScript | `typescript` | Same as JavaScript                                            |
+| C++        | `cpp`        | `cin` / `cout`; `int main()`                                  |
+| C          | `c`          | `scanf` / `printf`; `int main()`                              |
+| Go         | `go`         | `fmt.Scan` / `fmt.Println`; `func main()`                     |
+| Rust       | `rust`       | `use std::io`; `fn main()`                                    |
+| C#         | `csharp`     | `Console.ReadLine()` / `Console.WriteLine()`; class `Program` |
+| Ruby       | `ruby`       | `gets` / `puts`                                               |
+| PHP        | `php`        | `fgets(STDIN)` / `echo`                                       |
 
 ## Supported Languages
 
@@ -640,7 +648,6 @@ Fetch the canonical list at runtime:
 GET /api/submissions/languages
 Authorization: Bearer <token>
 ```
-
 
 Response example:
 
@@ -662,19 +669,19 @@ Response example:
 
 ## Judge0 Language IDs
 
-| Slug | Language | ID |
-|------|----------|----|
-| `java` | Java | 62 |
-| `python` | Python | 71 |
-| `javascript` | JavaScript | 63 |
-| `typescript` | TypeScript | 74 |
-| `cpp` | C++ | 54 |
-| `c` | C | 50 |
-| `go` | Go | 60 |
-| `rust` | Rust | 73 |
-| `csharp` | C# | 51 |
-| `ruby` | Ruby | 72 |
-| `php` | PHP | 68 |
+| Slug         | Language   | ID  |
+| ------------ | ---------- | --- |
+| `java`       | Java       | 62  |
+| `python`     | Python     | 71  |
+| `javascript` | JavaScript | 63  |
+| `typescript` | TypeScript | 74  |
+| `cpp`        | C++        | 54  |
+| `c`          | C          | 50  |
+| `go`         | Go         | 60  |
+| `rust`       | Rust       | 73  |
+| `csharp`     | C#         | 51  |
+| `ruby`       | Ruby       | 72  |
+| `php`        | PHP        | 68  |
 
 Unsupported `languageId` values are rejected on `/run` and `/submit`. If both `language` and `languageId` are sent, they must match.
 

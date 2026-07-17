@@ -36,21 +36,21 @@ public class CompetitionService {
     @Autowired
     private CompetitionCacheService competitionCacheService;
 
-    public String createCompetition(Competition competition) {
+    public Competition createCompetition(Competition competition) {
         if (competition.getStartTime() == null || competition.getEndTime() == null) {
-            return "startTime and endTime are required";
+            throw new RuntimeException("startTime and endTime are required");
         }
         if (!competition.getStartTime().before(competition.getEndTime())) {
-            return "startTime must be before endTime";
+            throw new RuntimeException("startTime must be before endTime");
         }
         if (competition.getDurationMinutes() == null) {
             competition.setDurationMinutes(120);
         }
         competition.setCreatedBy(SecurityUtils.currentUserId());
         CompetitionStatusResolver.applyStatus(competition);
-        competitionRepository.createCompetition(competition);
+        Competition created = competitionRepository.createCompetition(competition);
         competitionCacheService.invalidateAll();
-        return "Competition created successfully";
+        return created;
     }
 
     public List<Competition> getAllCompetitions() {
@@ -191,6 +191,36 @@ public class CompetitionService {
         }
 
         return CompetitionEventPublisher.buildSessionEvent(competition, participant);
+    }
+
+    public ContestSessionEvent endCompetitionSession(Integer competitionId, Integer userId) {
+        Competition competition = getCompetitionById(competitionId);
+        if (competition == null) {
+            throw new RuntimeException("Competition not found");
+        }
+
+        CompetitionParticipant participant = competitionRepository.getParticipantSession(competitionId, userId);
+        if (participant == null) {
+            throw new RuntimeException("User has not joined this competition");
+        }
+
+        if (CompetitionSessionStatus.ENDED.name().equals(participant.getSessionStatus())) {
+            return CompetitionEventPublisher.buildSessionEvent(competition, participant);
+        }
+
+        if (!CompetitionSessionStatus.IN_PROGRESS.name().equals(participant.getSessionStatus())) {
+            throw new RuntimeException("Start the competition before ending it");
+        }
+
+        int updated = competitionRepository.endSession(competitionId, userId);
+        if (updated == 0) {
+            throw new RuntimeException("Unable to end session");
+        }
+
+        participant = competitionRepository.getParticipantSession(competitionId, userId);
+        ContestSessionEvent event = CompetitionEventPublisher.buildSessionEvent(competition, participant);
+        competitionEventPublisher.publishSession(competitionId, userId, event);
+        return event;
     }
 
     public JudgeVerdictDTO submitCompetitionSolution(Integer competitionId, ContestSubmissionRequest request) {

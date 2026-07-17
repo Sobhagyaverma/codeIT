@@ -27,7 +27,7 @@ export default function NavBar() {
     navigate("/login");
   }
 
-  const initial = user?.username?.charAt(0).toUpperCase() || "U";
+  const initial = user?.name?.charAt(0).toUpperCase() || "U";
 
   return (
     <header className="border-b border-[var(--line)] bg-[var(--bg)]">
@@ -70,7 +70,7 @@ export default function NavBar() {
                   {initial}
                 </div>
                 <div className="hidden text-left sm:block">
-                  <div className="text-sm font-medium">{user.username}</div>
+                  <div className="text-sm font-medium">{user.name}</div>
                   <div className="text-xs text-[var(--text-dim)]">{user.role}</div>
                 </div>
                 <span className="text-xs text-[var(--text-dim)]">▼</span>
@@ -79,7 +79,8 @@ export default function NavBar() {
               {open && (
                 <div className="absolute right-0 mt-2 w-64 rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-2 shadow-xl z-50">
                   <div className="border-b border-[var(--line)] px-3 py-3">
-                    <div className="text-sm font-semibold">{user.username}</div>
+                    <div className="text-sm font-semibold">{user.name}</div>
+                    <div className="text-xs text-[var(--text-dim)]">@{user.uniqueUserId}</div>
                     <div className="text-xs text-[var(--text-dim)]">{user.email}</div>
                     <div className="mt-1 text-xs text-[var(--accent)]">{user.role}</div>
                   </div>
