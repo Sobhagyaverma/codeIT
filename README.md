@@ -1,72 +1,335 @@
 # CodeIT
 
-A Spring Boot coding platform backend where users browse problems, run code, and submit solutions judged against hidden test cases via [Judge0](https://github.com/judge0/judge0).
+CodeIT is a full-stack competitive programming platform where users can solve coding problems, run code against sample cases, submit solutions to hidden tests, and compete in timed contests with live leaderboards.
+
+The project combines a React-based coding workspace with a Spring Boot API, PostgreSQL, Redis, Judge0, JWT authentication, and STOMP WebSocket updates.
+
+> **Project status:** The core coding, judging, submission, and competition workflows are implemented. AI-assisted code explanation and correction are planned for a later phase; the current frontend AI panel does not yet have a backend implementation.
+
+## Highlights
+
+- Multi-language code editor powered by Monaco Editor
+- Sample-test execution and detailed per-case results
+- Hidden-test judging through Judge0
+- Compile-once judging for supported languages
+- Progressive batch judging fallback for C#
+- JWT authentication with `USER` and `ADMIN` roles
+- Timed competitions with personal contest sessions
+- Live competition status, session, and leaderboard updates
+- Redis cache-aside strategy for frequently accessed data
+- Submission history and verdict tracking
+- Admin APIs for problems, competitions, and users
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[React + TypeScript] -->|REST + JWT| API[Spring Boot API]
+    Browser <-->|STOMP / SockJS| WS[WebSocket Broker]
+    API --> PostgreSQL[(PostgreSQL)]
+    API <--> Redis[(Redis)]
+    API --> Judge0[Judge0]
+    API --> WS
+```
+
+### Main application flow
+
+1. A user registers or logs in and receives a JWT.
+2. The frontend loads problems and language options from the backend.
+3. **Run** executes code against sample or custom input without saving a submission.
+4. **Submit** loads hidden tests, selects a judging engine, evaluates the solution, and saves the verdict.
+5. Competition submissions update the leaderboard and notify connected clients over WebSocket.
 
 ## Tech Stack
 
+### Frontend
+
+- React 19
+- TypeScript 6
+- Vite 8
+- Tailwind CSS 4
+- React Router 7
+- Monaco Editor
+- STOMP.js and SockJS
+- React Datepicker
+- Oxlint
+
+### Backend
+
 - Java 21
-- Spring Boot 4
+- Spring Boot 4.0.6
+- Spring Web MVC
+- Spring Security
+- Spring JDBC with `JdbcTemplate`
+- Spring Data Redis
+- Spring WebSocket
 - PostgreSQL
-- Redis (caching)
-- Spring Security + JWT
-- Judge0 (code execution)
-- WebSocket (STOMP over SockJS)
+- JJWT
+- Apache HttpClient 5
 - Maven
+
+### Infrastructure
+
+- Judge0 for isolated code execution
+- Redis for caching
+- PostgreSQL for persistent data
+
+## Features
+
+### Authentication and authorization
+
+- Registration with display name, unique user ID, email, and password
+- Login using either email or unique user ID
+- BCrypt password hashing
+- Stateless JWT authentication
+- Server-side identity extraction for submissions and competition actions
+- Role-based access for `USER` and `ADMIN`
+- Public registration always creates a `USER`, even if a role is supplied by the client
+
+### Problems and coding workspace
+
+- Browse, search, and filter coding problems
+- Topic and difficulty organization
+- Problem statements, examples, and constraints
+- Monaco-based editor with starter templates
+- Eleven supported programming languages
+- Run visible samples or custom input
+- Submit against hidden test cases
+- Verdict, runtime, memory, passed-case count, and judge-engine display
+
+### Submissions
+
+- Supported-language discovery from the backend
+- Run code without saving a database record
+- Hidden-test evaluation on submit
+- Output comparison in original test order
+- Personal submission history
+- Competition-aware submissions
+
+### Competitions
+
+- Upcoming, active, and ended competition states
+- Join competitions before they end
+- Per-user contest sessions
+- Server-authoritative personal deadlines
+- Explicit session ending and scheduled expiration
+- Competition problem workspace
+- Live leaderboard updates after accepted submissions
+- Live global-status and personal-session events
+- Admin-managed competition creation, problem assignment, and time updates
+
+### Caching
+
+CodeIT uses a cache-aside strategy for:
+
+- Public problem details
+- Full judge problem data
+- Problem lists
+- Parsed hidden test cases
+- Competition lists and details
+- Competition leaderboards
+
+## Judge Architecture
+
+CodeIT separates **Run** and **Submit** because they serve different purposes.
+
+### Run
+
+`POST /api/submissions/run` creates a normal Judge0 submission with `wait=true`.
+
+- Executes one source file with one input
+- Does not save a submission
+- Used by the frontend for sample and custom-input execution
+- The frontend compares sample output with the expected output
+
+### Submit
+
+`POST /api/submissions/submit` evaluates all hidden tests and stores the result.
+
+```text
+SubmissionService
+        |
+        v
+TestCaseJudgeService
+        |
+        +--> CompileOnceJudgeService
+        |
+        +--> ProgressiveBatchJudgeService
+                    |
+                    v
+               Judge0Service
+```
+
+### Compile-once engine
+
+All currently supported languages except C# use the compile-once engine.
+
+1. The backend creates a Base64 ZIP archive for Judge0's multi-file language, ID `89`.
+2. The archive contains the user source, compile/run scripts, and hidden inputs.
+3. Judge0 compiles the solution once.
+4. The generated program runs separately for each input.
+5. Each case receives its own timeout.
+6. Framed outputs are decoded and compared in the original order.
+7. The engine stops after a terminal runtime or timeout failure.
+
+Default aggregate limits:
+
+- Per-case timeout: 3 seconds
+- Compile-once CPU limit: 30 seconds
+- Compile-once wall limit: 45 seconds
+
+### Progressive batch engine
+
+C# uses progressive Judge0 batches.
+
+- First batch: 3 hidden tests
+- Later batches: 6 hidden tests
+- Results are restored to request order
+- Processing stops after the first failing batch
+- Judge0 tokens are polled every 200 ms with a 60-second timeout
+
+This is a static language-based route, not an automatic runtime fallback from compile-once.
+
+### Output comparison
+
+Trailing whitespace is removed from each line before comparison. Other output differences remain significant.
+
+## Supported Languages
+
+| Language | Slug | Judge0 ID | Submit engine |
+| --- | --- | ---: | --- |
+| C | `c` | 50 | Compile once |
+| C# | `csharp` | 51 | Progressive batch |
+| C++ | `cpp` | 54 | Compile once |
+| Go | `go` | 60 | Compile once |
+| Java | `java` | 62 | Compile once |
+| JavaScript | `javascript` | 63 | Compile once |
+| PHP | `php` | 68 | Compile once |
+| Python | `python` | 71 | Compile once |
+| Ruby | `ruby` | 72 | Compile once |
+| Rust | `rust` | 73 | Compile once |
+| TypeScript | `typescript` | 74 | Compile once |
+
+The canonical runtime list is available from:
+
+```http
+GET /api/submissions/languages
+Authorization: Bearer <token>
+```
+
+User programs must read from standard input and write to standard output.
+
+## Competition Model
+
+### Global competition status
+
+Status is derived from the configured start and end times:
+
+| Status | Condition |
+| --- | --- |
+| `UPCOMING` | Current time is before `startTime` |
+| `ACTIVE` | Current time is between `startTime` and `endTime` |
+| `ENDED` | Current time is after `endTime` |
+
+The backend recalculates status on reads and updates, while a scheduler synchronizes status transitions every 60 seconds.
+
+### Personal session status
+
+| Status | Meaning |
+| --- | --- |
+| `JOINED` | User joined but has not started the personal timer |
+| `IN_PROGRESS` | Personal timer is running |
+| `ENDED` | User ended the session or the deadline expired |
+
+The personal deadline is:
+
+```text
+min(session start + competition duration, global competition end)
+```
+
+Competition submissions require:
+
+- Membership in the competition
+- An `IN_PROGRESS` session
+- An active global competition
+- Time remaining before the personal deadline
+
+### Leaderboard
+
+The leaderboard ranks participants by:
+
+1. Number of distinct accepted problems, descending
+2. Total accepted runtime, ascending
+
+Leaderboard results are cached in Redis and pushed after accepted competition submissions.
 
 ## Prerequisites
 
 - JDK 21+
-- Maven 3.9+
-- PostgreSQL (database: `codeit`)
-- Redis (default: `localhost:6379`)
-- Judge0 running locally (default: `http://localhost:2358`)
+- Node.js `^20.19.0` or `>=22.12.0`
+- PostgreSQL
+- Redis
+- A Judge0 instance with multi-file language ID `89`
+- Docker is optional but convenient for Redis and Judge0
 
-## Setup
+The Maven wrapper is included, so a separate Maven installation is not required.
 
-1. **Clone the repository**
+## Local Setup
 
-   ```bash
-   git clone https://github.com/Sobhagyaverma/codeIT.git
-   cd codeIT
-   ```
+### 1. Clone the repository
 
-2. **Create the database and load the schema**
+```bash
+git clone https://github.com/Sobhagyaverma/codeIT.git
+cd codeIT
+```
 
-   ```sql
-   CREATE DATABASE codeit;
-   ```
+### 2. Create the PostgreSQL database
 
-   ```bash
-   psql -U postgres -d codeit -f schema/schema.sql
-   ```
+```bash
+createdb -U postgres codeit
+psql -U postgres -d codeit -f schema/schema.sql
+```
 
-   That creates `users`, `problems`, `competitions`, `competition_participants`, `competition_problems`, and `submissions`.  
-   If you already have an older DB without per-user session columns, run `schema/competition_session.sql` instead of recreating everything.
+The schema creates:
 
-3. **Configure environment variables**
+- `users`
+- `problems`
+- `competitions`
+- `competition_problems`
+- `competition_participants`
+- `submissions`
 
-   ```bash
-   export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/codeit
-   export SPRING_DATASOURCE_USERNAME=postgres
-   export SPRING_DATASOURCE_PASSWORD=your_password
-   export JUDGE0_API_URL=http://localhost:2358
-   export CODEIT_JWT_SECRET=change-me-to-a-secret-at-least-32-characters-long
-   ```
+For an older installation, apply the relevant manual migrations:
 
-   Alternatively, create `src/main/resources/application-local.properties` (gitignored) with your local values.
+```bash
+psql -U postgres -d codeit -f schema/users_name_uniqueuserid.sql
+psql -U postgres -d codeit -f schema/competition_session.sql
+```
 
-4. **Run the application**
+There is currently no Flyway or Liquibase migration runner, so schema setup is manual.
 
-   ```bash
-   ./mvnw spring-boot:run
-   ```
+### 3. Start Redis
 
-   The API starts on **http://localhost:9091**.
+Using Docker:
 
-### Judge0 workers (local development)
+```bash
+docker run -d --name codeit-redis -p 6379:6379 redis:7
+redis-cli ping
+```
 
-Judge0 starts multiple worker processes inside a single `worker` container. On a
-16 GB, 10-core Apple Silicon Mac, set this in Judge0's `judge0.conf`:
+The expected response is `PONG`.
+
+### 4. Start Judge0
+
+Install and start a self-hosted Judge0 instance using the official Judge0 instructions. CodeIT expects it at:
+
+```text
+http://localhost:2358
+```
+
+The submit engine requires Judge0's multi-file language ID `89` and standard GNU tools used by the generated runner scripts.
+
+For local machines with limited resources, configure Judge0 worker count conservatively. For example:
 
 ```properties
 COUNT=6
@@ -74,582 +337,244 @@ MAX_CPU_TIME_LIMIT=30
 MAX_WALL_TIME_LIMIT=45
 ```
 
-Then recreate the one worker container:
+### 5. Configure the backend
+
+Set environment variables before starting the API:
 
 ```bash
-cd /path/to/judge0
-docker compose up -d --force-recreate worker
-docker exec judge0-worker-1 sh -lc \
-  'ps aux | grep "rake resque:work" | grep -v grep | wc -l'
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/codeit
+export SPRING_DATASOURCE_USERNAME=postgres
+export SPRING_DATASOURCE_PASSWORD=your_password
+export JUDGE0_API_URL=http://localhost:2358
+export CODEIT_JWT_SECRET=replace-with-a-secret-at-least-32-characters-long
 ```
 
-The final command should print `6`. Do not use `--scale worker=6` with the
-default blank `COUNT`: each container defaults to `2 * nproc` internal workers,
-which can exhaust local CPU and memory.
+Additional Spring properties can override Redis host and port if needed:
 
-## Authentication (JWT)
+```bash
+export SPRING_DATA_REDIS_HOST=localhost
+export SPRING_DATA_REDIS_PORT=6379
+```
 
-Stateless JWT auth via Spring Security. Passwords are stored with **BCrypt**. Most REST APIs require `Authorization: Bearer <token>`.
+### 6. Start the backend
 
-### JWT config
+```bash
+./mvnw spring-boot:run
+```
 
-[`application.properties`](src/main/resources/application.properties):
+The API starts at `http://localhost:9091`.
+
+### 7. Configure and start the frontend
+
+```bash
+cd frontend
+npm ci
+```
+
+Create `frontend/.env.local`:
 
 ```properties
-codeit.jwt.secret=${CODEIT_JWT_SECRET:change-me-to-a-secret-at-least-32-characters-long}
-codeit.jwt.expiration-ms=86400000
+VITE_API_URL=http://localhost:9091
 ```
 
-Set `CODEIT_JWT_SECRET` in production (at least 32 characters). Default expiry is **24 hours**.
+Start the Vite development server:
 
-Token claims: `sub` (email), `userId`, `role` (`USER` or `ADMIN`), `exp`.
+```bash
+npm run dev
+```
+
+The frontend starts at `http://localhost:5173`.
+
+## Default Ports
+
+| Service | Port |
+| --- | ---: |
+| React frontend | 5173 |
+| Spring Boot API | 9091 |
+| PostgreSQL | 5432 |
+| Redis | 6379 |
+| Judge0 | 2358 |
+
+## Configuration Reference
+
+| Property | Default | Purpose |
+| --- | --- | --- |
+| `server.port` | `9091` | Backend HTTP port |
+| `judge0.api.url` | `http://localhost:2358` | Judge0 base URL |
+| `codeit.jwt.expiration-ms` | `86400000` | JWT lifetime |
+| `codeit.cache.leaderboard-ttl-seconds` | `60` | Leaderboard cache TTL |
+| `codeit.cache.competition-ttl-seconds` | `120` | Competition cache TTL |
+| `codeit.cache.problem-ttl-seconds` | `1800` | Problem cache TTL |
+| `codeit.cache.testcase-ttl-seconds` | `1800` | Parsed test-case cache TTL |
+| `codeit.judge.progressive-first-chunk` | `3` | Initial batch size |
+| `codeit.judge.batch-chunk-size` | `6` | Later batch size |
+| `codeit.judge.poll-interval-ms` | `200` | Judge0 polling interval |
+| `codeit.judge.poll-timeout-ms` | `60000` | Judge0 polling timeout |
+| `codeit.judge.case-timeout-seconds` | `3` | Per-case compile-once timeout |
+| `codeit.judge.compile-once-cpu-time-limit` | `30` | Aggregate Judge0 CPU limit |
+| `codeit.judge.compile-once-wall-time-limit` | `45` | Aggregate Judge0 wall limit |
+| `codeit.http.connect-timeout-ms` | `3000` | Judge0 HTTP connect timeout |
+| `codeit.http.read-timeout-ms` | `60000` | Judge0 HTTP response timeout |
+| `codeit.http.max-total` | `8` | HTTP connection-pool maximum |
+| `codeit.http.max-per-route` | `8` | Per-route connection maximum |
+
+Do not rely on repository defaults for secrets or database credentials outside local development.
+
+## Authentication
 
 ### Register
 
 ```bash
 curl -X POST http://localhost:9091/api/user/register \
   -H "Content-Type: application/json" \
-  -d '{"name":"Alice","uniqueUserId":"alice1","email":"alice@test.com","password":"secret123"}'
+  -d '{
+    "name": "Alice",
+    "uniqueUserId": "alice1",
+    "email": "alice@example.com",
+    "password": "secret123"
+  }'
 ```
-
-| Field          | Meaning                             | Unique?                 |
-| -------------- | ----------------------------------- | ----------------------- |
-| `name`         | Display name (leaderboard, profile) | No — duplicates allowed |
-| `uniqueUserId` | Login handle                        | Yes (case-insensitive)  |
-| `email`        | Contact + login                     | Yes                     |
-| `password`     | Plain password (stored as BCrypt)   | —                       |
-
-Returns `201` with `User created successfully`. Public register always creates role `USER` (client-supplied `role` is ignored). Password hashes are never returned in API responses.
-
-Duplicate `uniqueUserId` or `email` → `409 Conflict`.
 
 ### Login
 
-Login accepts **email** or **uniqueUserId** in a single `login` field. Backend detects email if the value contains `@`. Display `name` cannot be used to log in.
-
 ```bash
-# By email
 curl -X POST http://localhost:9091/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"login":"alice@test.com","password":"secret123"}'
-
-# By uniqueUserId
-curl -X POST http://localhost:9091/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"login":"alice1","password":"secret123"}'
+  -d '{
+    "login": "alice1",
+    "password": "secret123"
+  }'
 ```
 
-Success (`200`):
+Example response:
 
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiJ9...",
   "userId": 1,
-  "email": "alice@test.com",
+  "email": "alice@example.com",
   "role": "USER",
   "expiresIn": 86400000
 }
 ```
 
-Invalid credentials → `401` JSON: `{ "status": 401, "error": "Unauthorized", "message": "Invalid credentials" }`.
-
-### Call protected APIs
+Use the token on protected requests:
 
 ```bash
 curl http://localhost:9091/api/problems \
   -H "Authorization: Bearer <token>"
 ```
 
-| Situation                                  | HTTP               |
-| ------------------------------------------ | ------------------ |
-| Missing / invalid token on protected route | `401 Unauthorized` |
-| Authenticated but lacking `ADMIN` role     | `403 Forbidden`    |
+### Promote an admin
 
-### Access rules
-
-| Endpoints                                                              | Access                          |
-| ---------------------------------------------------------------------- | ------------------------------- |
-| `POST /api/auth/login`, `POST /api/user/register`                      | Public                          |
-| `GET /api/health/**`                                                   | Public                          |
-| `/ws/**`                                                               | Public (WebSocket JWT deferred) |
-| Most `/api/**`                                                         | Authenticated (Bearer JWT)      |
-| `POST /api/problems`                                                   | `ADMIN`                         |
-| `POST /api/competitions/create`, `addProblemsTo/**`, `PATCH .../times` | `ADMIN`                         |
-| `GET/DELETE /api/user/**` (except register)                            | `ADMIN`                         |
-| `GET /api/submissions/user/{userId}`                                   | Own `userId`, or `ADMIN`        |
-
-Identity for join / start / session / submit is taken from the JWT — do **not** send `userId` in query params or body.
-
-### Promote an admin (SQL)
+Public registration cannot create an administrator. Promote a trusted user directly in PostgreSQL:
 
 ```sql
-UPDATE users SET role = 'ADMIN' WHERE email = 'alice@test.com';
+UPDATE users
+SET role = 'ADMIN'
+WHERE email = 'alice@example.com';
 ```
 
-Log in again so the new token includes `role: ADMIN`.
+Log in again so the new JWT contains the updated role.
 
-### Migration note
+## REST API
 
-**Users table (`name` + `uniqueuserid`):** if your DB still has the old `username` column, run:
+Auth levels:
 
-```bash
-psql -U postgres -d codeit -f schema/users_name_uniqueuserid.sql
-```
+- **Public** — no token required
+- **JWT** — valid bearer token required
+- **ADMIN** — valid bearer token with `ADMIN` role
 
-This renames `username` → `name`, adds unique `uniqueuserid`, and backfills existing rows as `user{id}`. Skip if already applied in pgAdmin.
+### Authentication and users
 
-**Passwords:** users created before JWT/BCrypt was added have plain-text passwords and cannot log in. Delete them and re-register, or update passwords to BCrypt hashes.
-
-### Quick check
-
-```bash
-# Public
-curl http://localhost:9091/api/health/redis
-
-# No token → 401
-curl http://localhost:9091/api/problems
-
-# With token → 200
-curl http://localhost:9091/api/problems -H "Authorization: Bearer <token>"
-```
-
-## Redis Caching
-
-CodeIT uses **cache-aside** Redis caching to reduce PostgreSQL load during problem reads, submissions, and competitions.
-
-### Start Redis
-
-```bash
-# Docker (recommended)
-docker run -d --name redis -p 6379:6379 redis:7
-
-# Or Homebrew
-brew services start redis
-
-redis-cli ping   # expect PONG
-```
-
-### Configuration
-
-[`application.properties`](src/main/resources/application.properties):
-
-```properties
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
-codeit.cache.leaderboard-ttl-seconds=60
-codeit.cache.competition-ttl-seconds=120
-codeit.cache.problem-ttl-seconds=1800
-codeit.cache.testcase-ttl-seconds=1800
-codeit.judge.progressive-first-chunk=3
-codeit.judge.batch-chunk-size=6
-codeit.judge.poll-interval-ms=200
-codeit.judge.poll-timeout-ms=60000
-codeit.judge.case-timeout-seconds=3
-codeit.judge.compile-once-cpu-time-limit=30
-codeit.judge.compile-once-wall-time-limit=45
-codeit.http.connect-timeout-ms=3000
-codeit.http.read-timeout-ms=60000
-codeit.http.max-total=8
-codeit.http.max-per-route=8
-```
-
-### Cache keys
-
-| Key                            | Value                        | TTL    | Used by                                    |
-| ------------------------------ | ---------------------------- | ------ | ------------------------------------------ |
-| `problem:public:{id}`          | Problem JSON (no test cases) | 30 min | `GET /api/problems/{id}`                   |
-| `problem:judge:{id}`           | Full problem JSON            | 30 min | Submit / judge path                        |
-| `problem:all`                  | Problem list JSON            | 30 min | `GET /api/problems`                        |
-| `testcases:problem:{id}`       | Parsed test cases JSON       | 30 min | `POST /api/submissions/submit`             |
-| `leaderboard:competition:{id}` | Leaderboard entries JSON     | 60s    | `GET /api/competitions/{id}/leaderboard`   |
-| `competitions:all`             | Competition list JSON        | 2 min  | `GET /api/competitions/getAllCompetitions` |
-| `competition:{id}`             | Single competition JSON      | 2 min  | `GET /api/competitions/get/{id}`           |
-
-### Health check
-
-```bash
-curl http://localhost:9091/api/health/redis
-```
-
-### Verification commands
-
-```bash
-# Problem cache
-curl http://localhost:9091/api/problems/1
-redis-cli GET problem:public:1
-
-# Leaderboard cache (requires JWT)
-curl http://localhost:9091/api/competitions/1/leaderboard \
-  -H "Authorization: Bearer <token>"
-redis-cli GET leaderboard:competition:1
-
-# Competition cache (requires JWT)
-curl http://localhost:9091/api/competitions/getAllCompetitions \
-  -H "Authorization: Bearer <token>"
-redis-cli GET competitions:all
-
-# Test case cache (after an authenticated submit)
-redis-cli GET testcases:problem:1
-```
-
-### Compile-once judging
-
-Submit judging uses Judge0's multi-file language (ID 89). The backend creates
-one archive containing the submitted source, a language-specific compile
-script, a run script, and the hidden inputs. Judge0 compiles the source once;
-the run script then launches that compiled program separately for every input.
-Framed Base64 output is decoded and compared in original test order.
-
-Each case has its own three-second child-process timeout. The aggregate
-submission limits are 30 CPU seconds and 45 wall-clock seconds. `Run` remains a
-single normal Judge0 request, so its behavior is unchanged.
-
-C# stays on the progressive batch fallback because the x86 Mono compiler in
-Judge0 1.13.1 crashes under emulation on Apple Silicon. The fallback is also
-retained for environments where a language cannot use the multi-file runner.
-
-The shared HTTP client pools connections and applies connect, pool-wait, and
-response timeouts. Six internal Judge0 workers are the measured stable setting
-for the local M4 configuration.
-
-## API Overview
-
-Auth column: **Public** | **JWT** (any authenticated user) | **ADMIN** (JWT + `ADMIN` role).
-
-### Health
-
-| Method | Endpoint            | Description                   | Auth   |
-| ------ | ------------------- | ----------------------------- | ------ |
-| GET    | `/api/health/redis` | Redis connectivity smoke test | Public |
-
-### Auth
-
-| Method | Endpoint          | Description                                   | Auth   |
-| ------ | ----------------- | --------------------------------------------- | ------ |
-| POST   | `/api/auth/login` | Login with email or uniqueUserId; returns JWT | Public |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/login` | Login and receive a JWT | Public |
+| `POST` | `/api/user/register` | Register a `USER` account | Public |
+| `GET` | `/api/user/getUsers` | List users | ADMIN |
+| `GET` | `/api/user/getUser/{id}` | Get one user | ADMIN |
+| `DELETE` | `/api/user/deleteUser/{id}` | Delete a user | ADMIN |
 
 ### Problems
 
-| Method | Endpoint                                | Description                           | Auth  |
-| ------ | --------------------------------------- | ------------------------------------- | ----- |
-| GET    | `/api/problems`                         | List all problems (test cases hidden) | JWT   |
-| GET    | `/api/problems/{id}`                    | Get problem by ID                     | JWT   |
-| GET    | `/api/problems/difficulty/{difficulty}` | Filter by difficulty                  | JWT   |
-| GET    | `/api/problems/topic/{topic}`           | Filter by topic                       | JWT   |
-| GET    | `/api/problems/search?keyword=`         | Search problems                       | JWT   |
-| POST   | `/api/problems`                         | Create a problem                      | ADMIN |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/problems` | List public problem data | JWT |
+| `GET` | `/api/problems/{id}` | Get public problem details | JWT |
+| `GET` | `/api/problems/difficulty/{difficulty}` | Filter by difficulty | JWT |
+| `GET` | `/api/problems/topic/{topic}` | Filter by topic | JWT |
+| `GET` | `/api/problems/search?keyword=` | Search by keyword | JWT |
+| `POST` | `/api/problems` | Create a problem | ADMIN |
+
+Hidden tests are excluded from public problem responses.
 
 ### Submissions
 
-| Method | Endpoint                               | Description                                                 | Auth |
-| ------ | -------------------------------------- | ----------------------------------------------------------- | ---- |
-| GET    | `/api/submissions/languages`           | List supported languages (slug, name, languageId)           | JWT  |
-| POST   | `/api/submissions/run`                 | Run code once (no DB save)                                  | JWT  |
-| POST   | `/api/submissions/submit`              | Run all hidden test cases, save verdict (`userId` from JWT) | JWT  |
-| GET    | `/api/submissions/user/{userId}`       | Submission history (own user, or ADMIN)                     | JWT  |
-| GET    | `/api/submissions/problem/{problemId}` | Submissions for a problem                                   | JWT  |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/submissions/languages` | List supported languages | JWT |
+| `POST` | `/api/submissions/run` | Execute code without saving | JWT |
+| `POST` | `/api/submissions/submit` | Judge hidden tests and save verdict | JWT |
+| `GET` | `/api/submissions/user/{userId}` | Own history, or any user as admin | JWT |
+| `GET` | `/api/submissions/problem/{problemId}` | List submissions for a problem | JWT |
 
-### Users
-
-| Method | Endpoint                    | Description                                                           | Auth   |
-| ------ | --------------------------- | --------------------------------------------------------------------- | ------ |
-| POST   | `/api/user/register`        | Register (`name`, `uniqueUserId`, `email`, `password`; role = `USER`) | Public |
-| GET    | `/api/user/getUsers`        | List all users (password omitted)                                     | ADMIN  |
-| GET    | `/api/user/getUser/{id}`    | Get user by ID (password omitted)                                     | ADMIN  |
-| DELETE | `/api/user/deleteUser/{id}` | Delete a user                                                         | ADMIN  |
+The backend overwrites submission user identity with the authenticated JWT user.
 
 ### Competitions
 
-| Method | Endpoint                                                    | Description                                 | Auth  |
-| ------ | ----------------------------------------------------------- | ------------------------------------------- | ----- |
-| POST   | `/api/competitions/create`                                  | Create a competition (`createdBy` from JWT) | ADMIN |
-| GET    | `/api/competitions/getAllCompetitions`                      | List all competitions                       | JWT   |
-| GET    | `/api/competitions/get/{id}`                                | Get competition by ID                       | JWT   |
-| POST   | `/api/competitions/addProblemsTo/{competitionsId}/problems` | Add problems to a competition               | ADMIN |
-| GET    | `/api/competitions/getProblemsOf/{competitionId}/problems`  | Get problem IDs for a competition           | JWT   |
-| POST   | `/api/competitions/{competitionId}/join`                    | Join (user from JWT; no `userId` param)     | JWT   |
-| POST   | `/api/competitions/{competitionId}/start`                   | Start personal contest timer                | JWT   |
-| GET    | `/api/competitions/{competitionId}/session`                 | Get session state and deadline              | JWT   |
-| GET    | `/api/competitions/{competitionId}/participants`            | List participant user IDs                   | JWT   |
-| POST   | `/api/competitions/{competitionId}/submit`                  | Contest submit (`userId` from JWT)          | JWT   |
-| GET    | `/api/competitions/{competitionId}/leaderboard`             | Competition leaderboard                     | JWT   |
-| PATCH  | `/api/competitions/{competitionId}/times`                   | Update start/end times                      | ADMIN |
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/api/competitions/create` | Create a competition | ADMIN |
+| `GET` | `/api/competitions/getAllCompetitions` | List competitions | JWT |
+| `GET` | `/api/competitions/get/{id}` | Get a competition | JWT |
+| `POST` | `/api/competitions/addProblemsTo/{competitionId}/problems` | Assign problems | ADMIN |
+| `GET` | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get competition problem IDs | JWT |
+| `POST` | `/api/competitions/{competitionId}/join` | Join using JWT identity | JWT |
+| `POST` | `/api/competitions/{competitionId}/start` | Start personal timer | JWT |
+| `POST` | `/api/competitions/{competitionId}/end` | End personal session | JWT |
+| `GET` | `/api/competitions/{competitionId}/session` | Get personal session | JWT |
+| `GET` | `/api/competitions/{competitionId}/participants` | List participant IDs | JWT |
+| `POST` | `/api/competitions/{competitionId}/submit` | Submit a contest solution | JWT |
+| `GET` | `/api/competitions/{competitionId}/leaderboard` | Get standings | JWT |
+| `PATCH` | `/api/competitions/{competitionId}/times` | Update start and end times | ADMIN |
 
-#### Competition status (auto-computed)
+### Health
 
-Status is **never set manually**. It is derived from `startTime` and `endTime`:
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| `GET` | `/api/health/redis` | Redis string/JSON smoke test | Public |
 
-| Status     | Condition                                         |
-| ---------- | ------------------------------------------------- |
-| `UPCOMING` | Current time is before `startTime`                |
-| `ACTIVE`   | Current time is between `startTime` and `endTime` |
-| `ENDED`    | Current time is after `endTime`                   |
+## Request Examples
 
-Status is recomputed on create, read, admin time updates, and synced to the database every minute by a scheduler.
-
-#### Per-user session timer
-
-Each participant has a personal timer that starts when they call `POST /start`:
-
-| Session status | Meaning                          |
-| -------------- | -------------------------------- |
-| `JOINED`       | Registered but timer not started |
-| `IN_PROGRESS`  | Personal timer running           |
-| `ENDED`        | Personal time expired            |
-
-`durationMinutes` on the competition (default 120) sets how long each user gets after starting. The personal deadline is capped by the global contest `endTime`.
-
-Fresh installs already include these columns via `schema/schema.sql`. For older databases, run:
+### Run code
 
 ```bash
-psql -U postgres -d codeit -f schema/competition_session.sql
+curl -X POST http://localhost:9091/api/submissions/run \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "languageId": 71,
+    "language": "python",
+    "code": "a, b = map(int, input().split())\nprint(a + b)",
+    "stdin": "2 3"
+  }'
 ```
 
-#### Start session example
+### Submit a solution
 
-```http
-POST /api/competitions/1/start
-Authorization: Bearer <token>
+```bash
+curl -X POST http://localhost:9091/api/submissions/submit \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "problemId": 1,
+    "languageId": 71,
+    "language": "python",
+    "code": "a, b = map(int, input().split())\nprint(a + b)"
+  }'
 ```
 
-Response:
-
-```json
-{
-  "competitionId": 1,
-  "userId": 1,
-  "sessionStatus": "IN_PROGRESS",
-  "startedAt": "2026-06-22T10:00:00Z",
-  "deadlineAt": "2026-06-22T12:00:00Z",
-  "serverTime": "2026-06-22T10:00:01Z",
-  "remainingSeconds": 7199
-}
-```
-
-#### Get session example
-
-```http
-GET /api/competitions/1/session
-Authorization: Bearer <token>
-```
-
-Submissions require `IN_PROGRESS` session and time before `deadlineAt`. When the timer ends, the frontend should auto-submit via `POST /submit`; the backend scheduler also marks the session `ENDED`.
-
-#### Create competition example
-
-```http
-POST /api/competitions/create
-Authorization: Bearer <admin-token>
-```
-
-```json
-{
-  "title": "Weekly Contest",
-  "description": "Beginner-friendly contest",
-  "startTime": "2026-06-20 10:00:00",
-  "endTime": "2026-06-20 12:00:00"
-}
-```
-
-`createdBy` is set from the JWT admin user.
-
-#### Add problems to competition example
-
-```http
-POST /api/competitions/addProblemsTo/1/problems
-Authorization: Bearer <admin-token>
-```
-
-```json
-{
-  "problemIds": [1, 2, 3]
-}
-```
-
-#### Get competition problems example
-
-```http
-GET /api/competitions/getProblemsOf/1/problems
-Authorization: Bearer <token>
-```
-
-Response: `[1, 2, 3]`
-
-#### Update competition times (admin)
-
-```http
-PATCH /api/competitions/1/times
-Authorization: Bearer <admin-token>
-```
-
-```json
-{
-  "startTime": "2026-06-20 10:00:00",
-  "endTime": "2026-06-20 12:00:00"
-}
-```
-
-Response returns the updated competition with the recomputed `status` (`UPCOMING`, `ACTIVE`, or `ENDED`).
-
-#### Join / contest submit examples
-
-```http
-POST /api/competitions/1/join
-Authorization: Bearer <token>
-```
-
-No body or `userId` query param — the authenticated user is joined.
-
-```http
-POST /api/competitions/1/submit
-Authorization: Bearer <token>
-```
-
-```json
-{
-  "problemId": 1,
-  "languageId": 62,
-  "language": "java",
-  "code": "..."
-}
-```
-
-Do not send `userId` in the body.
-
-## WebSocket (Real-Time Updates)
-
-The backend pushes live competition events over STOMP WebSocket. Clients connect once and subscribe to topics — no polling required.
-
-> **Note:** `/ws` is currently **public** (no JWT on STOMP connect). Securing WebSocket is a follow-up.
-
-### Connection
-
-| Setting       | Value                      |
-| ------------- | -------------------------- |
-| Endpoint      | `http://localhost:9091/ws` |
-| Protocol      | STOMP over SockJS          |
-| Broker prefix | `/topic`                   |
-
-### Topics
-
-| Topic                                             | Trigger                                   | Payload                  |
-| ------------------------------------------------- | ----------------------------------------- | ------------------------ |
-| `/topic/competitions/{id}/leaderboard`            | Accepted contest submission               | `List<LeaderboardEntry>` |
-| `/topic/competitions/{id}/status`                 | Global status change or admin time update | `ContestStatusEvent`     |
-| `/topic/competitions/{id}/users/{userId}/session` | User starts session or session expires    | `ContestSessionEvent`    |
-
-### ContestStatusEvent payload
-
-```json
-{
-  "competitionId": 1,
-  "status": "ACTIVE",
-  "startTime": "2026-06-22T05:00:00Z",
-  "endTime": "2026-06-22T23:59:59Z",
-  "serverTime": "2026-06-22T07:55:06.530564Z"
-}
-```
-
-`serverTime` lets the client correct clock drift when showing a countdown.
-
-### ContestSessionEvent payload
-
-```json
-{
-  "competitionId": 1,
-  "userId": 1,
-  "sessionStatus": "IN_PROGRESS",
-  "startedAt": "2026-06-22T10:00:00Z",
-  "deadlineAt": "2026-06-22T12:00:00Z",
-  "serverTime": "2026-06-22T10:00:01Z",
-  "remainingSeconds": 7199
-}
-```
-
-### Client example
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
-<script>
-  const competitionId = 1;
-  const socket = new SockJS("http://localhost:9091/ws");
-  const client = Stomp.over(socket);
-
-  client.connect({}, () => {
-    client.subscribe(
-      "/topic/competitions/" + competitionId + "/leaderboard",
-      (msg) => {
-        console.log("Leaderboard:", JSON.parse(msg.body));
-      },
-    );
-
-    client.subscribe(
-      "/topic/competitions/" + competitionId + "/status",
-      (msg) => {
-        console.log("Status:", JSON.parse(msg.body));
-      },
-    );
-
-    client.subscribe(
-      "/topic/competitions/" + competitionId + "/users/" + userId + "/session",
-      (msg) => {
-        console.log("Session:", JSON.parse(msg.body));
-      },
-    );
-  });
-</script>
-```
-
-A local test page is available at [`websocket-test.html`](websocket-test.html).
-
-### How it works (backend)
-
-```
-CompetitionService / CompetitionStatusScheduler
-        ↓
-CompetitionEventPublisher  (SimpMessagingTemplate)
-        ↓
-/topic/competitions/{id}/leaderboard  or  /status
-        ↓
-All subscribed browsers
-```
-
-| Component                    | Role                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `WebSocketConfig`            | Enables STOMP broker on `/topic`, endpoint at `/ws`                                        |
-| `CompetitionEventPublisher`  | Pushes messages to topics                                                                  |
-| `CompetitionService`         | Publishes leaderboard after Accepted submit; session on start; status on admin time update |
-| `CompetitionStatusScheduler` | Publishes global status transitions; expires personal sessions (every 60s)                 |
-
-## Submit Flow
-
-1. Client sends user code with `problemId`.
-2. Backend loads hidden `test_cases` from the `problems` table.
-3. Each test case provides `stdin` and expected `stdout`.
-4. Backend creates one Judge0 multi-file archive with compile/run scripts.
-5. Judge0 compiles once and runs the resulting program once per test input.
-6. Backend decodes framed outputs, compares them in order, and saves the verdict.
-
-### Submit request example
-
-```http
-POST /api/submissions/submit
-Authorization: Bearer <token>
-```
-
-```json
-{
-  "problemId": 1,
-  "languageId": 62,
-  "language": "java",
-  "code": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int n = sc.nextInt();\n        int[] nums = new int[n];\n        for (int i = 0; i < n; i++) nums[i] = sc.nextInt();\n        int target = sc.nextInt();\n        Map<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < n; i++) {\n            int complement = target - nums[i];\n            if (map.containsKey(complement)) {\n                System.out.println(map.get(complement) + \" \" + i);\n                return;\n            }\n            map.put(nums[i], i);\n        }\n    }\n}"
-}
-```
-
-`userId` is taken from the JWT.
-
-### Submit response example
+Example verdict:
 
 ```json
 {
@@ -658,97 +583,178 @@ Authorization: Bearer <token>
   "totalCount": 20,
   "failedTestIndex": null,
   "time": 0.914,
-  "memory": 0
+  "memory": 0,
+  "engine": "compile-once"
 }
 ```
 
-## Test Case Format
+### Join and start a competition
 
-Store test cases in the `problems.test_cases` JSONB column:
+```bash
+curl -X POST http://localhost:9091/api/competitions/1/join \
+  -H "Authorization: Bearer <token>"
+
+curl -X POST http://localhost:9091/api/competitions/1/start \
+  -H "Authorization: Bearer <token>"
+```
+
+No user ID is sent in either request; identity comes from the JWT.
+
+## WebSocket Updates
+
+CodeIT uses STOMP over SockJS for selected real-time competition events.
+
+| Setting | Value |
+| --- | --- |
+| Endpoint | `http://localhost:9091/ws` |
+| Broker prefix | `/topic` |
+| Application prefix | `/app` |
+
+### Topics
+
+| Topic | Trigger | Payload |
+| --- | --- | --- |
+| `/topic/competitions/{id}/leaderboard` | Accepted contest submission | Leaderboard entries |
+| `/topic/competitions/{id}/status` | Status transition or admin time update | `ContestStatusEvent` |
+| `/topic/competitions/{id}/users/{userId}/session` | Start, explicit end, or expiration | `ContestSessionEvent` |
+
+Initial page data is still loaded through REST. WebSocket events keep selected competition state synchronized afterward.
+
+> **Security note:** `/ws` is currently public and permits all origin patterns. JWT authentication and topic authorization are planned improvements.
+
+## Redis Cache Keys
+
+| Key | Data | Default TTL |
+| --- | --- | ---: |
+| `problem:public:{id}` | Problem without hidden tests | 30 minutes |
+| `problem:judge:{id}` | Full problem for judging | 30 minutes |
+| `problem:all` | Problem list | 30 minutes |
+| `testcases:problem:{id}` | Parsed hidden tests | 30 minutes |
+| `competitions:all` | Competition list | 2 minutes |
+| `competition:{id}` | Competition details | 2 minutes |
+| `leaderboard:competition:{id}` | Leaderboard entries | 60 seconds |
+
+Check Redis connectivity:
+
+```bash
+curl http://localhost:9091/api/health/redis
+```
+
+## Test-Case Format
+
+Hidden tests are stored in the `problems.test_cases` JSONB column:
 
 ```json
 [
-  { "stdin": "4\n2 7 11 15\n9", "stdout": "0 1" },
-  { "stdin": "3\n3 2 4\n6", "stdout": "1 2" }
+  {
+    "stdin": "2 3",
+    "stdout": "5"
+  },
+  {
+    "stdin": "-4 7",
+    "stdout": "3"
+  }
 ]
 ```
 
-User code should be a full program that reads from stdin and prints to stdout (Codeforces/HackerRank style).
+Problem topics, examples, constraints, and hidden tests use PostgreSQL JSONB columns.
 
-### stdin/stdout conventions
+## Testing and Quality Checks
 
-| Language   | Slug         | Typical I/O pattern                                           |
-| ---------- | ------------ | ------------------------------------------------------------- |
-| Java       | `java`       | `Scanner` on `System.in`; public class `Main`                 |
-| Python     | `python`     | `input()` / `print()`                                         |
-| JavaScript | `javascript` | `readline` or `fs.readFileSync(0, 'utf8')`; `console.log()`   |
-| TypeScript | `typescript` | Same as JavaScript                                            |
-| C++        | `cpp`        | `cin` / `cout`; `int main()`                                  |
-| C          | `c`          | `scanf` / `printf`; `int main()`                              |
-| Go         | `go`         | `fmt.Scan` / `fmt.Println`; `func main()`                     |
-| Rust       | `rust`       | `use std::io`; `fn main()`                                    |
-| C#         | `csharp`     | `Console.ReadLine()` / `Console.WriteLine()`; class `Program` |
-| Ruby       | `ruby`       | `gets` / `puts`                                               |
-| PHP        | `php`        | `fgets(STDIN)` / `echo`                                       |
+### Backend tests
 
-## Supported Languages
+Run the complete Maven test suite:
 
-Fetch the canonical list at runtime:
-
-```http
-GET /api/submissions/languages
-Authorization: Bearer <token>
+```bash
+./mvnw test
 ```
 
-Response example:
+Run judge unit tests only:
 
-```json
-[
-  { "slug": "c", "name": "C", "languageId": 50 },
-  { "slug": "cpp", "name": "C++", "languageId": 54 },
-  { "slug": "csharp", "name": "C#", "languageId": 51 },
-  { "slug": "go", "name": "Go", "languageId": 60 },
-  { "slug": "java", "name": "Java", "languageId": 62 },
-  { "slug": "javascript", "name": "JavaScript", "languageId": 63 },
-  { "slug": "php", "name": "PHP", "languageId": 68 },
-  { "slug": "python", "name": "Python", "languageId": 71 },
-  { "slug": "ruby", "name": "Ruby", "languageId": 72 },
-  { "slug": "rust", "name": "Rust", "languageId": 73 },
-  { "slug": "typescript", "name": "TypeScript", "languageId": 74 }
-]
+```bash
+./mvnw -Dtest=CompileOnceJudgeServiceTests,TestCaseJudgeServiceTests test
 ```
 
-## Judge0 Language IDs
+Run live Judge0 integration tests:
 
-| Slug         | Language   | ID  |
-| ------------ | ---------- | --- |
-| `java`       | Java       | 62  |
-| `python`     | Python     | 71  |
-| `javascript` | JavaScript | 63  |
-| `typescript` | TypeScript | 74  |
-| `cpp`        | C++        | 54  |
-| `c`          | C          | 50  |
-| `go`         | Go         | 60  |
-| `rust`       | Rust       | 73  |
-| `csharp`     | C#         | 51  |
-| `ruby`       | Ruby       | 72  |
-| `php`        | PHP        | 68  |
+```bash
+RUN_JUDGE0_INTEGRATION=true \
+./mvnw -Dtest=CompileOnceJudgeServiceIntegrationTests test
+```
 
-Unsupported `languageId` values are rejected on `/run` and `/submit`. If both `language` and `languageId` are sent, they must match.
+Judge0 must be running at the configured URL. Integration tests are skipped when `RUN_JUDGE0_INTEGRATION` is not `true`.
+
+Current backend coverage focuses on:
+
+- Compile-once accepted, wrong-answer, and compilation-error behavior
+- Judge engine routing
+- Optional live Judge0 compile-once execution
+- Spring application context startup
+
+### Frontend checks
+
+```bash
+cd frontend
+npm ci
+npm run lint
+npm run build
+```
+
+There is currently no frontend automated test suite.
 
 ## Project Structure
 
-```
-src/main/java/com/codeit/
-├── config/          # SecurityConfig, JwtAuthFilter, Redis, WebSocket, GlobalExceptionHandler
-├── modules/
-│   ├── auth/        # JWT (JwtService), login, AuthUserPrincipal, SecurityUtils
-│   ├── competition/ # Competition CRUD, sessions, WebSocket event publishing
-│   ├── problems/    # Problem CRUD and public DTOs
-│   ├── submission/  # Judge0 integration and test case judging
-│   └── user/        # Register (BCrypt), admin user APIs
+```text
+CodeIT/
+├── frontend/
+│   ├── src/
+│   │   ├── components/       # Navbar, verdict and run-result UI, AI placeholder
+│   │   ├── context/          # Authentication context
+│   │   ├── lib/              # API client, WebSocket client, judge utilities
+│   │   └── pages/            # Problems, editor, competitions, admin, auth
+│   └── package.json
+├── schema/
+│   ├── schema.sql
+│   ├── competition_session.sql
+│   └── users_name_uniqueuserid.sql
+├── src/
+│   ├── main/java/com/codeit/
+│   │   ├── config/           # Security, Redis, HTTP, WebSocket, exceptions
+│   │   └── modules/
+│   │       ├── auth/         # Login, JWT, authenticated principal
+│   │       ├── competition/  # Contests, sessions, leaderboard, events
+│   │       ├── problems/     # Problem APIs, repository, cache
+│   │       ├── submission/   # Judge0 and judging engines
+│   │       └── user/         # Registration and admin user APIs
+│   ├── main/resources/
+│   │   └── application.properties
+│   └── test/java/            # Unit, integration, and context tests
+├── pom.xml
+└── README.md
 ```
 
-## License
+## Known Limitations
 
-MIT
+- AI explanation and code-correction endpoints are not implemented yet.
+- The frontend AI panel should be treated as a planned feature.
+- The WebSocket endpoint is not JWT-authenticated.
+- Admin problem creation still needs frontend/backend contract alignment and end-to-end validation.
+- The frontend has no automated test suite.
+- Backend tests currently focus mainly on the judging pipeline.
+- Judge0 is an external dependency and is not bundled or version-pinned by this repository.
+- Compile-once scripts assume Judge0 multi-file ID `89` and standard Judge0/GNU tool paths.
+- Database migrations are manual.
+- CORS is currently configured for local frontend origins.
+- Repository configuration contains development defaults; production credentials must be supplied externally.
+
+## Roadmap
+
+- Implement AI-powered code explanation and correction
+- Authenticate STOMP connections and authorize competition topics
+- Add progressive-batch and competition integration tests
+- Add frontend component and end-to-end tests
+- Align and validate the admin problem-creation workflow
+- Add rate limiting for Run and Submit
+- Introduce Flyway or Liquibase migrations
+- Add Docker Compose for a one-command local environment
+- Improve observability with structured logs and metrics

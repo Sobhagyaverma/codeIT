@@ -25,8 +25,7 @@ public class AppConfig {
             @Value("${codeit.http.max-total}") int maxTotal,
             @Value("${codeit.http.max-per-route}") int maxPerRoute) {
 
-        PoolingHttpClientConnectionManager connectionManager =
-                new PoolingHttpClientConnectionManager();
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
         connectionManager.setMaxTotal(maxTotal);
         connectionManager.setDefaultMaxPerRoute(maxPerRoute);
         connectionManager.setDefaultConnectionConfig(
