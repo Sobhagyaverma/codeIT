@@ -27,10 +27,21 @@ import type {
   LeaderboardEntry,
   ProblemPublicDTO,
 } from "../lib/types";
+import {
+  exampleInputToStdin,
+  exampleOutputToExpected,
+  formatExample,
+  parseExamples,
+} from "../lib/examples";
+import {
+  runSampleTests,
+  type SampleRunSession,
+} from "../lib/runSampleTests";
 import { useAuth } from "../context/AuthContext";
 import { Loading, ErrorState, EmptyState } from "../components/Loading";
 import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
+import RunResultsPanel from "../components/RunResultsPanel";
 
 const MONACO_LANG: Record<string, string> = {
   c: "c",
@@ -59,13 +70,8 @@ const STARTER: Record<string, string> = {
 
 const PROBLEM_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-type Example = {
-  input: unknown;
-  output: unknown;
-  explanation?: string;
-};
-
 type WorkspaceTab = "problem" | "standings";
+type EditorBottomTab = "testcase" | "result";
 
 function formatSeconds(total: number) {
   const s = Math.max(0, Math.floor(total));
@@ -82,16 +88,6 @@ function formatPenalty(seconds: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function parseExamples(examples?: string | Example[]): Example[] {
-  if (!examples) return [];
-  if (Array.isArray(examples)) return examples;
-  try {
-    return JSON.parse(examples) as Example[];
-  } catch {
-    return [];
-  }
-}
-
 function parseConstraints(raw?: string): string[] {
   if (!raw) return [];
   try {
@@ -104,29 +100,6 @@ function parseConstraints(raw?: string): string[] {
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-function formatExample(value: unknown): string {
-  if (typeof value === "string") {
-    try {
-      value = JSON.parse(value);
-    } catch {
-      return String(value);
-    }
-  }
-  if (Array.isArray(value)) return `[${value.join(", ")}]`;
-  if (typeof value === "object" && value !== null) {
-    return Object.entries(value)
-      .map(([key, val]) => {
-        if (Array.isArray(val)) return `${key} = [${val.join(", ")}]`;
-        if (typeof val === "object" && val !== null) {
-          return `${key} = ${JSON.stringify(val)}`;
-        }
-        return `${key} = ${val}`;
-      })
-      .join(", ");
-  }
-  return String(value);
 }
 
 function statusBadgeClass(status?: string) {
@@ -168,6 +141,16 @@ export default function CompetitionRoom() {
   const [solvedIds, setSolvedIds] = useState<Set<number>>(new Set());
   const [language, setLanguage] = useState<LanguageDTO | null>(null);
   const [verdict, setVerdict] = useState<JudgeVerdictDTO | null>(null);
+  const [running, setRunning] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [runSession, setRunSession] = useState<SampleRunSession | null>(null);
+  const [caseStdins, setCaseStdins] = useState<string[]>([]);
+  const [activeCaseIdx, setActiveCaseIdx] = useState(0);
+  const [customStdin, setCustomStdin] = useState("");
+  const [editorBottomTab, setEditorBottomTab] =
+    useState<EditorBottomTab>("testcase");
+  const [runError, setRunError] = useState<string | null>(null);
+  const runAbortRef = useRef<AbortController | null>(null);
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("problem");
   const [splitPct, setSplitPct] = useState(48);
   const splitRef = useRef<HTMLDivElement | null>(null);
@@ -413,20 +396,91 @@ export default function CompetitionRoom() {
     document.body.style.userSelect = "none";
   };
 
+  const activeProblem = selectedProblem
+    ? problemMeta[selectedProblem]
+    : null;
+  const examples = useMemo(
+    () => parseExamples(activeProblem?.examples),
+    [activeProblem?.examples]
+  );
+  const constraints = useMemo(
+    () => parseConstraints(activeProblem?.constraintsData),
+    [activeProblem?.constraintsData]
+  );
+
+  useEffect(() => {
+    runAbortRef.current?.abort();
+    setVerdict(null);
+    setRunSession(null);
+    setRunError(null);
+    setEditorBottomTab("testcase");
+    setActiveCaseIdx(0);
+    const exs = parseExamples(activeProblem?.examples);
+    setCaseStdins(exs.map((ex) => exampleInputToStdin(ex.input)));
+    setCustomStdin(exs[0] ? exampleInputToStdin(exs[0].input) : "");
+  }, [selectedProblem, activeProblem?.examples]);
+
+  const handleContestRun = async () => {
+    if (!language || !selectedProblem) return;
+    const source = codeByProblem[selectedProblem];
+    if (!source?.trim()) return;
+
+    runAbortRef.current?.abort();
+    const controller = new AbortController();
+    runAbortRef.current = controller;
+
+    setRunning(true);
+    setRunError(null);
+    setRunSession(null);
+    setVerdict(null);
+    setEditorBottomTab("result");
+
+    try {
+      const samples =
+        examples.length > 0
+          ? examples.map((ex, i) => ({
+              stdin: caseStdins[i] ?? exampleInputToStdin(ex.input),
+              expectedOutput: exampleOutputToExpected(ex.output),
+              inputDisplay: formatExample(ex.input),
+            }))
+          : undefined;
+
+      const sessionResult = await runSampleTests({
+        sourceCode: source,
+        languageId: language.languageId,
+        samples,
+        customStdin,
+        signal: controller.signal,
+      });
+      setRunSession(sessionResult);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setRunError(err instanceof Error ? err.message : "Run failed.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const handleContestSubmit = async () => {
     if (!user || !language || !selectedProblem) return;
-    const code = codeByProblem[selectedProblem];
-    if (!code?.trim()) return;
+    const source = codeByProblem[selectedProblem];
+    if (!source?.trim()) return;
 
+    runAbortRef.current?.abort();
+    setSubmitting(true);
     setBusy(true);
     setVerdict(null);
+    setRunSession(null);
+    setRunError(null);
+    setEditorBottomTab("result");
+
     try {
       const res = await submitToCompetition(competitionId, {
         userId: user.id,
         problemId: selectedProblem,
         languageId: language.languageId,
         language: language.slug,
-        code,
+        code: source,
       });
       setVerdict(res);
       if (res.verdict === "Accepted") {
@@ -438,6 +492,7 @@ export default function CompetitionRoom() {
         err instanceof Error ? err.message : "Contest submit failed."
       );
     } finally {
+      setSubmitting(false);
       setBusy(false);
     }
   };
@@ -456,23 +511,13 @@ export default function CompetitionRoom() {
     });
   };
 
-  const activeProblem = selectedProblem
-    ? problemMeta[selectedProblem]
-    : null;
-  const examples = useMemo(
-    () => parseExamples(activeProblem?.examples),
-    [activeProblem?.examples]
-  );
-  const constraints = useMemo(
-    () => parseConstraints(activeProblem?.constraintsData),
-    [activeProblem?.constraintsData]
-  );
-
   const code = selectedProblem ? codeByProblem[selectedProblem] || "" : "";
   const inProgress = session?.sessionStatus === "IN_PROGRESS";
   const ended =
     session?.sessionStatus === "ENDED" || competition?.status === "ENDED";
-  const canSubmit = inProgress && !ended && !!selectedProblem && !!code.trim();
+  const canRun =
+    inProgress && !ended && !!selectedProblem && !!code.trim() && !submitting;
+  const canSubmit = canRun && !running;
 
   const sortedBoard = useMemo(
     () => [...leaderboard].sort((a, b) => a.rank - b.rank),
@@ -889,21 +934,28 @@ export default function CompetitionRoom() {
                 {!inProgress && !ended && (
                   <span className="text-xs text-[var(--text-dim)]">
                     {session
-                      ? "Start your timer to submit"
-                      : "Join the contest to submit"}
+                      ? "Start your timer to code"
+                      : "Join the contest to code"}
                   </span>
                 )}
                 <button
+                  onClick={handleContestRun}
+                  disabled={!canRun || running}
+                  className="rounded-md border border-[var(--line)] px-3 py-1.5 text-sm text-[var(--text)] transition hover:border-[var(--info)] hover:text-[var(--info)] disabled:opacity-40"
+                >
+                  {running ? "Running…" : "Run"}
+                </button>
+                <button
                   onClick={handleContestSubmit}
-                  disabled={busy || !canSubmit}
+                  disabled={!canSubmit || submitting}
                   className="rounded-md bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[#0a0d12] hover:brightness-110 disabled:opacity-40"
                 >
-                  {busy ? "Submitting…" : "Submit"}
+                  {submitting ? "Judging…" : "Submit"}
                 </button>
               </div>
             </div>
 
-            <div className="min-h-[220px] flex-1 bg-[var(--bg-inset)]">
+            <div className="min-h-[180px] flex-[1.1] bg-[var(--bg-inset)]">
               <Editor
                 height="100%"
                 theme="vs-dark"
@@ -933,18 +985,163 @@ export default function CompetitionRoom() {
               />
             </div>
 
-            {verdict && (
-              <div className="border-t border-[var(--line)] p-3">
-                <VerdictPanel verdict={verdict} />
+            <div className="flex min-h-[200px] flex-1 flex-col border-t border-[var(--line)]">
+              <div className="flex shrink-0 items-center gap-1 border-b border-[var(--line)] bg-[var(--bg-raised)] px-2">
+                {(
+                  [
+                    ["testcase", "Testcase"],
+                    ["result", "Test Result"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setEditorBottomTab(id)}
+                    className={`verdict-strip border-b-2 px-3 py-2 ${
+                      editorBottomTab === id
+                        ? "border-[var(--accent)] text-[var(--accent)]"
+                        : "border-transparent text-[var(--text-dim)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-            )}
 
-            {!verdict && inProgress && (
-              <div className="border-t border-[var(--line)] px-4 py-2 text-xs text-[var(--text-dim)]">
-                Submissions count toward the live leaderboard. Programs must read
-                stdin and write stdout.
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {editorBottomTab === "testcase" && (
+                  <div className="space-y-3">
+                    {examples.length > 0 ? (
+                      <>
+                        <div className="flex flex-wrap gap-1.5">
+                          {examples.map((_, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setActiveCaseIdx(idx)}
+                              className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                                activeCaseIdx === idx
+                                  ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                                  : "border-[var(--line)] text-[var(--text-dim)] hover:border-[var(--info)] hover:text-[var(--text)]"
+                              }`}
+                            >
+                              Case {idx + 1}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                            Input
+                          </label>
+                          <textarea
+                            value={caseStdins[activeCaseIdx] ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setCaseStdins((prev) => {
+                                const next = [...prev];
+                                next[activeCaseIdx] = value;
+                                return next;
+                              });
+                            }}
+                            rows={5}
+                            spellCheck={false}
+                            disabled={!inProgress || ended}
+                            className="mono w-full resize-y rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text)] focus:border-[var(--info)] focus:outline-none disabled:opacity-50"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                            Expected Output
+                          </div>
+                          <pre className="mono whitespace-pre-wrap rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text-dim)]">
+                            {exampleOutputToExpected(
+                              examples[activeCaseIdx]?.output
+                            ) || "—"}
+                          </pre>
+                        </div>
+
+                        <p className="text-xs text-[var(--text-dim)]">
+                          Run checks sample cases only. Submit judges hidden
+                          tests and updates the leaderboard.
+                        </p>
+                      </>
+                    ) : (
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                          Custom stdin
+                        </label>
+                        <textarea
+                          value={customStdin}
+                          onChange={(e) => setCustomStdin(e.target.value)}
+                          rows={5}
+                          spellCheck={false}
+                          disabled={!inProgress || ended}
+                          placeholder={"4\n2 7 11 15\n9"}
+                          className="mono w-full resize-y rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text)] focus:border-[var(--info)] focus:outline-none disabled:opacity-50"
+                        />
+                        <p className="mt-1 text-xs text-[var(--text-dim)]">
+                          No sample cases on this problem. Run uses this input
+                          only.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {editorBottomTab === "result" && (
+                  <div className="space-y-3">
+                    {runError && <ErrorState message={runError} />}
+
+                    {submitting && (
+                      <p className="text-sm text-[var(--text-dim)]">
+                        Judging against hidden test cases
+                        {language?.slug === "csharp"
+                          ? " (batch path)…"
+                          : " (compile once)…"}
+                      </p>
+                    )}
+
+                    {verdict && (
+                      <div className="space-y-3">
+                        <VerdictPanel verdict={verdict} />
+                        {typeof verdict.totalCount === "number" &&
+                          verdict.totalCount > 0 && (
+                            <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-raised)] p-3 text-sm">
+                              <div className="verdict-strip mb-1 text-[var(--text-dim)]">
+                                Hidden tests
+                              </div>
+                              <p
+                                style={{
+                                  color:
+                                    (verdict.passedCount ?? 0) ===
+                                    verdict.totalCount
+                                      ? "var(--ok)"
+                                      : "var(--err)",
+                                }}
+                              >
+                                {verdict.passedCount ?? 0} /{" "}
+                                {verdict.totalCount} passed
+                              </p>
+                              <p className="mt-1 text-xs text-[var(--text-dim)]">
+                                Hidden case details are never shown.
+                              </p>
+                            </div>
+                          )}
+                      </div>
+                    )}
+
+                    {!submitting && !verdict && (
+                      <RunResultsPanel
+                        session={runSession}
+                        loading={running}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </section>
         </div>
       )}

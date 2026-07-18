@@ -63,6 +63,30 @@ A Spring Boot coding platform backend where users browse problems, run code, and
 
    The API starts on **http://localhost:9091**.
 
+### Judge0 workers (local development)
+
+Judge0 starts multiple worker processes inside a single `worker` container. On a
+16 GB, 10-core Apple Silicon Mac, set this in Judge0's `judge0.conf`:
+
+```properties
+COUNT=6
+MAX_CPU_TIME_LIMIT=30
+MAX_WALL_TIME_LIMIT=45
+```
+
+Then recreate the one worker container:
+
+```bash
+cd /path/to/judge0
+docker compose up -d --force-recreate worker
+docker exec judge0-worker-1 sh -lc \
+  'ps aux | grep "rake resque:work" | grep -v grep | wc -l'
+```
+
+The final command should print `6`. Do not use `--scale worker=6` with the
+default blank `COUNT`: each container defaults to `2 * nproc` internal workers,
+which can exhaust local CPU and memory.
+
 ## Authentication (JWT)
 
 Stateless JWT auth via Spring Security. Passwords are stored with **BCrypt**. Most REST APIs require `Authorization: Bearer <token>`.
@@ -216,7 +240,17 @@ codeit.cache.leaderboard-ttl-seconds=60
 codeit.cache.competition-ttl-seconds=120
 codeit.cache.problem-ttl-seconds=1800
 codeit.cache.testcase-ttl-seconds=1800
-codeit.judge.max-parallelism=8
+codeit.judge.progressive-first-chunk=3
+codeit.judge.batch-chunk-size=6
+codeit.judge.poll-interval-ms=200
+codeit.judge.poll-timeout-ms=60000
+codeit.judge.case-timeout-seconds=3
+codeit.judge.compile-once-cpu-time-limit=30
+codeit.judge.compile-once-wall-time-limit=45
+codeit.http.connect-timeout-ms=3000
+codeit.http.read-timeout-ms=60000
+codeit.http.max-total=8
+codeit.http.max-per-route=8
 ```
 
 ### Cache keys
@@ -258,9 +292,25 @@ redis-cli GET competitions:all
 redis-cli GET testcases:problem:1
 ```
 
-### Parallel judging
+### Compile-once judging
 
-Test cases run in parallel via a bounded thread pool (`codeit.judge.max-parallelism`). Results are evaluated in **original order** so early-exit on Wrong Answer / Runtime Error still works. Judge0 URL is read from `judge0.api.url`.
+Submit judging uses Judge0's multi-file language (ID 89). The backend creates
+one archive containing the submitted source, a language-specific compile
+script, a run script, and the hidden inputs. Judge0 compiles the source once;
+the run script then launches that compiled program separately for every input.
+Framed Base64 output is decoded and compared in original test order.
+
+Each case has its own three-second child-process timeout. The aggregate
+submission limits are 30 CPU seconds and 45 wall-clock seconds. `Run` remains a
+single normal Judge0 request, so its behavior is unchanged.
+
+C# stays on the progressive batch fallback because the x86 Mono compiler in
+Judge0 1.13.1 crashes under emulation on Apple Silicon. The fallback is also
+retained for environments where a language cannot use the multi-file runner.
+
+The shared HTTP client pools connections and applies connect, pool-wait, and
+response timeouts. Six internal Judge0 workers are the measured stable setting
+for the local M4 configuration.
 
 ## API Overview
 
@@ -577,8 +627,9 @@ All subscribed browsers
 1. Client sends user code with `problemId`.
 2. Backend loads hidden `test_cases` from the `problems` table.
 3. Each test case provides `stdin` and expected `stdout`.
-4. Code runs against every test via Judge0.
-5. Output is compared and a verdict is returned and saved.
+4. Backend creates one Judge0 multi-file archive with compile/run scripts.
+5. Judge0 compiles once and runs the resulting program once per test input.
+6. Backend decodes framed outputs, compares them in order, and saves the verdict.
 
 ### Submit request example
 

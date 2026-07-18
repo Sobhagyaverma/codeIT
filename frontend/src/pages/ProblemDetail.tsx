@@ -1,17 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Editor from "@monaco-editor/react";
-import { getLanguages, getProblem, runCode, submitCode } from "../lib/api";
+import { getLanguages, getProblem, submitCode } from "../lib/api";
 import type {
   JudgeVerdictDTO,
   LanguageDTO,
   ProblemPublicDTO,
-  RunResult,
 } from "../lib/types";
+import {
+  exampleInputToStdin,
+  exampleOutputToExpected,
+  formatExample,
+  parseExamples,
+} from "../lib/examples";
+import {
+  runSampleTests,
+  type SampleRunSession,
+} from "../lib/runSampleTests";
 import { useAuth } from "../context/AuthContext";
 import { Loading, ErrorState } from "../components/Loading";
 import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
+import RunResultsPanel from "../components/RunResultsPanel";
 import AIPanel from "../components/AIPanel";
 
 const MONACO_LANG: Record<string, string> = {
@@ -39,27 +49,6 @@ const STARTER: Record<string, string> = {
     "const lines = require('fs').readFileSync('/dev/stdin', 'utf8').split('\\n');\n// your solution here\n",
 };
 
-type VisibleTestCase = {
-  input: string;
-  expectedOutput: string;
-  userOutput?: string;
-  passed: boolean;
-};
-
-type SubmissionFeedback = {
-  visibleTestCases: VisibleTestCase[];
-  hiddenSummary?: {
-    passed: number;
-    total: number;
-  };
-};
-
-type Example = {
-  input: unknown;
-  output: unknown;
-  explanation?: string;
-};
-
 type RightPanelTab = "io" | "result" | "ai";
 
 function parseTopics(topics: string[] | string | undefined): string[] {
@@ -72,16 +61,6 @@ function parseTopics(topics: string[] | string | undefined): string[] {
     /* plain */
   }
   return [topics];
-}
-
-function parseExamples(examples?: string | Example[]): Example[] {
-  if (!examples) return [];
-  if (Array.isArray(examples)) return examples;
-  try {
-    return JSON.parse(examples) as Example[];
-  } catch {
-    return [];
-  }
 }
 
 function parseConstraints(raw?: string): string[] {
@@ -98,67 +77,6 @@ function parseConstraints(raw?: string): string[] {
     .filter(Boolean);
 }
 
-function formatExample(value: unknown): string {
-  if (typeof value === "string") {
-    try {
-      value = JSON.parse(value);
-    } catch {
-      return String(value);
-    }
-  }
-  if (Array.isArray(value)) return `[${value.join(", ")}]`;
-  if (typeof value === "object" && value !== null) {
-    return Object.entries(value)
-      .map(([key, val]) => {
-        if (Array.isArray(val)) return `${key} = [${val.join(", ")}]`;
-        if (typeof val === "object" && val !== null) {
-          return `${key} = ${JSON.stringify(val)}`;
-        }
-        return `${key} = ${val}`;
-      })
-      .join(", ");
-  }
-  return String(value);
-}
-
-function exampleInputToStdin(input: unknown): string {
-  let value = input;
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    try {
-      value = JSON.parse(trimmed);
-    } catch {
-      return trimmed;
-    }
-  }
-
-  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-    const obj = value as Record<string, unknown>;
-
-    if (Array.isArray(obj.nums) && "target" in obj) {
-      const nums = obj.nums as unknown[];
-      return `${nums.length}\n${nums.join(" ")}\n${obj.target}`;
-    }
-
-    const arrayEntry = Object.entries(obj).find(([, v]) => Array.isArray(v));
-    if (arrayEntry) {
-      const [, arr] = arrayEntry;
-      const nums = arr as unknown[];
-      const scalars = Object.entries(obj)
-        .filter(([, v]) => !Array.isArray(v) && typeof v !== "object")
-        .map(([, v]) => String(v));
-      return [`${nums.length}`, nums.join(" "), ...scalars].join("\n");
-    }
-  }
-
-  if (Array.isArray(value)) {
-    return `${value.length}\n${value.join(" ")}`;
-  }
-
-  return value == null ? "" : String(value);
-}
-
 export default function ProblemDetail() {
   const { id } = useParams();
   const problemId = Number(id);
@@ -173,14 +91,15 @@ export default function ProblemDetail() {
 
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [stdin, setStdin] = useState("");
-  const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [caseStdins, setCaseStdins] = useState<string[]>([]);
+  const [activeCaseIdx, setActiveCaseIdx] = useState(0);
+  const [customStdin, setCustomStdin] = useState("");
+  const [runSession, setRunSession] = useState<SampleRunSession | null>(null);
   const [verdict, setVerdict] = useState<JudgeVerdictDTO | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const [submissionFeedback, setSubmissionFeedback] =
-    useState<SubmissionFeedback | null>(null);
   const [rightTab, setRightTab] = useState<RightPanelTab>("io");
+  const runAbortRef = useRef<AbortController | null>(null);
 
   const [splitPct, setSplitPct] = useState(48);
   const splitRef = useRef<HTMLDivElement | null>(null);
@@ -193,8 +112,10 @@ export default function ProblemDetail() {
     setError(null);
     setHasSubmitted(false);
     setVerdict(null);
-    setRunResult(null);
-    setSubmissionFeedback(null);
+    setRunSession(null);
+    setCaseStdins([]);
+    setCustomStdin("");
+    setActiveCaseIdx(0);
     setRightTab("io");
 
     Promise.all([getProblem(problemId), getLanguages()])
@@ -208,12 +129,10 @@ export default function ProblemDetail() {
         setLanguage(py);
         setCode(STARTER[py?.slug] || "");
 
-        const firstExample = parseExamples(p.examples)[0];
-        if (firstExample) {
-          setStdin(exampleInputToStdin(firstExample.input));
-        } else {
-          setStdin("");
-        }
+        const exs = parseExamples(p.examples);
+        setCaseStdins(exs.map((ex) => exampleInputToStdin(ex.input)));
+        setActiveCaseIdx(0);
+        setCustomStdin(exs[0] ? exampleInputToStdin(exs[0].input) : "");
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -224,6 +143,7 @@ export default function ProblemDetail() {
 
     return () => {
       cancelled = true;
+      runAbortRef.current?.abort();
     };
   }, [problemId]);
 
@@ -269,73 +189,6 @@ export default function ProblemDetail() {
     document.body.style.userSelect = "none";
   };
 
-  const handleLanguageChange = (slug: string) => {
-    const lang = languages.find((l) => l.slug === slug) || null;
-    setLanguage(lang);
-
-    if (lang && STARTER[lang.slug]) {
-      setCode(STARTER[lang.slug]);
-    }
-  };
-
-  const handleRun = async () => {
-    if (!language) return;
-
-    setRunning(true);
-    setActionError(null);
-    setRunResult(null);
-    setRightTab("result");
-
-    try {
-      const res = await runCode({
-        source_code: code,
-        language_id: language.languageId,
-        stdin,
-      });
-      setRunResult(res);
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Run failed.");
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!language || !user) return;
-
-    setSubmitting(true);
-    setActionError(null);
-    setVerdict(null);
-    setSubmissionFeedback(null);
-    setRightTab("result");
-
-    try {
-      const res = await submitCode({
-        userId: user.id,
-        problemId,
-        languageId: language.languageId,
-        language: language.slug,
-        code,
-      });
-
-      setVerdict(res);
-
-      setSubmissionFeedback({
-        visibleTestCases: (res.visibleTestCases || []).slice(0, 3),
-        hiddenSummary:
-          res.hiddenSummary ??
-          (res.totalCount !== undefined
-            ? { passed: res.passedCount ?? 0, total: res.totalCount }
-            : undefined),
-      });
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Submit failed.");
-    } finally {
-      setHasSubmitted(true);
-      setSubmitting(false);
-    }
-  };
-
   const examples = useMemo(() => {
     if (!problem) return [];
     return parseExamples(problem.examples);
@@ -350,6 +203,82 @@ export default function ProblemDetail() {
     () => (problem ? parseTopics(problem.topics) : []),
     [problem]
   );
+
+  const handleLanguageChange = (slug: string) => {
+    const lang = languages.find((l) => l.slug === slug) || null;
+    setLanguage(lang);
+
+    if (lang && STARTER[lang.slug]) {
+      setCode(STARTER[lang.slug]);
+    }
+  };
+
+  const handleRun = async () => {
+    if (!language) return;
+
+    runAbortRef.current?.abort();
+    const controller = new AbortController();
+    runAbortRef.current = controller;
+
+    setRunning(true);
+    setActionError(null);
+    setRunSession(null);
+    setVerdict(null);
+    setRightTab("result");
+
+    try {
+      const samples =
+        examples.length > 0
+          ? examples.map((ex, i) => ({
+              stdin: caseStdins[i] ?? exampleInputToStdin(ex.input),
+              expectedOutput: exampleOutputToExpected(ex.output),
+              inputDisplay: formatExample(ex.input),
+            }))
+          : undefined;
+
+      const session = await runSampleTests({
+        sourceCode: code,
+        languageId: language.languageId,
+        samples,
+        customStdin,
+        signal: controller.signal,
+      });
+      setRunSession(session);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setActionError(err instanceof Error ? err.message : "Run failed.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!language || !user) return;
+
+    runAbortRef.current?.abort();
+    setSubmitting(true);
+    setActionError(null);
+    setVerdict(null);
+    setRunSession(null);
+    setRightTab("result");
+
+    try {
+      const res = await submitCode({
+        userId: user.id,
+        problemId,
+        languageId: language.languageId,
+        language: language.slug,
+        code,
+      });
+
+      setVerdict(res);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Submit failed.");
+    } finally {
+      setHasSubmitted(true);
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -427,9 +356,14 @@ export default function ProblemDetail() {
               title={!user ? "Log in to submit" : undefined}
               className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[#0a0d12] transition hover:brightness-110 disabled:opacity-40"
             >
-              {submitting ? "Submitting…" : "Submit"}
+              {submitting ? "Judging…" : "Submit"}
             </button>
           </div>
+          {language?.slug === "csharp" && (
+            <p className="mt-2 text-xs text-[var(--text-dim)]">
+              C# uses the batch judge path (slower than compile-once).
+            </p>
+          )}
         </div>
       </header>
 
@@ -562,8 +496,8 @@ export default function ProblemDetail() {
             <div className="flex shrink-0 items-center gap-1 border-b border-[var(--line)] bg-[var(--bg-raised)] px-2">
               {(
                 [
-                  ["io", "Stdin / Run"],
-                  ["result", "Result"],
+                  ["io", "Testcase"],
+                  ["result", "Test Result"],
                   ["ai", "AI Help"],
                 ] as const
               ).map(([id, label]) => (
@@ -584,34 +518,81 @@ export default function ProblemDetail() {
 
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               {rightTab === "io" && (
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label className="text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                      Stdin (for Run)
-                    </label>
-                    {examples[0] && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setStdin(exampleInputToStdin(examples[0].input))
-                        }
-                        className="text-xs text-[var(--info)] hover:underline"
-                      >
-                        Use Example 1
-                      </button>
-                    )}
-                  </div>
-                  <textarea
-                    value={stdin}
-                    onChange={(e) => setStdin(e.target.value)}
-                    rows={6}
-                    spellCheck={false}
-                    placeholder={"4\n2 7 11 15\n9"}
-                    className="mono w-full resize-y rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text)] focus:border-[var(--info)] focus:outline-none"
-                  />
-                  <p className="mt-1 text-xs text-[var(--text-dim)]">
-                    Run uses this input. Submit judges against hidden test cases.
-                  </p>
+                <div className="space-y-3">
+                  {examples.length > 0 ? (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        {examples.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActiveCaseIdx(idx)}
+                            className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                              activeCaseIdx === idx
+                                ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                                : "border-[var(--line)] text-[var(--text-dim)] hover:border-[var(--info)] hover:text-[var(--text)]"
+                            }`}
+                          >
+                            Case {idx + 1}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                          Input
+                        </label>
+                        <textarea
+                          value={caseStdins[activeCaseIdx] ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setCaseStdins((prev) => {
+                              const next = [...prev];
+                              next[activeCaseIdx] = value;
+                              return next;
+                            });
+                          }}
+                          rows={6}
+                          spellCheck={false}
+                          className="mono w-full resize-y rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text)] focus:border-[var(--info)] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                          Expected Output
+                        </div>
+                        <pre className="mono whitespace-pre-wrap rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text-dim)]">
+                          {exampleOutputToExpected(
+                            examples[activeCaseIdx]?.output
+                          ) || "—"}
+                        </pre>
+                      </div>
+
+                      <p className="text-xs text-[var(--text-dim)]">
+                        Run executes all sample cases. Submit judges against
+                        hidden tests (never shown).
+                      </p>
+                    </>
+                  ) : (
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                        Custom stdin
+                      </label>
+                      <textarea
+                        value={customStdin}
+                        onChange={(e) => setCustomStdin(e.target.value)}
+                        rows={6}
+                        spellCheck={false}
+                        placeholder={"4\n2 7 11 15\n9"}
+                        className="mono w-full resize-y rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text)] focus:border-[var(--info)] focus:outline-none"
+                      />
+                      <p className="mt-1 text-xs text-[var(--text-dim)]">
+                        No sample cases on this problem. Run uses this input
+                        only.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -622,118 +603,45 @@ export default function ProblemDetail() {
                       <ErrorState message={actionError} />
                     )}
 
-                  {runResult && (
-                    <div className="mono rounded-md border border-[var(--line)] bg-[var(--bg-inset)] p-3 text-xs">
-                      <div className="verdict-strip mb-2 text-[var(--text-dim)]">
-                        Run output
-                      </div>
-                      {runResult.stdout && (
-                        <pre className="whitespace-pre-wrap text-[var(--text)]">
-                          {runResult.stdout}
-                        </pre>
-                      )}
-                      {runResult.stderr && (
-                        <pre className="whitespace-pre-wrap text-[var(--err)]">
-                          {runResult.stderr}
-                        </pre>
-                      )}
-                      {runResult.compile_output && (
-                        <pre className="whitespace-pre-wrap text-[var(--warn)]">
-                          {runResult.compile_output}
-                        </pre>
-                      )}
-                      {runResult.status && (
-                        <div className="mt-2 text-[var(--text-dim)]">
-                          {runResult.status.description}
-                        </div>
-                      )}
-                    </div>
+                  {submitting && (
+                    <p className="text-sm text-[var(--text-dim)]">
+                      Judging against hidden test cases
+                      {language?.slug === "csharp"
+                        ? " (batch path)…"
+                        : " (compile once)…"}
+                    </p>
                   )}
 
-                  {verdict && <VerdictPanel verdict={verdict} />}
-
-                  {hasSubmitted && (
-                    <div className="rounded-md border border-[var(--line)] bg-[var(--bg-inset)] p-3">
-                      <div className="mb-3 text-sm font-semibold text-[var(--text)]">
-                        Test cases
-                      </div>
-
-                      {submissionFeedback?.visibleTestCases?.length ? (
-                        <div className="space-y-3">
-                          {submissionFeedback.visibleTestCases.map((tc, idx) => (
-                            <div
-                              key={idx}
-                              className="rounded-md border border-[var(--line)] bg-[var(--bg-raised)] p-3 text-sm"
-                            >
-                              <div className="mb-2 flex items-center justify-between">
-                                <span>Test case {idx + 1}</span>
-                                <span
-                                  style={{
-                                    color: tc.passed
-                                      ? "var(--ok)"
-                                      : "var(--err)",
-                                  }}
-                                >
-                                  {tc.passed ? "Passed" : "Failed"}
-                                </span>
-                              </div>
-                              <div className="mono space-y-1 text-xs text-[var(--text-dim)]">
-                                <div>
-                                  <span className="text-[var(--text)]">
-                                    Input:{" "}
-                                  </span>
-                                  {tc.input}
-                                </div>
-                                <div>
-                                  <span className="text-[var(--text)]">
-                                    Expected:{" "}
-                                  </span>
-                                  {tc.expectedOutput}
-                                </div>
-                                <div>
-                                  <span className="text-[var(--text)]">
-                                    Your output:{" "}
-                                  </span>
-                                  {tc.userOutput ?? "—"}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : submissionFeedback?.hiddenSummary ? (
-                        <div className="rounded-md border border-[var(--line)] bg-[var(--bg-raised)] p-3 text-sm">
-                          <span
+                  {verdict && (
+                    <div className="space-y-3">
+                      <VerdictPanel verdict={verdict} />
+                      {typeof verdict.totalCount === "number" &&
+                        verdict.totalCount > 0 && (
+                        <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-raised)] p-3 text-sm">
+                          <div className="verdict-strip mb-1 text-[var(--text-dim)]">
+                            Hidden tests
+                          </div>
+                          <p
                             style={{
                               color:
-                                submissionFeedback.hiddenSummary.passed ===
-                                submissionFeedback.hiddenSummary.total
+                                (verdict.passedCount ?? 0) === verdict.totalCount
                                   ? "var(--ok)"
                                   : "var(--err)",
                             }}
                           >
-                            {submissionFeedback.hiddenSummary.passed} /{" "}
-                            {submissionFeedback.hiddenSummary.total} hidden test
-                            cases passed
-                          </span>
-                          {verdict?.failedTestIndex !== null &&
-                            verdict?.failedTestIndex !== undefined && (
-                              <span className="ml-2 text-[var(--text-dim)]">
-                                (failed on test #{verdict.failedTestIndex + 1})
-                              </span>
-                            )}
+                            {verdict.passedCount ?? 0} / {verdict.totalCount}{" "}
+                            passed
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--text-dim)]">
+                            Hidden case details are never shown.
+                          </p>
                         </div>
-                      ) : (
-                        <p className="text-sm text-[var(--text-dim)]">
-                          Submit your code to view test case results.
-                        </p>
                       )}
                     </div>
                   )}
 
-                  {!runResult && !verdict && !actionError && (
-                    <p className="text-sm text-[var(--text-dim)]">
-                      Run or submit to see results here.
-                    </p>
+                  {!submitting && !verdict && (
+                    <RunResultsPanel session={runSession} loading={running} />
                   )}
                 </div>
               )}

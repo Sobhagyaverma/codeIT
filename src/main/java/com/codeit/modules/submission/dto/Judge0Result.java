@@ -13,6 +13,15 @@ public class Judge0Result {
     private String time;
     private Integer memory;
     private Status status;
+    private String token;
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
+    }
 
     public String getStdout() {
         return stdout;

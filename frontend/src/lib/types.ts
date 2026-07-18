@@ -52,18 +52,21 @@ export interface SubmitRequest {
 
 export type JudgeVerdictDTO = {
   verdict: string;
-  passed: boolean;
+  passed?: boolean;
   failedTestIndex?: number | null;
 
   // hidden test-case counts (sent by the backend)
   passedCount?: number;
   totalCount?: number;
 
-    // overall performance
-  time?: number;    // seconds
-  memory?: number;  // kilobytes
+  // overall performance
+  time?: number; // seconds
+  memory?: number; // kilobytes
 
-  // NEW: data for post-submit test-case panel
+  /** Backend judge path: compile-once | progressive-batch */
+  engine?: "compile-once" | "progressive-batch" | string;
+
+  // data for post-submit test-case panel
   visibleTestCases?: {
     input: string;
     expectedOutput: string;

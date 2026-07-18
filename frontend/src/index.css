@@ -48,3 +48,27 @@ code, pre, .mono { font-family: var(--font-mono); }
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+@keyframes run-result-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.run-result-enter {
+  animation: run-result-in 220ms ease-out both;
+}
+
+.run-case-card {
+  animation: run-result-in 280ms ease-out both;
+}
+
+.run-case-card:nth-child(2) { animation-delay: 40ms; }
+.run-case-card:nth-child(3) { animation-delay: 80ms; }
+.run-case-card:nth-child(4) { animation-delay: 120ms; }
+.run-case-card:nth-child(5) { animation-delay: 160ms; }
