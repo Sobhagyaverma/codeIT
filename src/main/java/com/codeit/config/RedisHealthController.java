@@ -3,6 +3,8 @@ package com.codeit.config;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,6 +14,8 @@ import com.codeit.config.RedisConfig.RedisJsonHelper;
 
 @RestController
 @RequestMapping("/api/health")
+@ConditionalOnProperty(name = "codeit.redis.enabled", havingValue = "true")
+@ConditionalOnBean(StringRedisTemplate.class)
 public class RedisHealthController {
 
     private static final String KEY = "codeit:health";
@@ -26,11 +30,9 @@ public class RedisHealthController {
 
     @GetMapping("/redis")
     public Map<String, Object> redisHealth() {
-        // 1) Plain string SET/GET
         redisTemplate.opsForValue().set(KEY, "ok", 60, TimeUnit.SECONDS);
         String value = redisTemplate.opsForValue().get(KEY);
 
-        // 2) JSON round-trip via RedisJsonHelper
         Map<String, String> payload = Map.of("status", "ok", "source", "codeit");
         String json = redisJsonHelper.toJson(payload);
         redisTemplate.opsForValue().set(KEY + ":json", json, 60, TimeUnit.SECONDS);
