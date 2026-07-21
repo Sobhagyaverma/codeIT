@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Loading, ErrorState, EmptyState } from "../components/Loading";
-import { loadOwnerProfile } from "../features/profile/loadProfile";
+import { Loading, ErrorState } from "../components/Loading";
+import {
+  loadOwnerProfile,
+  loadPublicProfile,
+} from "../features/profile/loadProfile";
 import type { ProfileViewModel } from "../features/profile/types";
 import ProfileDashboard from "../features/profile/components/ProfileDashboard";
 
@@ -14,37 +17,44 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
 
   const isPublicRoute = Boolean(username);
-  const isSelfPublic =
-    !!user &&
-    !!username &&
-    user.uniqueUserId.toLowerCase() === username.toLowerCase();
 
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      if (isPublicRoute && !isSelfPublic) {
+      if (!isPublicRoute && !user) {
         setProfile(null);
         setLoading(false);
         setError(null);
         return;
       }
 
+      if (isPublicRoute && !username) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
-        const data = await loadOwnerProfile(user);
+        let data: ProfileViewModel;
+        if (isPublicRoute && username) {
+          data = await loadPublicProfile(username);
+          const owns =
+            !!user &&
+            user.uniqueUserId.toLowerCase() === username.toLowerCase();
+          data = { ...data, isOwner: owns };
+        } else {
+          data = await loadOwnerProfile();
+        }
         if (!cancelled) setProfile(data);
       } catch (err) {
         if (!cancelled) {
           setError(
             err instanceof Error ? err.message : "Failed to load profile."
           );
+          setProfile(null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -55,32 +65,15 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [user, isPublicRoute, isSelfPublic]);
+  }, [user, isPublicRoute, username]);
 
-  if (!user) {
+  if (!isPublicRoute && !user) {
     return (
       <div className="mx-auto max-w-3xl px-5 py-10">
         <ErrorState message="Log in to view your profile." />
         <Link to="/login" className="mt-4 inline-block text-[var(--info)]">
           Go to login
         </Link>
-      </div>
-    );
-  }
-
-  if (isPublicRoute && !isSelfPublic) {
-    return (
-      <div className="mx-auto max-w-3xl px-5 py-16">
-        <EmptyState
-          message={`Public profile for @${username} is not available yet.`}
-        />
-        <p className="mt-3 text-center text-sm text-[var(--text-dim)]">
-          Backend public profile APIs are pending. Your own profile is ready at{" "}
-          <Link to="/profile" className="text-[var(--info)] hover:underline">
-            /profile
-          </Link>
-          .
-        </p>
       </div>
     );
   }

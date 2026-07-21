@@ -9,7 +9,13 @@ CREATE TABLE IF NOT EXISTS users (
     uniqueuserid  VARCHAR(100) NOT NULL UNIQUE,
     email         VARCHAR(255) NOT NULL UNIQUE,
     password      VARCHAR(255) NOT NULL,
-    role          VARCHAR(20)  NOT NULL DEFAULT 'USER'
+    role          VARCHAR(20) NOT NULL DEFAULT 'USER',
+    bio           TEXT,
+    avatar_url    TEXT,
+    location      TEXT,
+    show_email    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS problems (
@@ -69,3 +75,44 @@ CREATE INDEX IF NOT EXISTS idx_submissions_competition_id ON submissions(competi
 CREATE INDEX IF NOT EXISTS idx_competition_participants_session
     ON competition_participants(session_status)
     WHERE session_status = 'IN_PROGRESS';
+
+CREATE INDEX IF NOT EXISTS idx_submissions_user_created
+    ON submissions(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_submissions_user_accepted
+    ON submissions(user_id, problem_id)
+    WHERE status = 'Accepted';
+
+CREATE TABLE IF NOT EXISTS user_problem_bookmarks (
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    problem_id  INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, problem_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_created
+    ON user_problem_bookmarks(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS user_problem_recent_views (
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    problem_id      INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+    last_viewed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    view_count      INTEGER NOT NULL DEFAULT 1 CHECK (view_count >= 1),
+    PRIMARY KEY (user_id, problem_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_recent_views_user
+    ON user_problem_recent_views(user_id, last_viewed_at DESC);
+
+CREATE TABLE IF NOT EXISTS competition_results (
+    competition_id  INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rank            INTEGER NOT NULL CHECK (rank >= 1),
+    solved          INTEGER NOT NULL DEFAULT 0 CHECK (solved >= 0),
+    score           DOUBLE PRECISION,
+    finalized_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (competition_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_competition_results_user
+    ON competition_results(user_id, finalized_at DESC);

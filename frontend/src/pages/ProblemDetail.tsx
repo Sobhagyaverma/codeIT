@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Editor from "@monaco-editor/react";
-import { getLanguages, getProblem, submitCode } from "../lib/api";
+import {
+  addMyBookmark,
+  getMyBookmarks,
+  getLanguages,
+  getProblem,
+  recordRecentProblem,
+  removeMyBookmark,
+  submitCode,
+} from "../lib/api";
 import type {
   JudgeVerdictDTO,
   LanguageDTO,
@@ -17,11 +25,6 @@ import {
   runSampleTests,
   type SampleRunSession,
 } from "../lib/runSampleTests";
-import {
-  isBookmarked,
-  toggleBookmark,
-  trackRecentView,
-} from "../features/profile/localProfileStorage";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/toast/ToastProvider";
 import { Loading, ErrorState } from "../components/Loading";
@@ -157,8 +160,25 @@ export default function ProblemDetail() {
 
   useEffect(() => {
     if (!user || !Number.isFinite(problemId)) return;
-    trackRecentView(user.id, problemId);
-    setBookmarked(isBookmarked(user.id, problemId));
+    let cancelled = false;
+
+    void recordRecentProblem(problemId).catch(() => {
+      /* non-blocking recent-view write */
+    });
+
+    getMyBookmarks()
+      .then((bookmarks) => {
+        if (!cancelled) {
+          setBookmarked(bookmarks.some((b) => b.id === problemId));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBookmarked(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, problemId]);
 
   useEffect(() => {
@@ -367,14 +387,25 @@ export default function ProblemDetail() {
             {user && (
               <button
                 type="button"
-                onClick={() => {
-                  const next = toggleBookmark(user.id, problemId);
-                  const nowBookmarked = next.includes(problemId);
-                  setBookmarked(nowBookmarked);
-                  pushToast(
-                    nowBookmarked ? "Problem bookmarked." : "Bookmark removed.",
-                    "info"
-                  );
+                onClick={async () => {
+                  try {
+                    if (bookmarked) {
+                      await removeMyBookmark(problemId);
+                      setBookmarked(false);
+                      pushToast("Bookmark removed.", "info");
+                    } else {
+                      await addMyBookmark(problemId);
+                      setBookmarked(true);
+                      pushToast("Problem bookmarked.", "info");
+                    }
+                  } catch (err) {
+                    pushToast(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to update bookmark.",
+                      "error"
+                    );
+                  }
                 }}
                 className={`rounded-md border px-3 py-1.5 text-sm transition ${
                   bookmarked

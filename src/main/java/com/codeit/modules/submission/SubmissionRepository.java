@@ -12,9 +12,7 @@ public class SubmissionRepository {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public int saveSubmission(
-            Submission submission) {
-
+    public int saveSubmission(Submission submission) {
         String sql = """
                     INSERT INTO submissions
                     (
@@ -27,7 +25,7 @@ public class SubmissionRepository {
                         competition_id,
                         memory
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?,?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
 
         return jdbcTemplate.update(
@@ -43,12 +41,11 @@ public class SubmissionRepository {
     }
 
     public List<Submission> getUserSubmissions(Integer userId) {
-
         String sql = """
                     SELECT *
                     FROM submissions
                     WHERE user_id = ?
-                    ORDER BY id DESC
+                    ORDER BY created_at DESC NULLS LAST, id DESC
                 """;
 
         return jdbcTemplate.query(
@@ -58,12 +55,11 @@ public class SubmissionRepository {
     }
 
     public List<Submission> getProblemSubmissions(Integer problemId) {
-
         String sql = """
                     SELECT *
                     FROM submissions
                     WHERE problem_id = ?
-                    ORDER BY id DESC
+                    ORDER BY created_at DESC NULLS LAST, id DESC
                 """;
 
         return jdbcTemplate.query(

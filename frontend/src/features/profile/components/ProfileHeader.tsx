@@ -70,11 +70,12 @@ export default function ProfileHeader({
             </p>
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-dim)]">
               {identity.location && <span>📍 {identity.location}</span>}
-              <span>
-                Joined {formatDate(identity.joinedAt)}
-                {identity.joinedAtSource === "demo" ? " · demo" : ""}
-              </span>
-              {identity.showEmail && <span>{identity.email}</span>}
+              {identity.joinedAt ? (
+                <span>Joined {formatDate(identity.joinedAt)}</span>
+              ) : null}
+              {identity.showEmail && identity.email && (
+                <span>{identity.email}</span>
+              )}
             </div>
           </div>
           <div className="rounded-xl border border-[var(--line)] bg-[var(--bg-inset)] p-3 text-xs text-[var(--text-dim)]">
@@ -82,8 +83,7 @@ export default function ProfileHeader({
               Profile note
             </div>
             Public profiles show initials/avatar and hide email by default.
-            Rating, streaks, and heatmap currently use labeled demo analytics
-            until backend APIs ship.
+            Contest rating and achievements appear when available.
           </div>
         </div>
       </div>

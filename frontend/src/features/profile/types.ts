@@ -1,19 +1,23 @@
 export type ProfileTab = "overview" | "submissions" | "contests" | "saved";
 
-export type DataSource = "real" | "demo" | "local";
+export type ProblemSummary = {
+  id: number;
+  title: string;
+  difficulty: string;
+  topics: string[];
+};
 
 export type ProfileIdentity = {
   id: number;
   name: string;
   username: string;
-  email: string;
+  email: string | null;
   role: "USER" | "ADMIN";
-  bio: string;
-  location: string;
-  avatarUrl: string;
+  bio: string | null;
+  location: string | null;
+  avatarUrl: string | null;
   showEmail: boolean;
   joinedAt: string | null;
-  joinedAtSource: DataSource;
 };
 
 export type DifficultyStats = {
@@ -40,7 +44,7 @@ export type LanguageUsage = {
 };
 
 export type ActivityDay = {
-  date: string; // YYYY-MM-DD
+  date: string;
   count: number;
 };
 
@@ -59,7 +63,6 @@ export type ProfileSubmissionRow = {
   runtime: number | null;
   memory: number | null;
   submittedAt: string | null;
-  source: DataSource;
 };
 
 export type ContestHistoryRow = {
@@ -70,14 +73,6 @@ export type ContestHistoryRow = {
   score: number | null;
   date: string | null;
   ratingDelta: number | null;
-  source: DataSource;
-};
-
-export type ProblemSummary = {
-  id: number;
-  title: string;
-  difficulty: string;
-  topics: string[];
 };
 
 export type Achievement = {
@@ -85,7 +80,6 @@ export type Achievement = {
   title: string;
   description: string;
   earned: boolean;
-  source: DataSource;
 };
 
 export type PersonalBests = {
@@ -108,14 +102,12 @@ export type ProfileStats = {
   difficulty: DifficultyStats;
   currentStreak: number;
   longestStreak: number;
-  streaksSource: DataSource;
   contestBestRank: number | null;
-  contestBestRankSource: DataSource;
   rating: number | null;
-  ratingSource: DataSource;
 };
 
-export type ProfileViewModel = {
+/** Backend aggregate DTO from GET /api/profile/me and /api/profile/{username} */
+export type ProfileResponse = {
   identity: ProfileIdentity;
   stats: ProfileStats;
   topics: TopicProgress[];
@@ -128,7 +120,7 @@ export type ProfileViewModel = {
   contestHistory: ContestHistoryRow[];
   bookmarked: ProblemSummary[];
   recentlyViewed: ProblemSummary[];
-  achievements: Achievement[];
+  achievements: Achievement[] | unknown[];
   personalBests: PersonalBests;
   activeContest: {
     id: number;
@@ -136,6 +128,14 @@ export type ProfileViewModel = {
     status: string;
   } | null;
   continueProblem: ProblemSummary | null;
-  demoSections: string[];
+};
+
+export type ProfileSubmissionsPage = {
+  items: ProfileSubmissionRow[];
+  nextCursor: number | null;
+};
+
+export type ProfileViewModel = Omit<ProfileResponse, "achievements"> & {
+  achievements: Achievement[];
   isOwner: boolean;
 };

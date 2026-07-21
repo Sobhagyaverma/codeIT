@@ -120,6 +120,168 @@ export const deleteUser = (id: number) =>
     }
   );
 
+/* ---------------- Profile ---------------- */
+
+export type ProfileProblemSummary = {
+  id: number;
+  title: string;
+  difficulty: string;
+  topics: string[];
+};
+
+export type ProfileSubmissionRow = {
+  id: number;
+  problemId: number;
+  problemTitle: string;
+  difficulty: string;
+  verdict: string;
+  language: string;
+  runtime: number | null;
+  memory: number | null;
+  submittedAt: string | null;
+};
+
+export type ProfileContestHistory = {
+  competitionId: number;
+  title: string;
+  rank: number | null;
+  solved: number;
+  score: number | null;
+  date: string | null;
+  ratingDelta: number | null;
+};
+
+export type ProfileResponse = {
+  identity: {
+    id: number;
+    name: string;
+    username: string;
+    email: string | null;
+    role: "USER" | "ADMIN";
+    bio: string | null;
+    location: string | null;
+    avatarUrl: string | null;
+    showEmail: boolean;
+    joinedAt: string | null;
+  };
+  stats: {
+    totalSolved: number;
+    totalSubmissions: number;
+    acceptanceRate: number;
+    totalRuntimeSeconds: number;
+    difficulty: {
+      easy: number;
+      medium: number;
+      hard: number;
+      totalAvailable: {
+        easy: number;
+        medium: number;
+        hard: number;
+      };
+    };
+    currentStreak: number;
+    longestStreak: number;
+    contestBestRank: number | null;
+    rating: number | null;
+  };
+  topics: Array<{ topic: string; solved: number; total: number }>;
+  languages: Array<{ language: string; count: number; percent: number }>;
+  heatmap: Array<{ date: string; count: number }>;
+  weeklyActivity: Array<{ label: string; count: number }>;
+  monthlyActivity: Array<{ label: string; count: number }>;
+  recentSubmissions: ProfileSubmissionRow[];
+  recentSolved: ProfileProblemSummary[];
+  contestHistory: ProfileContestHistory[];
+  bookmarked: ProfileProblemSummary[];
+  recentlyViewed: ProfileProblemSummary[];
+  achievements: unknown[];
+  personalBests: {
+    fastestAccepted: {
+      problemTitle: string;
+      runtime: number;
+      language: string;
+    } | null;
+    hardestSolved: {
+      problemTitle: string;
+      difficulty: string;
+    } | null;
+  };
+  activeContest: {
+    id: number;
+    title: string;
+    status: string;
+  } | null;
+  continueProblem: ProfileProblemSummary | null;
+};
+
+export type ProfileSubmissionsPage = {
+  items: ProfileSubmissionRow[];
+  nextCursor: number | null;
+};
+
+export const getMyProfile = () =>
+  request<ProfileResponse>("/api/profile/me");
+
+export const getPublicProfile = (username: string) =>
+  request<ProfileResponse>(
+    `/api/profile/${encodeURIComponent(username)}`
+  );
+
+export const updateMyProfile = (data: {
+  bio: string | null;
+  location: string | null;
+  avatarUrl: string | null;
+  showEmail: boolean;
+}) =>
+  request<User>("/api/profile/me", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+
+export const changeMyPassword = (data: {
+  currentPassword: string;
+  newPassword: string;
+}) =>
+  request<string>("/api/profile/me/password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getMyBookmarks = () =>
+  request<ProfileProblemSummary[]>("/api/profile/me/bookmarks");
+
+export const addMyBookmark = (problemId: number) =>
+  request<string>(`/api/profile/me/bookmarks/${problemId}`, {
+    method: "POST",
+  });
+
+export const removeMyBookmark = (problemId: number) =>
+  request<string>(`/api/profile/me/bookmarks/${problemId}`, {
+    method: "DELETE",
+  });
+
+export const getMyRecentProblems = () =>
+  request<ProfileProblemSummary[]>("/api/profile/me/recent-problems");
+
+export const recordRecentProblem = (problemId: number) =>
+  request<string>(`/api/profile/me/recent-problems/${problemId}`, {
+    method: "POST",
+  });
+
+export const getMyProfileSubmissions = (
+  limit = 20,
+  cursor?: number
+) => {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor !== undefined) params.set("cursor", String(cursor));
+  return request<ProfileSubmissionsPage>(
+    `/api/profile/me/submissions?${params}`
+  );
+};
+
+export const getMyContestHistory = () =>
+  request<ProfileContestHistory[]>("/api/profile/me/contests");
+
 /* ---------------- Problems ---------------- */
 
 export const getProblems = () =>

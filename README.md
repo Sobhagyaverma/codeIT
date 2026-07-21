@@ -298,15 +298,22 @@ The schema creates:
 - `competition_problems`
 - `competition_participants`
 - `submissions`
+- `user_problem_bookmarks`
+- `user_problem_recent_views`
+- `competition_results`
 
 For an older installation, apply the relevant manual migrations:
 
 ```bash
 psql -U postgres -d codeit -f schema/users_name_uniqueuserid.sql
 psql -U postgres -d codeit -f schema/competition_session.sql
+psql -U postgres -d codeit -f schema/profile.sql
 ```
 
 There is currently no Flyway or Liquibase migration runner, so schema setup is manual.
+
+Profile endpoint contracts and frontend examples are documented in
+[`docs/PROFILE_API_INTEGRATION.md`](docs/PROFILE_API_INTEGRATION.md).
 
 ### 3. Start Redis
 
@@ -716,6 +723,7 @@ CodeIT/
 ├── schema/
 │   ├── schema.sql
 │   ├── competition_session.sql
+│   ├── profile.sql
 │   └── users_name_uniqueuserid.sql
 ├── src/
 │   ├── main/java/com/codeit/
@@ -724,6 +732,7 @@ CodeIT/
 │   │       ├── auth/         # Login, JWT, authenticated principal
 │   │       ├── competition/  # Contests, sessions, leaderboard, events
 │   │       ├── problems/     # Problem APIs, repository, cache
+│   │       ├── profile/      # Profile aggregate, settings, bookmarks, activity
 │   │       ├── submission/   # Judge0 and judging engines
 │   │       └── user/         # Registration and admin user APIs
 │   ├── main/resources/

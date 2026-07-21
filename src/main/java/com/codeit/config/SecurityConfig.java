@@ -67,16 +67,22 @@ public class SecurityConfig {
                 .securityContext(securityContext -> securityContext
                         .securityContextRepository(new RequestAttributeSecurityContextRepository())
                         .requireExplicitSave(true))
-                .authorizeHttpRequests(auth -> auth
+                        .authorizeHttpRequests(auth -> auth
+                                .requestMatchers(
+                                        paths.matcher("/api/auth/login"),
+                                        paths.matcher("/api/user/register"),
+                                        paths.matcher("/api/health"),
+                                        paths.matcher("/api/health/**"),
+                                        paths.matcher("/ws"),
+                                        paths.matcher("/ws/**"))
+                                .permitAll()
                         .requestMatchers(
-                                paths.matcher("/api/auth/login"),
-                                paths.matcher("/api/user/register"),
-                                paths.matcher("/api/health"),
-                                paths.matcher("/api/health/**"),
-                                paths.matcher("/ws"),
-                                paths.matcher("/ws/**"))
+                                paths.matcher("/api/profile/me"),
+                                paths.matcher("/api/profile/me/**"))
+                        .authenticated()
+                        .requestMatchers(paths.matcher(HttpMethod.GET, "/api/profile/*"))
                         .permitAll()
-                        .requestMatchers(paths.matcher("/api/user/**")).hasRole("ADMIN")
+                                .requestMatchers(paths.matcher("/api/user/**")).hasRole("ADMIN")
                         .requestMatchers(paths.matcher(HttpMethod.POST, "/api/problems")).hasRole("ADMIN")
                         .requestMatchers(paths.matcher("/api/competitions/create")).hasRole("ADMIN")
                         .requestMatchers(paths.matcher("/api/competitions/addProblemsTo/**")).hasRole("ADMIN")

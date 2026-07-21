@@ -1,4 +1,5 @@
 import type { DifficultyStats, LanguageUsage, TopicProgress, WeeklyBucket } from "../types";
+import { ExpandToggle, useExpandableList } from "./ExpandableList";
 
 export function DifficultyProgress({
   difficulty,
@@ -55,6 +56,11 @@ export function DifficultyProgress({
 }
 
 export function TopicProgressList({ topics }: { topics: TopicProgress[] }) {
+  const sorted = [...topics].sort(
+    (a, b) => b.solved - a.solved || b.total - a.total
+  );
+  const list = useExpandableList(sorted);
+
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">Topic progress</h2>
@@ -62,7 +68,7 @@ export function TopicProgressList({ topics }: { topics: TopicProgress[] }) {
         <p className="text-sm text-[var(--text-dim)]">No topic progress yet.</p>
       ) : (
         <div className="space-y-3">
-          {topics.map((t) => {
+          {list.visible.map((t) => {
             const pct = t.total ? Math.round((t.solved / t.total) * 100) : 0;
             return (
               <div key={t.topic}>
@@ -83,11 +89,21 @@ export function TopicProgressList({ topics }: { topics: TopicProgress[] }) {
           })}
         </div>
       )}
+      {list.canToggle && (
+        <ExpandToggle
+          expanded={list.expanded}
+          hiddenCount={list.hiddenCount}
+          onToggle={list.toggle}
+        />
+      )}
     </section>
   );
 }
 
 export function LanguageBreakdown({ languages }: { languages: LanguageUsage[] }) {
+  const sorted = [...languages].sort((a, b) => b.percent - a.percent);
+  const list = useExpandableList(sorted);
+
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">Language usage</h2>
@@ -95,7 +111,7 @@ export function LanguageBreakdown({ languages }: { languages: LanguageUsage[] })
         <p className="text-sm text-[var(--text-dim)]">No submissions yet.</p>
       ) : (
         <div className="space-y-2">
-          {languages.map((lang) => (
+          {list.visible.map((lang) => (
             <div key={lang.language} className="flex items-center gap-3">
               <div className="w-20 truncate text-xs capitalize text-[var(--text-dim)]">
                 {lang.language}
@@ -113,6 +129,13 @@ export function LanguageBreakdown({ languages }: { languages: LanguageUsage[] })
           ))}
         </div>
       )}
+      {list.canToggle && (
+        <ExpandToggle
+          expanded={list.expanded}
+          hiddenCount={list.hiddenCount}
+          onToggle={list.toggle}
+        />
+      )}
     </section>
   );
 }
@@ -120,23 +143,14 @@ export function LanguageBreakdown({ languages }: { languages: LanguageUsage[] })
 export function ActivityBars({
   title,
   buckets,
-  demo,
 }: {
   title: string;
   buckets: WeeklyBucket[];
-  demo?: boolean;
 }) {
   const max = Math.max(1, ...buckets.map((b) => b.count));
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        {demo && (
-          <span className="rounded border border-[var(--warn)]/30 bg-[var(--warn)]/10 px-1.5 py-0.5 text-[10px] text-[var(--warn)]">
-            Demo
-          </span>
-        )}
-      </div>
+      <h2 className="mb-3 text-sm font-semibold">{title}</h2>
       <div className="flex h-32 items-end gap-2">
         {buckets.map((b) => (
           <div key={b.label} className="flex flex-1 flex-col items-center gap-1">

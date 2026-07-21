@@ -18,10 +18,8 @@ function levelFor(count: number) {
 
 export default function ContributionHeatmap({
   days,
-  demo,
 }: {
   days: ActivityDay[];
-  demo?: boolean;
 }) {
   const weeks: ActivityDay[][] = [];
   for (let i = 0; i < days.length; i += 7) {
@@ -30,14 +28,7 @@ export default function ContributionHeatmap({
 
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">Contribution heatmap</h2>
-        {demo && (
-          <span className="rounded border border-[var(--warn)]/30 bg-[var(--warn)]/10 px-1.5 py-0.5 text-[10px] text-[var(--warn)]">
-            Demo analytics
-          </span>
-        )}
-      </div>
+      <h2 className="mb-3 text-sm font-semibold">Contribution heatmap</h2>
       <div className="overflow-x-auto">
         <div className="inline-flex gap-1">
           {weeks.map((week, wi) => (

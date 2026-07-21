@@ -2,6 +2,7 @@ package com.codeit.modules.user;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,6 +87,40 @@ public class UserRepository {
         }
     }
 
+    public int updateProfile(
+            int userId,
+            String bio,
+            String location,
+            String avatarUrl,
+            boolean showEmail) {
+        String sql = """
+                UPDATE users
+                SET bio = ?,
+                    location = ?,
+                    avatar_url = ?,
+                    show_email = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+                """;
+        return jdbcTemplate.update(
+                sql,
+                bio,
+                location,
+                avatarUrl,
+                showEmail,
+                userId);
+    }
+
+    public int updatePassword(int userId, String passwordHash) {
+        String sql = """
+                UPDATE users
+                SET password = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+                """;
+        return jdbcTemplate.update(sql, passwordHash, userId);
+    }
+
     private User mapUser(ResultSet rs) throws SQLException {
         User user = new User();
         user.setId(rs.getString("id"));
@@ -94,6 +129,28 @@ public class UserRepository {
         user.setEmail(rs.getString("email"));
         user.setPassword(rs.getString("password"));
         user.setRole(rs.getString("role"));
+
+        user.setBio(rs.getString("bio"));
+        user.setAvatarUrl(rs.getString("avatar_url"));
+        user.setLocation(rs.getString("location"));
+
+        Boolean showEmail = (Boolean) rs.getObject("show_email");
+        user.setShowEmail(showEmail != null ? showEmail : Boolean.FALSE);
+
+        Timestamp createdAt = rs.getTimestamp("created_at");
+        if (createdAt != null) {
+            user.setCreatedAt(createdAt.toInstant());
+        } else {
+            user.setCreatedAt(null);
+        }
+
+        Timestamp updatedAt = rs.getTimestamp("updated_at");
+        if (updatedAt != null) {
+            user.setUpdatedAt(updatedAt.toInstant());
+        } else {
+            user.setUpdatedAt(null);
+        }
+
         return user;
     }
 }

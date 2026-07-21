@@ -1,5 +1,7 @@
 package com.codeit.modules.submission;
 
+import java.time.Instant;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,4 +22,5 @@ public class Submission {
     private Double executionTime;
     private Integer memoryUsed;
     private Integer competitionId;
+    private Instant createdAt;
 }

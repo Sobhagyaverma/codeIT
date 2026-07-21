@@ -1,43 +1,68 @@
 import {
-  getAllCompetitions,
-  getLeaderboard,
-  getProblems,
-  getUserSubmissions,
+  getMyProfile,
+  getPublicProfile,
+  type ProfileResponse,
 } from "../../lib/api";
-import type { LeaderboardEntry, User } from "../../lib/types";
-import { buildProfileViewModel } from "./buildProfile";
-import type { ProfileViewModel } from "./types";
+import type {
+  Achievement,
+  ProfileViewModel,
+} from "./types";
 
-export async function loadOwnerProfile(user: User): Promise<ProfileViewModel> {
-  const [submissions, problems, competitions] = await Promise.all([
-    getUserSubmissions(user.id).catch(() => []),
-    getProblems().catch(() => []),
-    getAllCompetitions().catch(() => []),
-  ]);
-
-  const competitionIds = competitions.slice(0, 12).map((c) => c.id);
-  const boards = await Promise.all(
-    competitionIds.map(async (id) => {
-      try {
-        const board = await getLeaderboard(id);
-        return [id, board] as const;
-      } catch {
-        return [id, [] as LeaderboardEntry[]] as const;
-      }
+function normalizeAchievements(raw: unknown[]): Achievement[] {
+  return (raw || [])
+    .map((item, index) => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Record<string, unknown>;
+      const title = typeof row.title === "string" ? row.title : null;
+      if (!title) return null;
+      return {
+        id: typeof row.id === "string" ? row.id : `achievement-${index}`,
+        title,
+        description:
+          typeof row.description === "string" ? row.description : "",
+        earned: Boolean(row.earned ?? true),
+      } satisfies Achievement;
     })
-  );
+    .filter((a): a is Achievement => Boolean(a));
+}
 
-  const leaderboards: Record<number, LeaderboardEntry[]> = {};
-  for (const [id, board] of boards) {
-    leaderboards[id] = board;
-  }
+export function toProfileViewModel(
+  response: ProfileResponse,
+  isOwner: boolean
+): ProfileViewModel {
+  return {
+    ...response,
+    identity: {
+      ...response.identity,
+      role: response.identity.role === "ADMIN" ? "ADMIN" : "USER",
+      showEmail: Boolean(response.identity.showEmail),
+    },
+    stats: {
+      ...response.stats,
+      rating: response.stats.rating ?? null,
+      contestBestRank: response.stats.contestBestRank ?? null,
+    },
+    languages: (response.languages || []).map((lang) => ({
+      ...lang,
+      percent: Number(lang.percent) || 0,
+    })),
+    achievements: normalizeAchievements(response.achievements || []),
+    personalBests: response.personalBests || {
+      fastestAccepted: null,
+      hardestSolved: null,
+    },
+    isOwner,
+  };
+}
 
-  return buildProfileViewModel({
-    user,
-    isOwner: true,
-    submissions,
-    problems,
-    competitions,
-    leaderboards,
-  });
+export async function loadOwnerProfile(): Promise<ProfileViewModel> {
+  const response = await getMyProfile();
+  return toProfileViewModel(response, true);
+}
+
+export async function loadPublicProfile(
+  username: string
+): Promise<ProfileViewModel> {
+  const response = await getPublicProfile(username);
+  return toProfileViewModel(response, false);
 }

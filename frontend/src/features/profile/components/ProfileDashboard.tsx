@@ -15,8 +15,8 @@ import {
   ContestHistoryPanel,
   PersonalBestsPanel,
   ProblemListPanel,
-  RecentSubmissionsPanel,
 } from "./HistoryPanels";
+import SubmissionsTab from "./SubmissionsTab";
 
 const TABS: { id: ProfileTab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -43,12 +43,6 @@ export default function ProfileDashboard({
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
-      <div className="rounded-xl border border-[var(--warn)]/25 bg-[var(--warn)]/5 px-4 py-3 text-sm text-[var(--text-dim)]">
-        <span className="font-medium text-[var(--warn)]">Demo analytics:</span>{" "}
-        {profile.demoSections.join(", ")}. Real solved counts, acceptance, and
-        language usage come from your submissions.
-      </div>
-
       <ProfileHeader identity={profile.identity} isOwner={profile.isOwner} />
       <ProfileStatsGrid stats={profile.stats} />
 
@@ -82,17 +76,15 @@ export default function ProfileDashboard({
             activeContest={profile.activeContest}
           />
           <div className="grid gap-4 lg:grid-cols-2">
-            <ContributionHeatmap days={profile.heatmap} demo />
+            <ContributionHeatmap days={profile.heatmap} />
             <DifficultyProgress difficulty={profile.stats.difficulty} />
             <ActivityBars
               title="Weekly activity"
               buckets={profile.weeklyActivity}
-              demo
             />
             <ActivityBars
               title="Monthly activity"
               buckets={profile.monthlyActivity}
-              demo
             />
             <TopicProgressList topics={profile.topics} />
             <LanguageBreakdown languages={profile.languages} />
@@ -107,13 +99,21 @@ export default function ProfileDashboard({
               problems={profile.recentSolved}
               empty="Accepted problems will appear here."
             />
-            <RecentSubmissionsPanel rows={profile.recentSubmissions.slice(0, 8)} />
+            <SubmissionsTab
+              initialRows={profile.recentSubmissions.slice(0, 8)}
+              isOwner={false}
+              title="Recent submissions"
+            />
           </div>
         </div>
       )}
 
       {active === "submissions" && (
-        <RecentSubmissionsPanel rows={profile.recentSubmissions} />
+        <SubmissionsTab
+          initialRows={profile.recentSubmissions}
+          isOwner={profile.isOwner}
+          paginate={profile.isOwner}
+        />
       )}
 
       {active === "contests" && (

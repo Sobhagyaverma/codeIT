@@ -2,27 +2,71 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/toast/ToastProvider";
-import { ErrorState } from "../components/Loading";
+import { ErrorState, Loading } from "../components/Loading";
 import {
-  loadProfileMeta,
-  saveProfileMeta,
-  type LocalProfileMeta,
-} from "../features/profile/localProfileStorage";
+  ApiError,
+  changeMyPassword,
+  getMyProfile,
+  updateMyProfile,
+} from "../lib/api";
 import { initialsFromName } from "../features/profile/format";
+
+type ProfileForm = {
+  bio: string;
+  location: string;
+  avatarUrl: string;
+  showEmail: boolean;
+};
 
 export default function ProfileSettings() {
   const { user } = useAuth();
   const { pushToast } = useToast();
-  const [form, setForm] = useState<LocalProfileMeta>({
+  const [form, setForm] = useState<ProfileForm>({
     bio: "",
     location: "",
     avatarUrl: "",
     showEmail: false,
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    setForm(loadProfileMeta(user.id));
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const profile = await getMyProfile();
+        if (cancelled) return;
+        setForm({
+          bio: profile.identity.bio || "",
+          location: profile.identity.location || "",
+          avatarUrl: profile.identity.avatarUrl || "",
+          showEmail: Boolean(profile.identity.showEmail),
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : "Failed to load profile."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   if (!user) {
@@ -33,17 +77,81 @@ export default function ProfileSettings() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-10">
+        <Loading label="Loading settings" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-10">
+        <ErrorState message={loadError} />
+      </div>
+    );
+  }
+
   const initials = initialsFromName(user.name);
 
-  const onSave = (e: React.FormEvent) => {
+  const onSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveProfileMeta(user.id, {
-      bio: form.bio.trim(),
-      location: form.location.trim(),
-      avatarUrl: form.avatarUrl.trim(),
-      showEmail: form.showEmail,
-    });
-    pushToast("Profile settings saved locally.", "success");
+    setSaving(true);
+    try {
+      await updateMyProfile({
+        bio: form.bio.trim() || null,
+        location: form.location.trim() || null,
+        avatarUrl: form.avatarUrl.trim() || null,
+        showEmail: form.showEmail,
+      });
+      pushToast("Profile updated.", "success");
+    } catch (err) {
+      pushToast(
+        err instanceof Error ? err.message : "Failed to update profile.",
+        "error"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      pushToast("New password must be at least 6 characters.", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      pushToast("New password and confirmation do not match.", "error");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await changeMyPassword({
+        currentPassword,
+        newPassword,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      pushToast("Password updated.", "success");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 400) {
+        pushToast(
+          err.message || "Current password is incorrect.",
+          "error"
+        );
+      } else {
+        pushToast(
+          err instanceof Error ? err.message : "Failed to change password.",
+          "error"
+        );
+      }
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   return (
@@ -57,7 +165,7 @@ export default function ProfileSettings() {
             Profile settings
           </h1>
           <p className="mt-1 text-sm text-[var(--text-dim)]">
-            Stored in your browser until backend profile APIs are ready.
+            Update how you appear on CodeIT.
           </p>
         </div>
         <Link to="/profile" className="text-sm text-[var(--info)] hover:underline">
@@ -129,26 +237,48 @@ export default function ProfileSettings() {
 
         <button
           type="submit"
-          className="rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0a0d12] hover:brightness-110"
+          disabled={saving}
+          className="rounded-md bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0a0d12] hover:brightness-110 disabled:opacity-50"
         >
-          Save changes
+          {saving ? "Saving…" : "Save changes"}
         </button>
       </form>
 
-      <section className="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)] p-5 opacity-80">
+      <form
+        onSubmit={onChangePassword}
+        className="mt-5 space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)] p-5"
+      >
         <h2 className="text-sm font-semibold">Change password</h2>
-        <p className="mt-2 text-sm text-[var(--text-dim)]">
-          Password changes require a backend endpoint. This UI is reserved and
-          currently disabled.
-        </p>
+        <Field
+          label="Current password"
+          value={currentPassword}
+          onChange={setCurrentPassword}
+          type="password"
+          autoComplete="current-password"
+        />
+        <Field
+          label="New password"
+          value={newPassword}
+          onChange={setNewPassword}
+          type="password"
+          autoComplete="new-password"
+          placeholder="At least 6 characters"
+        />
+        <Field
+          label="Confirm new password"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          type="password"
+          autoComplete="new-password"
+        />
         <button
-          type="button"
-          disabled
-          className="mt-3 rounded-md border border-[var(--line)] px-3 py-2 text-sm text-[var(--text-dim)]"
+          type="submit"
+          disabled={changingPassword}
+          className="rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-4 py-2.5 text-sm font-medium text-[var(--text)] hover:border-[var(--info)] disabled:opacity-50"
         >
-          Coming soon
+          {changingPassword ? "Updating…" : "Update password"}
         </button>
-      </section>
+      </form>
     </div>
   );
 }
@@ -158,11 +288,15 @@ function Field({
   value,
   onChange,
   placeholder,
+  type = "text",
+  autoComplete,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  type?: string;
+  autoComplete?: string;
 }) {
   return (
     <div>
@@ -170,9 +304,11 @@ function Field({
         {label}
       </label>
       <input
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        autoComplete={autoComplete}
         className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
       />
     </div>

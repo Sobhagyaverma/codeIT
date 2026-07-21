@@ -12,12 +12,15 @@ import {
   formatRuntime,
   verdictColor,
 } from "../format";
+import { ExpandToggle, useExpandableList } from "./ExpandableList";
 
 export function RecentSubmissionsPanel({
   rows,
 }: {
   rows: ProfileSubmissionRow[];
 }) {
+  const list = useExpandableList(rows);
+
   if (!rows.length) {
     return (
       <EmptyCard
@@ -31,7 +34,7 @@ export function RecentSubmissionsPanel({
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">Recent submissions</h2>
       <div className="space-y-2">
-        {rows.map((row) => (
+        {list.visible.map((row) => (
           <Link
             key={row.id}
             to={`/problems/${row.problemId}`}
@@ -45,7 +48,6 @@ export function RecentSubmissionsPanel({
                 <div className="mt-0.5 text-xs text-[var(--text-dim)]">
                   {row.language} · {formatRuntime(row.runtime)} ·{" "}
                   {formatRelative(row.submittedAt)}
-                  {row.source === "demo" ? " · demo time" : ""}
                 </div>
               </div>
               <span
@@ -61,6 +63,13 @@ export function RecentSubmissionsPanel({
           </Link>
         ))}
       </div>
+      {list.canToggle && (
+        <ExpandToggle
+          expanded={list.expanded}
+          hiddenCount={list.hiddenCount}
+          onToggle={list.toggle}
+        />
+      )}
     </section>
   );
 }
@@ -70,6 +79,8 @@ export function ContestHistoryPanel({
 }: {
   rows: ContestHistoryRow[];
 }) {
+  const list = useExpandableList(rows);
+
   if (!rows.length) {
     return (
       <EmptyCard
@@ -81,16 +92,9 @@ export function ContestHistoryPanel({
 
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Contest history</h2>
-        {rows.some((r) => r.source === "demo") && (
-          <span className="rounded border border-[var(--warn)]/30 bg-[var(--warn)]/10 px-1.5 py-0.5 text-[10px] text-[var(--warn)]">
-            Demo analytics
-          </span>
-        )}
-      </div>
+      <h2 className="mb-3 text-sm font-semibold">Contest history</h2>
       <div className="space-y-2">
-        {rows.map((row) => (
+        {list.visible.map((row) => (
           <div
             key={`${row.competitionId}-${row.title}`}
             className="rounded-lg border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2.5"
@@ -124,6 +128,13 @@ export function ContestHistoryPanel({
           </div>
         ))}
       </div>
+      {list.canToggle && (
+        <ExpandToggle
+          expanded={list.expanded}
+          hiddenCount={list.hiddenCount}
+          onToggle={list.toggle}
+        />
+      )}
     </section>
   );
 }
@@ -137,6 +148,8 @@ export function ProblemListPanel({
   problems: ProblemSummary[];
   empty: string;
 }) {
+  const list = useExpandableList(problems);
+
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">{title}</h2>
@@ -144,7 +157,7 @@ export function ProblemListPanel({
         <p className="text-sm text-[var(--text-dim)]">{empty}</p>
       ) : (
         <div className="space-y-2">
-          {problems.map((p) => (
+          {list.visible.map((p) => (
             <Link
               key={p.id}
               to={`/problems/${p.id}`}
@@ -158,6 +171,13 @@ export function ProblemListPanel({
           ))}
         </div>
       )}
+      {list.canToggle && (
+        <ExpandToggle
+          expanded={list.expanded}
+          hiddenCount={list.hiddenCount}
+          onToggle={list.toggle}
+        />
+      )}
     </section>
   );
 }
@@ -167,31 +187,41 @@ export function AchievementsPanel({
 }: {
   achievements: Achievement[];
 }) {
+  const list = useExpandableList(achievements);
+
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Achievements</h2>
-        <span className="rounded border border-[var(--warn)]/30 bg-[var(--warn)]/10 px-1.5 py-0.5 text-[10px] text-[var(--warn)]">
-          Demo
-        </span>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {achievements.map((a) => (
-          <div
-            key={a.id}
-            className={`rounded-lg border px-3 py-2.5 ${
-              a.earned
-                ? "border-[var(--accent)]/40 bg-[var(--accent)]/5"
-                : "border-[var(--line)] bg-[var(--bg-inset)] opacity-60"
-            }`}
-          >
-            <div className="text-sm font-medium">{a.title}</div>
-            <p className="mt-1 text-xs text-[var(--text-dim)]">
-              {a.description}
-            </p>
-          </div>
-        ))}
-      </div>
+      <h2 className="mb-3 text-sm font-semibold">Achievements</h2>
+      {achievements.length === 0 ? (
+        <p className="text-sm text-[var(--text-dim)]">
+          Achievements are not available yet.
+        </p>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {list.visible.map((a) => (
+            <div
+              key={a.id}
+              className={`rounded-lg border px-3 py-2.5 ${
+                a.earned
+                  ? "border-[var(--accent)]/40 bg-[var(--accent)]/5"
+                  : "border-[var(--line)] bg-[var(--bg-inset)] opacity-60"
+              }`}
+            >
+              <div className="text-sm font-medium">{a.title}</div>
+              <p className="mt-1 text-xs text-[var(--text-dim)]">
+                {a.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      {list.canToggle && (
+        <ExpandToggle
+          expanded={list.expanded}
+          hiddenCount={list.hiddenCount}
+          onToggle={list.toggle}
+        />
+      )}
     </section>
   );
 }
