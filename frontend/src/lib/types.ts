@@ -97,10 +97,18 @@ export interface Competition {
   id: number;
   title?: string;
   name?: string;
+  description?: string | null;
   createdBy?: number;
   startTime: string;
   endTime: string;
   status: "UPCOMING" | "ACTIVE" | "ENDED";
+  durationMinutes?: number;
+  contestType?: string;
+  difficulty?: string;
+  isFeatured?: boolean;
+  createdAt?: string;
+  problemCount?: number;
+  participantCount?: number;
   [key: string]: unknown;
 }
 

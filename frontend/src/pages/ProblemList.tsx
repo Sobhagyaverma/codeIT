@@ -1,268 +1,353 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Dices, SlidersHorizontal } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { ErrorState } from "../components/Loading";
+import { usePracticeCatalog } from "../features/practice/hooks/usePracticeCatalog";
 import {
-  getProblems,
-  getProblemsByDifficulty,
-  searchProblems,
-} from "../lib/api";
-import type { ProblemPublicDTO } from "../lib/types";
-import { Loading, ErrorState, EmptyState } from "../components/Loading";
-import DifficultyBadge from "../components/DifficultyBadge";
+  useUrlFilters,
+  type SortKey,
+} from "../features/practice/hooks/useUrlFilters";
+import CatalogProblemRow from "../features/practice/components/CatalogProblemRow";
+import OverviewStats from "../features/practice/components/OverviewStats";
+import PracticeSidebar from "../features/practice/components/PracticeSidebar";
+import PracticeSkeleton from "../features/practice/components/PracticeSkeleton";
+import EmptyPractice from "../features/practice/components/EmptyPractice";
+import SearchBar from "../features/practice/components/SearchBar";
+import FilterChips from "../features/practice/components/FilterChips";
+import type { PracticeProblem } from "../features/practice/types";
+import { difficultyRank } from "../features/practice/utils";
 
-const DIFFICULTIES = ["ALL", "EASY", "MEDIUM", "HARD"];
-
-function parseTopics(topics: unknown): string[] {
-  if (!topics) return [];
-
-  if (Array.isArray(topics)) {
-    return topics.flatMap((item) => parseTopics(item));
+function hashSeed(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
+  return h >>> 0;
+}
 
-  if (typeof topics === "string") {
-    try {
-      const parsed = JSON.parse(topics);
-
-      if (Array.isArray(parsed)) {
-        return parsed.flatMap((item) => parseTopics(item));
-      }
-    } catch {
-      // Not JSON, return as plain string
-    }
-
-    return [topics];
+function seededShuffle<T>(items: T[], seed: string): T[] {
+  const arr = [...items];
+  let state = hashSeed(seed || "codeit");
+  const rand = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0xffffffff;
+  };
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
+  return arr;
+}
 
-  return [];
+function sortProblems(
+  problems: PracticeProblem[],
+  sort: SortKey,
+  seed: string
+): PracticeProblem[] {
+  const copy = [...problems];
+  switch (sort) {
+    case "difficulty":
+      return copy.sort(
+        (a, b) =>
+          difficultyRank(a.difficulty) - difficultyRank(b.difficulty) ||
+          a.title.localeCompare(b.title)
+      );
+    case "newest":
+      return copy.sort((a, b) => {
+        const at = a.createdAt ? Date.parse(a.createdAt) : a.id;
+        const bt = b.createdAt ? Date.parse(b.createdAt) : b.id;
+        return bt - at;
+      });
+    case "oldest":
+      return copy.sort((a, b) => {
+        const at = a.createdAt ? Date.parse(a.createdAt) : a.id;
+        const bt = b.createdAt ? Date.parse(b.createdAt) : b.id;
+        return at - bt;
+      });
+    case "acceptance":
+      return copy.sort((a, b) => {
+        const av = a.acceptanceRate ?? -1;
+        const bv = b.acceptanceRate ?? -1;
+        return bv - av || a.title.localeCompare(b.title);
+      });
+    case "mostSolved":
+      return copy.sort((a, b) => {
+        const av = a.solvedCount ?? -1;
+        const bv = b.solvedCount ?? -1;
+        return bv - av || a.title.localeCompare(b.title);
+      });
+    case "random":
+      return seededShuffle(copy, seed || "random");
+    case "name":
+    default:
+      return copy.sort((a, b) => a.title.localeCompare(b.title));
+  }
 }
 
 export default function ProblemList() {
-  const [problems, setProblems] = useState<ProblemPublicDTO[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [difficulty, setDifficulty] = useState("ALL");
-  const [keyword, setKeyword] = useState("");
-  const [topicFilter, setTopicFilter] = useState<string | null>(null);
-  const [completedMap, setCompletedMap] = useState<Record<number, boolean>>(
-    {}
-  );
-  const [openTopics, setOpenTopics] = useState<Record<string, boolean>>({});
+  const { user } = useAuth();
+  const { data, loading, error, toggleBookmark } = usePracticeCatalog();
+  const filters = useUrlFilters({ sort: "name" });
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
+  const topicOptions = useMemo(() => {
+    if (!data) return [];
+    const set = new Set<string>();
+    data.problems.forEach((p) => p.topics.forEach((t) => set.add(t)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [data]);
 
-    try {
-      let data: ProblemPublicDTO[];
-
-      if (keyword.trim()) {
-        data = await searchProblems(keyword.trim());
-      } else if (difficulty !== "ALL") {
-        data = await getProblemsByDifficulty(difficulty);
-      } else {
-        data = await getProblems();
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const next = data.problems.filter((problem) => {
+      if (
+        filters.difficulty !== "ALL" &&
+        problem.difficulty.toUpperCase() !== filters.difficulty
+      ) {
+        return false;
       }
-
-      if (topicFilter) {
-        data = data.filter((p) =>
-           parseTopics(p.topics).includes(topicFilter)
-        );
+      if (filters.status !== "ALL" && problem.status !== filters.status) {
+        return false;
       }
+      if (filters.favorites && !problem.bookmarked) return false;
+      if (filters.topic && !problem.topics.includes(filters.topic)) return false;
+      if (filters.q) {
+        const q = filters.q.toLowerCase();
+        const hay = `${problem.title} ${problem.topics.join(" ")}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    return sortProblems(next, filters.sort, filters.seed || "codeit");
+  }, [data, filters]);
 
-      setProblems(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load problems.");
-    } finally {
-      setLoading(false);
+  const sortDisabledHint = (key: SortKey) => {
+    if (!data) return undefined;
+    if (key === "acceptance" && data.problems.every((p) => p.acceptanceRate == null)) {
+      return "Acceptance metrics require the catalog API";
     }
+    if (key === "mostSolved" && data.problems.every((p) => p.solvedCount == null)) {
+      return "Most solved requires the catalog API";
+    }
+    if (
+      (key === "newest" || key === "oldest") &&
+      data.problems.every((p) => p.createdAt == null)
+    ) {
+      return "Falls back to problem id until createdAt ships";
+    }
+    return undefined;
   };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [difficulty, topicFilter]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    load();
-  };
-
-  const toggleCompleted = (id: number) => {
-    setCompletedMap((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
-
-  const toggleTopic = (topic: string) => {
-    setOpenTopics((prev) => ({
-      ...prev,
-      [topic]: !prev[topic],
-    }));
-  };
-
-  const allTopics = Array.from(
-  new Set(
-    problems.flatMap((p) => parseTopics(p.topics))
-  )
- ).slice(0, 12);
-
-  const groupedProblems = allTopics.map((topic) => ({
-  topic,
-  problems: problems.filter((p) =>
-    parseTopics(p.topics).includes(topic)
-   ),
-  }));
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-10">
-      <h1 className="display mb-6 text-2xl font-semibold">Problems</h1>
+    <div className="practice-shell min-h-[calc(100vh-3.5rem)]">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <header className="mb-6">
+          <p className="verdict-strip text-[var(--info)]">Problem catalog</p>
+          <h1 className="display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+            Browse every CodeIT problem
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[var(--text-dim)]">
+            Search instantly, filter by status and topic, and keep solving with a
+            clean developer-first catalog.
+          </p>
+        </header>
 
-      <form onSubmit={handleSearchSubmit} className="mb-4 flex gap-2">
-        <input
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="Search problems..."
-          className="flex-1 rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="rounded-md border border-[var(--line)] px-4 py-2 text-sm text-[var(--text)] hover:border-[var(--info)] hover:text-[var(--info)]"
-        >
-          Search
-        </button>
-      </form>
+        {data && <OverviewStats stats={data.stats} className="mb-5" />}
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        {DIFFICULTIES.map((d) => (
-          <button
-            key={d}
-            onClick={() => {
-              setKeyword("");
-              setDifficulty(d);
-            }}
-            className={`verdict-strip rounded-full border px-3 py-1 transition ${
-              difficulty === d
-                ? "border-[var(--accent)] text-[var(--accent)]"
-                : "border-[var(--line)] text-[var(--text-dim)] hover:text-[var(--text)]"
-            }`}
-          >
-            {d}
-          </button>
-        ))}
-
-        {topicFilter && (
-          <button
-            onClick={() => setTopicFilter(null)}
-            className="verdict-strip rounded-full border border-[var(--info)] px-3 py-1 text-[var(--info)]"
-          >
-            {topicFilter} ×
-          </button>
-        )}
-      </div>
-
-      {allTopics.length > 0 && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          {allTopics.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTopicFilter(t)}
-              className="rounded border border-[var(--line)] px-2 py-0.5 text-xs text-[var(--text-dim)] hover:border-[var(--info)] hover:text-[var(--info)]"
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {loading && <Loading label="Loading problems" />}
-      {error && <ErrorState message={error} />}
-      {!loading && !error && problems.length === 0 && (
-        <EmptyState message="No problems match these filters." />
-      )}
-
-      {!loading && !error && groupedProblems.length > 0 && (
-        <div className="space-y-4">
-          {groupedProblems.map(({ topic, problems: topicProblems }) => {
-            const isOpen = openTopics[topic] ?? false;
-
-            return (
-              <div
-                key={topic}
-                className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--bg)]"
+        <div className="mb-5 space-y-3 rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]/70 p-3 practice-glass sm:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <SearchBar
+              value={filters.q}
+              onChange={(q) => filters.patch({ q })}
+              placeholder="Instant search…"
+              className="flex-1"
+            />
+            <div className="flex flex-wrap gap-2">
+              <label className="sr-only" htmlFor="problem-sort">
+                Sort problems
+              </label>
+              <select
+                id="problem-sort"
+                value={filters.sort}
+                onChange={(e) => {
+                  const sort = e.target.value as SortKey;
+                  filters.patch({
+                    sort,
+                    seed:
+                      sort === "random"
+                        ? String(Date.now())
+                        : filters.seed,
+                  });
+                }}
+                className="rounded-xl border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--info)] focus:outline-none"
               >
+                {(
+                  [
+                    ["name", "Alphabetical"],
+                    ["difficulty", "Difficulty"],
+                    ["newest", "Newest"],
+                    ["oldest", "Oldest"],
+                    ["acceptance", "Acceptance"],
+                    ["mostSolved", "Most solved"],
+                    ["random", "Random"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <option
+                    key={value}
+                    value={value}
+                    title={sortDisabledHint(value)}
+                  >
+                    {label}
+                    {sortDisabledHint(value) ? " *" : ""}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  filters.patch({
+                    sort: "random",
+                    seed: String(Date.now()),
+                  })
+                }
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] px-3 py-2 text-sm text-[var(--text-dim)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
+                title="Shuffle problems"
+              >
+                <Dices className="h-4 w-4" aria-hidden />
+                Random
+              </button>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] px-3 py-2 text-sm text-[var(--text-dim)] lg:hidden"
+              >
+                <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                Filters
+              </button>
+            </div>
+          </div>
+
+          <div className={`space-y-3 ${filtersOpen ? "block" : "hidden lg:block"}`}>
+            <FilterChips
+              label="Difficulty"
+              value={filters.difficulty}
+              onChange={(difficulty) => filters.patch({ difficulty })}
+              options={[
+                { value: "ALL", label: "All" },
+                { value: "EASY", label: "Easy" },
+                { value: "MEDIUM", label: "Medium" },
+                { value: "HARD", label: "Hard" },
+              ]}
+            />
+            <FilterChips
+              label="Status"
+              value={filters.status}
+              onChange={(status) => filters.patch({ status })}
+              options={[
+                { value: "ALL", label: "All status" },
+                { value: "SOLVED", label: "Solved" },
+                { value: "ATTEMPTED", label: "Attempted" },
+                { value: "NOT_STARTED", label: "Not started" },
+              ]}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                aria-pressed={filters.favorites}
+                onClick={() => filters.patch({ favorites: !filters.favorites })}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  filters.favorites
+                    ? "border-[var(--warn)] bg-[var(--warn)]/15 text-[var(--warn)]"
+                    : "border-[var(--line)] text-[var(--text-dim)]"
+                }`}
+              >
+                Favorites
+              </button>
+              <span
+                className="rounded-full border border-dashed border-[var(--line)] px-3 py-1.5 text-xs text-[var(--text-dim)]"
+                title="Acceptance range filters require catalog metrics API"
+              >
+                Acceptance range · Coming soon
+              </span>
+              {(filters.q ||
+                filters.difficulty !== "ALL" ||
+                filters.status !== "ALL" ||
+                filters.topic ||
+                filters.favorites ||
+                filters.sort !== "name") && (
                 <button
                   type="button"
-                  onClick={() => toggleTopic(topic)}
-                  className="flex w-full items-center justify-between bg-[var(--bg-raised)] px-4 py-3 text-left transition hover:bg-[var(--bg-inset)]"
+                  onClick={filters.clear}
+                  className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs text-[var(--text-dim)]"
                 >
-                  <div>
-                    <div className="text-sm font-semibold text-[var(--text)]">
-                      {topic}
-                    </div>
-                    <div className="text-xs text-[var(--text-dim)]">
-                      {topicProblems.length} problem
-                      {topicProblems.length !== 1 ? "s" : ""}
-                    </div>
-                  </div>
-
-                  <span className="text-lg text-[var(--text-dim)]">
-                    {isOpen ? "−" : "+"}
-                  </span>
+                  Clear
                 </button>
-
-                {isOpen && (
-                  <div>
-                    <div className="grid grid-cols-[60px_minmax(0,1fr)_120px_90px] border-t border-[var(--line)] px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                      <div>#</div>
-                      <div>Problem</div>
-                      <div>Difficulty</div>
-                      <div className="text-right">Completed</div>
-                    </div>
-
-                    <div className="divide-y divide-[var(--line)]">
-                      {topicProblems.map((p, index) => (
-                        <div
-                          key={`${topic}-${p.id}`}
-                          className="grid grid-cols-[60px_minmax(0,1fr)_120px_90px] items-center px-4 py-3 transition hover:bg-[var(--bg-raised)]"
-                        >
-                          <div className="text-sm text-[var(--text-dim)]">
-                            {index + 1}
-                          </div>
-
-                          <div className="min-w-0">
-                            <Link
-                              to={`/problems/${p.id}`}
-                              className="block text-sm font-medium text-[var(--text)] hover:text-[var(--accent)]"
-                            >
-                              {p.title}
-                            </Link>
-                            <div className="mt-1 text-xs text-[var(--text-dim)]">
-                              Problem ID: {p.id}
-                            </div>
-                          </div>
-
-                          <div>
-                            <DifficultyBadge difficulty={p.difficulty} />
-                          </div>
-
-                          <div className="flex justify-end">
-                            <input
-                              type="checkbox"
-                              checked={!!completedMap[p.id]}
-                              onChange={() => toggleCompleted(p.id)}
-                              className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              )}
+            </div>
+            {topicOptions.length > 0 && (
+              <FilterChips
+                label="Topics"
+                value={filters.topic || "ALL"}
+                onChange={(topic) =>
+                  filters.patch({ topic: topic === "ALL" ? "" : topic })
+                }
+                options={[
+                  { value: "ALL", label: "All topics" },
+                  ...topicOptions.map((topic) => ({
+                    value: topic,
+                    label: topic,
+                  })),
+                ]}
+              />
+            )}
+          </div>
         </div>
-      )}
+
+        {loading && <PracticeSkeleton count={8} />}
+        {error && <ErrorState message={error} />}
+
+        {!loading && !error && data && (
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div>
+              <div className="mb-3 hidden grid-cols-[48px_minmax(0,1.6fr)_90px_100px_130px_44px_100px] gap-3 px-4 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-dim)] lg:grid">
+                <div>#</div>
+                <div>Problem</div>
+                <div>Acc</div>
+                <div>Difficulty</div>
+                <div>Status</div>
+                <div />
+                <div className="text-right">Last attempt</div>
+              </div>
+
+              {filtered.length === 0 ? (
+                <EmptyPractice
+                  title="No problems match"
+                  description="Adjust filters or clear search to browse the full catalog."
+                />
+              ) : (
+                <div className="space-y-2">
+                  {filtered.map((problem, index) => (
+                    <CatalogProblemRow
+                      key={problem.id}
+                      problem={problem}
+                      index={index + 1}
+                      canFavorite={Boolean(user)}
+                      onToggleFavorite={toggleBookmark}
+                    />
+                  ))}
+                </div>
+              )}
+              <p className="mt-4 text-xs text-[var(--text-dim)]">
+                Showing {filtered.length} of {data.stats.total} problems.
+                Acceptance and most-solved metrics appear when the catalog API
+                ships.
+              </p>
+            </div>
+            <PracticeSidebar data={data} mode="problems" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

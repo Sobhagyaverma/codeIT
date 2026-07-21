@@ -28,10 +28,17 @@ const Home: React.FC = () => {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
-              to="/problems"
+              to="/dsa-sheet"
               className="inline-flex items-center rounded-md bg-[var(--accent)] px-6 py-3 text-base font-medium text-[#0a0d12] hover:brightness-110"
             >
-              Get started
+              Open DSA Sheet
+            </Link>
+
+            <Link
+              to="/problems"
+              className="inline-flex items-center rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-6 py-3 text-base font-medium text-[var(--text)] hover:border-[var(--accent)]"
+            >
+              Browse problems
             </Link>
 
             <Link

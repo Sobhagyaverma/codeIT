@@ -11,6 +11,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProblemList from "./pages/ProblemList";
 import ProblemDetail from "./pages/ProblemDetail";
+import DSASheet from "./pages/DSASheet";
 import SubmissionHistory from "./pages/SubmissionHistory";
 import CompetitionList from "./pages/CompetitionList";
 import CompetitionRoom from "./pages/CompetitionRoom";
@@ -35,6 +36,7 @@ export default function App() {
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/help" element={<Help />} />
+              <Route path="/dsa-sheet" element={<DSASheet />} />
               <Route path="/problems" element={<ProblemList />} />
               <Route path="/problems/:id" element={<ProblemDetail />} />
               <Route

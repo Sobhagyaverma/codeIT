@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const NAV_ITEMS = [
+  { to: "/dsa-sheet", label: "DSA Sheet" },
   { to: "/problems", label: "Problems" },
   { to: "/competitions", label: "Competitions" },
   { to: "/about", label: "About" },

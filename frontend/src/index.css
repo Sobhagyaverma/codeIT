@@ -155,7 +155,32 @@ code, pre, .mono { font-family: var(--font-mono); }
   }
 }
 
-/* Profile */
-.profile-card-enter {
-  animation: auth-rise 360ms ease-out both;
+/* Practice experience */
+.practice-shell {
+  background:
+    radial-gradient(ellipse at top left, rgba(245, 166, 35, 0.06), transparent 42%),
+    radial-gradient(ellipse at top right, rgba(91, 168, 255, 0.05), transparent 38%),
+    var(--bg);
 }
+
+.practice-glass {
+  backdrop-filter: blur(10px);
+}
+
+.practice-card {
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-card {
+    transition: none;
+  }
+
+  .practice-card:hover {
+    transform: none;
+  }
+}
+
