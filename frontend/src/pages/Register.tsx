@@ -1,103 +1,204 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { register } from "../lib/api";
-import { ErrorState } from "../components/Loading";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../components/toast/ToastProvider";
+import AuthLayout from "../components/auth/AuthLayout";
+import AuthField from "../components/auth/AuthField";
+import AuthPasswordField from "../components/auth/AuthPasswordField";
+import AuthSubmitButton from "../components/auth/AuthSubmitButton";
+import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
+import SocialAuthButtons from "../components/auth/SocialAuthButtons";
+import {
+  firstErrorKey,
+  mapAuthError,
+  validateRegister,
+  type FieldErrors,
+  type RegisterFormValues,
+} from "../lib/authValidation";
 
 export default function Register() {
-  const [form, setForm] = useState({
+  const { user } = useAuth();
+  const { pushToast } = useToast();
+  const navigate = useNavigate();
+
+  const nameRef = useRef<HTMLInputElement>(null);
+  const userIdRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const redirectTimer = useRef<number | null>(null);
+
+  const [form, setForm] = useState<RegisterFormValues>({
     name: "",
     uniqueUserId: "",
     email: "",
     password: "",
   });
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<
+    FieldErrors<"name" | "uniqueUserId" | "email" | "password">
+  >({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    nameRef.current?.focus();
+    return () => {
+      if (redirectTimer.current) window.clearTimeout(redirectTimer.current);
+    };
+  }, []);
+
+  if (user) {
+    return <Navigate to="/problems" replace />;
+  }
+
+  const updateField = <K extends keyof RegisterFormValues>(
+    key: K,
+    value: RegisterFormValues[K]
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (errors[key]) {
+      setErrors((prev) => ({ ...prev, [key]: undefined }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+
+    const nextErrors = validateRegister(form);
+    setErrors(nextErrors);
+    const first = firstErrorKey(nextErrors);
+    if (first) {
+      const refs = {
+        name: nameRef,
+        uniqueUserId: userIdRef,
+        email: emailRef,
+        password: passwordRef,
+      };
+      refs[first].current?.focus();
+      return;
+    }
+
     setLoading(true);
     try {
-      await register(form);
-      setDone(true);
-      setTimeout(() => navigate("/login"), 1200);
+      await register({
+        name: form.name.trim(),
+        uniqueUserId: form.uniqueUserId.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      });
+      pushToast("Account created. Redirecting to login…", "success");
+      redirectTimer.current = window.setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 900);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed.");
+      const message = mapAuthError(err);
+      setFormError(message);
+      pushToast(message, "error");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-sm px-5 py-20">
-      <h1 className="display mb-1 text-2xl font-semibold">Create account</h1>
-      <p className="mb-8 text-sm text-[var(--text-dim)]">Join CodeIT</p>
+    <AuthLayout
+      title="Create account"
+      subtitle="Join CodeIT and start solving with a live judge."
+      footerNote={
+        <>
+          Already have an account?{" "}
+          <Link to="/login" className="text-[var(--info)] hover:underline">
+            Log in
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <AuthField
+          ref={nameRef}
+          label="Name"
+          name="name"
+          autoComplete="name"
+          value={form.name}
+          onChange={(e) => updateField("name", e.target.value)}
+          onBlur={() => {
+            const next = validateRegister(form);
+            if (next.name) setErrors((prev) => ({ ...prev, name: next.name }));
+          }}
+          error={errors.name}
+        />
 
-      {done ? (
-        <div className="rounded-lg border border-[var(--ok)]/40 bg-[var(--ok)]/5 p-4 text-sm text-[var(--ok)]">
-          Account created. Redirecting to login...
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-xs text-[var(--text-dim)]">Name</label>
-            <input
-              required
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-[var(--text-dim)]">Unique user ID</label>
-            <input
-              required
-              value={form.uniqueUserId}
-              onChange={(e) => setForm({ ...form, uniqueUserId: e.target.value })}
-              className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
-              placeholder="e.g. alice1"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-[var(--text-dim)]">Email</label>
-            <input
-              type="email"
-              required
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-[var(--text-dim)]">Password</label>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm focus:border-[var(--info)] focus:outline-none"
-            />
-          </div>
+        <AuthField
+          ref={userIdRef}
+          label="Username"
+          name="uniqueUserId"
+          autoComplete="username"
+          value={form.uniqueUserId}
+          onChange={(e) => updateField("uniqueUserId", e.target.value)}
+          onBlur={() => {
+            const next = validateRegister(form);
+            if (next.uniqueUserId) {
+              setErrors((prev) => ({
+                ...prev,
+                uniqueUserId: next.uniqueUserId,
+              }));
+            }
+          }}
+          error={errors.uniqueUserId}
+          hint="3–24 letters, numbers, or underscores."
+        />
 
-          {error && <ErrorState message={error} />}
+        <AuthField
+          ref={emailRef}
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={(e) => updateField("email", e.target.value)}
+          onBlur={() => {
+            const next = validateRegister(form);
+            if (next.email) {
+              setErrors((prev) => ({ ...prev, email: next.email }));
+            }
+          }}
+          error={errors.email}
+        />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-[var(--accent)] py-2.5 text-sm font-medium text-[#0a0d12] transition hover:brightness-110 disabled:opacity-50"
+        <AuthPasswordField
+          ref={passwordRef}
+          label="Password"
+          name="password"
+          autoComplete="new-password"
+          value={form.password}
+          onChange={(e) => updateField("password", e.target.value)}
+          onBlur={() => {
+            const next = validateRegister(form);
+            if (next.password) {
+              setErrors((prev) => ({ ...prev, password: next.password }));
+            }
+          }}
+          error={errors.password}
+          hint="Minimum 6 characters (required by the server)."
+        />
+
+        <PasswordStrengthMeter password={form.password} />
+
+        {formError && (
+          <p
+            role="alert"
+            className="rounded-md border border-[var(--err)]/40 bg-[var(--err)]/10 px-3 py-2 text-xs text-[var(--err)]"
           >
-            {loading ? "Creating..." : "Create account"}
-          </button>
-        </form>
-      )}
+            {formError}
+          </p>
+        )}
 
-      <p className="mt-6 text-center text-sm text-[var(--text-dim)]">
-        Already have an account?{" "}
-        <Link to="/login" className="text-[var(--info)]">Log in</Link>
-      </p>
-    </div>
+        <AuthSubmitButton loading={loading} loadingLabel="Creating account…">
+          Create account
+        </AuthSubmitButton>
+
+        <SocialAuthButtons />
+      </form>
+    </AuthLayout>
   );
 }

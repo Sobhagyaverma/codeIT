@@ -15,6 +15,8 @@ import {
 } from "./judgeStatus";
 import type { RunResult } from "./types";
 
+export type { RunVerdictKind };
+
 export type SampleCaseResult = {
   index: number;
   inputDisplay: string;

@@ -17,7 +17,13 @@ import {
   runSampleTests,
   type SampleRunSession,
 } from "../lib/runSampleTests";
+import {
+  isBookmarked,
+  toggleBookmark,
+  trackRecentView,
+} from "../features/profile/localProfileStorage";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../components/toast/ToastProvider";
 import { Loading, ErrorState } from "../components/Loading";
 import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
@@ -81,6 +87,7 @@ export default function ProblemDetail() {
   const { id } = useParams();
   const problemId = Number(id);
   const { user } = useAuth();
+  const { pushToast } = useToast();
 
   const [problem, setProblem] = useState<ProblemPublicDTO | null>(null);
   const [languages, setLanguages] = useState<LanguageDTO[]>([]);
@@ -88,6 +95,7 @@ export default function ProblemDetail() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [bookmarked, setBookmarked] = useState(false);
 
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -146,6 +154,12 @@ export default function ProblemDetail() {
       runAbortRef.current?.abort();
     };
   }, [problemId]);
+
+  useEffect(() => {
+    if (!user || !Number.isFinite(problemId)) return;
+    trackRecentView(user.id, problemId);
+    setBookmarked(isBookmarked(user.id, problemId));
+  }, [user, problemId]);
 
   useEffect(() => {
     const onMove = (clientX: number, clientY: number) => {
@@ -349,6 +363,29 @@ export default function ProblemDetail() {
             >
               {running ? "Running…" : "Run"}
             </button>
+
+            {user && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = toggleBookmark(user.id, problemId);
+                  const nowBookmarked = next.includes(problemId);
+                  setBookmarked(nowBookmarked);
+                  pushToast(
+                    nowBookmarked ? "Problem bookmarked." : "Bookmark removed.",
+                    "info"
+                  );
+                }}
+                className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                  bookmarked
+                    ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                    : "border-[var(--line)] text-[var(--text-dim)] hover:text-[var(--text)]"
+                }`}
+                aria-pressed={bookmarked}
+              >
+                {bookmarked ? "Bookmarked" : "Bookmark"}
+              </button>
+            )}
 
             <button
               onClick={handleSubmit}

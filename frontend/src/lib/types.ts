@@ -86,6 +86,11 @@ export interface Submission extends SubmitRequest {
   passedCount?: number;
   totalCount?: number;
   createdAt?: string;
+  /** Backend field names used by SubmissionRowMapper */
+  executionTime?: number;
+  memoryUsed?: number;
+  competitionId?: number | null;
+  output?: string | null;
 }
 
 export interface Competition {

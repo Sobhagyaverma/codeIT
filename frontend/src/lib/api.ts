@@ -13,16 +13,18 @@ import type {
   SubmitRequest,
   User,
 } from "./types";
+import { getAuthToken } from "./authStorage";
 
 export const API_BASE =
   (import.meta.env.VITE_API_URL as string | undefined) ||
   "http://localhost:9091";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
     super(message);
+    this.name = "ApiError";
     this.status = status;
   }
 }
@@ -31,16 +33,24 @@ async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+    });
+  } catch {
+    throw new ApiError(
+      "Unable to reach the server. Check your connection and try again.",
+      0
+    );
+  }
 
   const contentType = res.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
@@ -55,7 +65,10 @@ async function request<T>(
       (typeof body === "string" && body) ||
       `Request failed (${res.status})`;
 
-    throw new ApiError(message, res.status);
+    throw new ApiError(
+      typeof message === "string" ? message : `Request failed (${res.status})`,
+      res.status
+    );
   }
 
   return body as T;
@@ -341,4 +354,3 @@ export const correctCode = (
     }
   );
 
-export { ApiError };

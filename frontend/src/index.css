@@ -72,3 +72,90 @@ code, pre, .mono { font-family: var(--font-mono); }
 .run-case-card:nth-child(3) { animation-delay: 80ms; }
 .run-case-card:nth-child(4) { animation-delay: 120ms; }
 .run-case-card:nth-child(5) { animation-delay: 160ms; }
+
+/* ---------- Auth pages ---------- */
+
+.auth-shell {
+  background:
+    radial-gradient(ellipse at top left, rgba(245, 166, 35, 0.08), transparent 45%),
+    radial-gradient(ellipse at bottom right, rgba(91, 168, 255, 0.07), transparent 40%),
+    var(--bg);
+}
+
+.auth-grid-bg {
+  background-image:
+    linear-gradient(rgba(30, 37, 48, 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 37, 48, 0.55) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  opacity: 0.45;
+}
+
+.auth-input:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--info) 22%, transparent);
+}
+
+.auth-btn-primary {
+  transition:
+    transform 140ms ease,
+    filter 140ms ease,
+    opacity 140ms ease;
+}
+
+.auth-btn-secondary {
+  transition: border-color 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-panel-enter {
+  animation: auth-rise 420ms ease-out both;
+}
+
+.auth-form-enter {
+  animation: auth-rise 480ms ease-out both;
+  animation-delay: 60ms;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-enter {
+  animation: toast-in 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-panel-enter,
+  .auth-form-enter,
+  .toast-enter,
+  .run-result-enter,
+  .run-case-card {
+    animation: none !important;
+  }
+
+  .auth-btn-primary:active {
+    transform: none;
+  }
+}
+
+/* Profile */
+.profile-card-enter {
+  animation: auth-rise 360ms ease-out both;
+}
