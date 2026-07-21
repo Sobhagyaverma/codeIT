@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:ai-coach": "node scripts/check-ai-coach-gates.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -19,7 +20,9 @@
     "react": "^19.2.7",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.7",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.1",
+    "remark-gfm": "^4.0.1",
     "sockjs-client": "^1.6.1"
   },
   "devDependencies": {

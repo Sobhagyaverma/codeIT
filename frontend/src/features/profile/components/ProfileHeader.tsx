@@ -2,6 +2,17 @@ import { Link } from "react-router-dom";
 import type { ProfileIdentity } from "../types";
 import { formatDate, initialsFromName } from "../format";
 
+const PARTICLES = [
+  { size: 4, left: "8%", top: "30%", color: "rgba(245,166,35,0.8)", duration: "8s", delay: "0s", driftX: "14px", driftY: "-12px" },
+  { size: 3, left: "18%", top: "62%", color: "rgba(91,168,255,0.7)", duration: "11s", delay: "1.2s", driftX: "-10px", driftY: "-18px" },
+  { size: 5, left: "34%", top: "22%", color: "rgba(255,255,255,0.5)", duration: "9s", delay: "0.6s", driftX: "12px", driftY: "10px" },
+  { size: 3, left: "48%", top: "70%", color: "rgba(245,166,35,0.6)", duration: "12s", delay: "2s", driftX: "-14px", driftY: "-10px" },
+  { size: 4, left: "62%", top: "35%", color: "rgba(168,108,255,0.6)", duration: "10s", delay: "0.9s", driftX: "10px", driftY: "-16px" },
+  { size: 3, left: "74%", top: "58%", color: "rgba(91,168,255,0.6)", duration: "9s", delay: "1.6s", driftX: "-12px", driftY: "12px" },
+  { size: 5, left: "86%", top: "28%", color: "rgba(245,166,35,0.7)", duration: "11s", delay: "0.3s", driftX: "-10px", driftY: "-14px" },
+  { size: 2, left: "93%", top: "55%", color: "rgba(255,255,255,0.45)", duration: "8s", delay: "2.4s", driftX: "8px", driftY: "-10px" },
+] as const;
+
 export default function ProfileHeader({
   identity,
   isOwner,
@@ -13,18 +24,41 @@ export default function ProfileHeader({
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]">
-      <div className="h-24 bg-gradient-to-r from-[var(--accent)]/20 via-[var(--info)]/10 to-transparent sm:h-28" />
+      <div className="hero-cover h-28 sm:h-32">
+        {PARTICLES.map((p, i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="hero-particle"
+            style={{
+              width: p.size,
+              height: p.size,
+              left: p.left,
+              top: p.top,
+              background: p.color,
+              boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
+              ["--duration" as string]: p.duration,
+              ["--delay" as string]: p.delay,
+              ["--drift-x" as string]: p.driftX,
+              ["--drift-y" as string]: p.driftY,
+            }}
+          />
+        ))}
+        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[var(--bg-raised)] to-transparent" />
+      </div>
       <div className="relative px-5 pb-5 sm:px-6">
         <div className="-mt-10 flex flex-col gap-4 sm:-mt-12 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4">
             {identity.avatarUrl ? (
-              <img
-                src={identity.avatarUrl}
-                alt=""
-                className="h-20 w-20 rounded-2xl border-4 border-[var(--bg-raised)] object-cover sm:h-24 sm:w-24"
-              />
+              <div className="avatar-glow">
+                <img
+                  src={identity.avatarUrl}
+                  alt=""
+                  className="h-20 w-20 rounded-2xl border-4 border-[var(--bg-raised)] object-cover sm:h-24 sm:w-24"
+                />
+              </div>
             ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-[var(--bg-raised)] bg-[var(--accent)] text-2xl font-bold text-[#0a0d12] sm:h-24 sm:w-24 sm:text-3xl">
+              <div className="avatar-glow flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-[var(--bg-raised)] bg-[var(--accent)] text-2xl font-bold text-[#0a0d12] sm:h-24 sm:w-24 sm:text-3xl">
                 {initials}
               </div>
             )}

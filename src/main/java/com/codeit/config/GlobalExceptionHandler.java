@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -59,5 +60,22 @@ public class GlobalExceptionHandler {
         body.put("error", "Bad Request");
         body.put("message", message);
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, Object>> handleDataAccess(DataAccessException ex) {
+        String detail = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : ex.getMessage();
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("status", 500);
+        body.put("error", "Internal Server Error");
+        body.put(
+                "message",
+                detail != null && detail.contains("ai_")
+                        ? "AI database tables are missing. Restart the backend so schema initialization can run."
+                        : "Database error while handling request");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 }

@@ -1,6 +1,7 @@
 import type {
-  AIRequest,
-  AIResponse,
+  AiAction,
+  AiCoachRequest,
+  AiCoachResponse,
   Competition,
   ContestSession,
   JudgeVerdictDTO,
@@ -492,27 +493,73 @@ export const patchCompetitionTimes = (
     }
   );
 
-/* ---------------- AI ---------------- */
+/* ---------------- AI Coach (practice only) ---------------- */
 
-export const explainCode = (
-  data: AIRequest
+export const aiCoach = (data: AiCoachRequest) =>
+  request<AiCoachResponse>("/api/ai/coach", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiExplain = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/explain", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiConstraints = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/constraints", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiChat = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/chat", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiHints = (
+  data: Omit<AiCoachRequest, "action"> & { hintLevel: number }
 ) =>
-  request<AIResponse>(
-    "/api/ai/explain",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
+  request<AiCoachResponse>("/api/ai/hints", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiAnalyze = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/analyze", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiAnalyzeFailure = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/analyze-failure", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiReview = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/review", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiEditorial = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/editorial", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getAiHintProgress = (problemId: number) =>
+  request<{ problemId: number; unlockedHintLevel: number }>(
+    `/api/ai/hints/progress?problemId=${problemId}`
   );
 
-export const correctCode = (
-  data: AIRequest
-) =>
-  request<AIResponse>(
-    "/api/ai/correct",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
+export const getAiHistory = (problemId: number) =>
+  request<
+    Array<{ role: string; action?: string; content: string; created_at?: string }>
+  >(`/api/ai/history?problemId=${problemId}`);
+
+export type { AiAction };
 

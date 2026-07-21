@@ -51,6 +51,7 @@ export interface SubmitRequest {
 }
 
 export type JudgeVerdictDTO = {
+  submissionId?: number;
   verdict: string;
   passed?: boolean;
   failedTestIndex?: number | null;
@@ -131,28 +132,38 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
-export interface AIRequest {
-  userId: number;
+export type AiAction =
+  | "EXPLAIN_PROBLEM"
+  | "EXPLAIN_CONSTRAINTS"
+  | "ASK_AI"
+  | "REQUEST_HINT"
+  | "ANALYZE_CODE"
+  | "ANALYZE_FAILURE"
+  | "REVIEW_ACCEPTED"
+  | "EXPLAIN_EDITORIAL";
+
+export interface AiCoachRequest {
   problemId: number;
-  language: string;
-  languageId: number;
-  code: string;
-  verdict?: string;
-  failedTestIndex?: number | null;
+  language?: string;
+  languageId?: number;
+  code?: string;
+  action?: AiAction;
+  hintLevel?: number;
   question?: string;
+  submissionId?: number | null;
 }
 
-export interface AICitation {
-  source: "problem" | "doc" | "pattern" | string;
-  id: string;
-  snippet: string;
+export interface AiCoachResponse {
+  action: AiAction;
+  content: string;
+  hintLevel?: number | null;
+  unlockedHintLevel?: number | null;
 }
 
-export interface AIResponse {
-  mode: "explain" | "correct";
-  explanation: string;
+/** @deprecated use AiCoachRequest */
+export type AIRequest = AiCoachRequest & { userId?: number };
+/** @deprecated use AiCoachResponse */
+export type AIResponse = AiCoachResponse & {
+  explanation?: string;
   correctedCode?: string;
-  hints?: string[];
-  citations?: AICitation[];
-  confidence?: number;
-}
+};

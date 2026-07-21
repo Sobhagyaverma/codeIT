@@ -31,7 +31,8 @@ import { Loading, ErrorState } from "../components/Loading";
 import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
 import RunResultsPanel from "../components/RunResultsPanel";
-import AIPanel from "../components/AIPanel";
+import LearningCoachFab from "../features/ai-coach/components/LearningCoachFab";
+import LearningCoachPanel from "../features/ai-coach/components/LearningCoachPanel";
 
 const MONACO_LANG: Record<string, string> = {
   c: "c",
@@ -108,8 +109,8 @@ export default function ProblemDetail() {
   const [runSession, setRunSession] = useState<SampleRunSession | null>(null);
   const [verdict, setVerdict] = useState<JudgeVerdictDTO | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [rightTab, setRightTab] = useState<RightPanelTab>("io");
+  const [coachOpen, setCoachOpen] = useState(false);
   const runAbortRef = useRef<AbortController | null>(null);
 
   const [splitPct, setSplitPct] = useState(48);
@@ -121,13 +122,13 @@ export default function ProblemDetail() {
 
     setLoading(true);
     setError(null);
-    setHasSubmitted(false);
     setVerdict(null);
     setRunSession(null);
     setCaseStdins([]);
     setCustomStdin("");
     setActiveCaseIdx(0);
     setRightTab("io");
+    setCoachOpen(false);
 
     Promise.all([getProblem(problemId), getLanguages()])
       .then(([p, langs]) => {
@@ -309,7 +310,6 @@ export default function ProblemDetail() {
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Submit failed.");
     } finally {
-      setHasSubmitted(true);
       setSubmitting(false);
     }
   };
@@ -566,7 +566,7 @@ export default function ProblemDetail() {
                 [
                   ["io", "Testcase"],
                   ["result", "Test Result"],
-                  ["ai", "AI Help"],
+                  ["ai", "AI Coach"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -715,35 +715,30 @@ export default function ProblemDetail() {
               )}
 
               {rightTab === "ai" && (
-                <div>
-                  {!user ? (
-                    <p className="text-sm text-[var(--text-dim)]">
-                      Log in and submit a solution to unlock AI Help.
-                    </p>
-                  ) : !hasSubmitted ? (
-                    <div className="rounded-md border border-dashed border-[var(--line)] bg-[var(--bg-raised)] p-4 text-sm text-[var(--text-dim)]">
-                      Submit your solution to unlock AI Help.
-                    </div>
-                  ) : (
-                    <AIPanel
-                      baseRequest={{
-                        userId: user.id,
-                        problemId,
-                        language: language?.slug || "python",
-                        languageId: language?.languageId || 71,
-                        code,
-                        verdict: verdict?.verdict,
-                        failedTestIndex: verdict?.failedTestIndex ?? null,
-                      }}
-                      onApplyCorrectedCode={setCode}
-                    />
-                  )}
-                </div>
+                <LearningCoachPanel
+                  problemId={problemId}
+                  language={language?.slug || "python"}
+                  languageId={language?.languageId || 71}
+                  code={code}
+                  verdict={verdict}
+                  enabled={!!user}
+                />
               )}
             </div>
           </div>
         </section>
       </div>
+
+      {user && (
+        <LearningCoachFab
+          open={coachOpen || rightTab === "ai"}
+          onToggle={() => {
+            const next = !(coachOpen || rightTab === "ai");
+            setCoachOpen(next);
+            if (next) setRightTab("ai");
+          }}
+        />
+      )}
     </div>
   );
 }

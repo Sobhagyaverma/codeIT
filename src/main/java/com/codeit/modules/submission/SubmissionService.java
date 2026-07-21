@@ -24,6 +24,9 @@ public class SubmissionService {
     @Autowired
     private TestCaseJudgeService testCaseJudgeService;
 
+    @Autowired
+    private SubmissionDiagnosticRepository diagnosticRepository;
+
     public JudgeVerdictDTO submit(Submission submission) {
         validateSubmission(submission);
 
@@ -44,7 +47,11 @@ public class SubmissionService {
         submission.setVerdict(verdict.getVerdict());
         submission.setExecutionTime(verdict.getTime());
         submission.setMemoryUsed(verdict.getMemory());
-        submissionRepository.saveSubmission(submission);
+        Integer submissionId = submissionRepository.saveSubmission(submission);
+        verdict.setSubmissionId(submissionId);
+
+        // Persist sanitized aggregates only — never hidden inputs/outputs
+        diagnosticRepository.save(submissionId, verdict, null, null);
 
         return verdict;
     }
@@ -74,5 +81,9 @@ public class SubmissionService {
 
     public List<Submission> getProblemSubmissions(Integer problemId) {
         return submissionRepository.getProblemSubmissions(problemId);
+    }
+
+    public List<Submission> getMyProblemSubmissions(Integer userId, Integer problemId) {
+        return submissionRepository.getMyProblemSubmissions(userId, problemId);
     }
 }

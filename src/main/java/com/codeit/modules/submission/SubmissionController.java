@@ -61,7 +61,11 @@ public class SubmissionController {
 
     @GetMapping("/problem/{problemId}")
     public List<Submission> getProblemSubmissions(@PathVariable Integer problemId) {
-        return submissionService.getProblemSubmissions(problemId);
+        Integer currentUserId = SecurityUtils.currentUserId();
+        if (SecurityUtils.isAdmin()) {
+            return submissionService.getProblemSubmissions(problemId);
+        }
+        return submissionService.getMyProblemSubmissions(currentUserId, problemId);
     }
 
     @PostMapping("/submit")

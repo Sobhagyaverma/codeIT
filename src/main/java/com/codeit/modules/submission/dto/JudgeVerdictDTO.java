@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class JudgeVerdictDTO {
+    private Integer submissionId;
     private String verdict;
     private int passedCount;
     private int totalCount;
@@ -13,4 +14,3 @@ public class JudgeVerdictDTO {
     /** "compile-once" or "progressive-batch" */
     private String engine;
 }
-
