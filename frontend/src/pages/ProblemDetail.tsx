@@ -33,6 +33,7 @@ import VerdictPanel from "../components/VerdictPanel";
 import RunResultsPanel from "../components/RunResultsPanel";
 import LearningCoachFab from "../features/ai-coach/components/LearningCoachFab";
 import LearningCoachPanel from "../features/ai-coach/components/LearningCoachPanel";
+import InviteButton from "../features/collaboration/components/InviteButton";
 
 const MONACO_LANG: Record<string, string> = {
   c: "c",
@@ -383,6 +384,11 @@ export default function ProblemDetail() {
             >
               {running ? "Running…" : "Run"}
             </button>
+
+            <InviteButton
+              problemId={problemId}
+              language={language?.slug || "java"}
+            />
 
             {user && (
               <button

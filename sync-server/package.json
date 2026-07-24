@@ -1,0 +1,22 @@
+{
+  "name": "codeit-sync-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Yjs WebSocket sidecar for CodeIT collaboration. See docs/COLLABORATION_ARCHITECTURE.md",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.2",
+    "lib0": "^0.2.102",
+    "ws": "^8.18.0",
+    "y-protocols": "^1.0.6",
+    "yjs": "^13.6.20"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

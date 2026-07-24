@@ -144,6 +144,24 @@ code, pre, .mono { font-family: var(--font-mono); }
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Excalidraw must fill its host; otherwise it shrinks to a narrow default canvas */
+.excalidraw-host,
+.excalidraw-host .excalidraw {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .toast-enter {
   animation: toast-in 220ms ease-out both;
 }

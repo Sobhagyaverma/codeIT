@@ -46,5 +46,11 @@ logs/
 application-local.properties
 **/application-local.properties
 
+# Node
+node_modules/
+sync-server/node_modules/
+frontend/node_modules/
+frontend/dist/
+
 # Local notes
 commands.txt
