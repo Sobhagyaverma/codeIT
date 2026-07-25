@@ -159,11 +159,3 @@ export interface AiCoachResponse {
   hintLevel?: number | null;
   unlockedHintLevel?: number | null;
 }
-
-/** @deprecated use AiCoachRequest */
-export type AIRequest = AiCoachRequest & { userId?: number };
-/** @deprecated use AiCoachResponse */
-export type AIResponse = AiCoachResponse & {
-  explanation?: string;
-  correctedCode?: string;
-};
