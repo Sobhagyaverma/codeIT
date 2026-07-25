@@ -129,6 +129,10 @@ CodeIT uses a cache-aside strategy for:
 - Competition lists and details
 - Competition leaderboards
 
+### Collaboration
+
+- Collaboration (in progress) — see [`docs/COLLABORATION_ARCHITECTURE.md`](docs/COLLABORATION_ARCHITECTURE.md)
+
 ## Judge Architecture
 
 CodeIT separates **Run** and **Submit** because they serve different purposes.
@@ -333,6 +337,11 @@ Install and start a self-hosted Judge0 instance using the official Judge0 instru
 ```text
 http://localhost:2358
 ```
+
+Deploy guides (step-by-step):
+
+- Homelab / Proxmox: [`docs/JUDGE0_HOMELAB_DEPLOY.md`](docs/JUDGE0_HOMELAB_DEPLOY.md)
+- DigitalOcean Droplet (beginner): [`docs/JUDGE0_DIGITALOCEAN_DEPLOY.md`](docs/JUDGE0_DIGITALOCEAN_DEPLOY.md)
 
 The submit engine requires Judge0's multi-file language ID `89` and standard GNU tools used by the generated runner scripts.
 

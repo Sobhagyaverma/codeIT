@@ -2,42 +2,49 @@ import type { RunVerdictKind, SampleCaseResult, SampleRunSession } from "../lib/
 
 const VERDICT_META: Record<
   RunVerdictKind,
-  { color: string; label: string; hint: string }
+  { color: string; label: string; samplesHint: string; customHint: string }
 > = {
   Accepted: {
     color: "var(--ok)",
     label: "Accepted",
-    hint: "All sample test cases passed.",
+    samplesHint: "All sample test cases passed.",
+    customHint: "Your program finished successfully with the shared stdin.",
   },
   "Wrong Answer": {
     color: "var(--err)",
     label: "Wrong Answer",
-    hint: "Output did not match the expected result.",
+    samplesHint: "Output did not match the expected result.",
+    customHint: "Output did not match the expected result.",
   },
   "Compilation Error": {
     color: "var(--err)",
     label: "Compilation Error",
-    hint: "Your code failed to compile.",
+    samplesHint: "Your code failed to compile.",
+    customHint: "Your code failed to compile.",
   },
   "Runtime Error": {
     color: "var(--err)",
     label: "Runtime Error",
-    hint: "Your program crashed while running.",
+    samplesHint: "Your program crashed while running.",
+    customHint: "Your program crashed while running.",
   },
   "Time Limit Exceeded": {
     color: "var(--warn)",
     label: "Time Limit Exceeded",
-    hint: "Your program took too long on a sample case.",
+    samplesHint: "Your program took too long on a sample case.",
+    customHint: "Your program took too long.",
   },
   "Memory Limit Exceeded": {
     color: "var(--warn)",
     label: "Memory Limit Exceeded",
-    hint: "Your program used too much memory.",
+    samplesHint: "Your program used too much memory.",
+    customHint: "Your program used too much memory.",
   },
   "Internal Error": {
     color: "var(--info)",
     label: "Internal Error",
-    hint: "Something went wrong while judging. Try again.",
+    samplesHint: "Something went wrong while judging. Try again.",
+    customHint: "Something went wrong while running. Try again.",
   },
 };
 
@@ -111,11 +118,21 @@ function CodeBlock({
 function SampleCaseCard({
   testCase,
   highlighted,
+  mode,
 }: {
   testCase: SampleCaseResult;
   highlighted: boolean;
+  mode: SampleRunSession["mode"];
 }) {
   const meta = VERDICT_META[testCase.status];
+  const title =
+    mode === "samples"
+      ? `Sample Test Case ${testCase.index}`
+      : "Custom run";
+  const statusLabel =
+    mode === "custom" && testCase.status === "Accepted"
+      ? "Finished"
+      : meta.label;
 
   return (
     <article
@@ -130,7 +147,7 @@ function SampleCaseCard({
           <StatusIcon kind={testCase.status} />
           <div>
             <div className="text-sm font-semibold text-[var(--text)]">
-              Sample Test Case {testCase.index}
+              {title}
             </div>
             <div className="text-xs text-[var(--text-dim)]">
               {formatTime(testCase.time)} · {formatMemory(testCase.memory)}
@@ -144,7 +161,7 @@ function SampleCaseCard({
             background: `color-mix(in srgb, ${meta.color} 14%, transparent)`,
           }}
         >
-          {meta.label}
+          {statusLabel}
         </span>
       </header>
 
@@ -175,6 +192,12 @@ function VerdictBanner({
   session: SampleRunSession;
 }) {
   const meta = VERDICT_META[session.overall];
+  const hint =
+    session.mode === "samples" ? meta.samplesHint : meta.customHint;
+  const headline =
+    session.mode === "custom" && session.overall === "Accepted"
+      ? "Finished"
+      : meta.label;
   const showMetrics =
     session.overall === "Accepted" ||
     session.overall === "Wrong Answer" ||
@@ -194,9 +217,9 @@ function VerdictBanner({
             className="display text-xl font-semibold"
             style={{ color: meta.color }}
           >
-            {meta.label}
+            {headline}
           </div>
-          <p className="mt-1 text-sm text-[var(--text-dim)]">{meta.hint}</p>
+          <p className="mt-1 text-sm text-[var(--text-dim)]">{hint}</p>
         </div>
         {session.mode === "samples" && session.cases.length > 0 && (
           <div className="verdict-strip text-[var(--text-dim)]">
@@ -222,19 +245,21 @@ function VerdictBanner({
   );
 }
 
-export function RunResultsEmpty() {
+export function RunResultsEmpty({
+  message = "Click Run to execute your code.",
+}: {
+  message?: string;
+}) {
   return (
     <div className="flex h-full min-h-[160px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--line)] bg-[var(--bg-raised)] px-4 py-8 text-center">
       <div className="verdict-strip mb-2 text-[var(--text-dim)]">No run yet</div>
-      <p className="max-w-sm text-sm text-[var(--text-dim)]">
-        Click Run to execute your code against the sample test cases.
-      </p>
+      <p className="max-w-sm text-sm text-[var(--text-dim)]">{message}</p>
     </div>
   );
 }
 
 export function RunResultsLoading({
-  label = "Running sample test cases…",
+  label = "Running…",
 }: {
   label?: string;
 }) {
@@ -252,16 +277,20 @@ export function RunResultsLoading({
 export default function RunResultsPanel({
   session,
   loading,
+  emptyMessage,
+  loadingLabel,
 }: {
   session: SampleRunSession | null;
   loading?: boolean;
+  emptyMessage?: string;
+  loadingLabel?: string;
 }) {
   if (loading) {
-    return <RunResultsLoading />;
+    return <RunResultsLoading label={loadingLabel} />;
   }
 
   if (!session) {
-    return <RunResultsEmpty />;
+    return <RunResultsEmpty message={emptyMessage} />;
   }
 
   if (session.overall === "Compilation Error") {
@@ -328,6 +357,7 @@ export default function RunResultsPanel({
             <SampleCaseCard
               key={testCase.index}
               testCase={testCase}
+              mode={session.mode}
               highlighted={session.firstFailedIndex === idx}
             />
           ))}

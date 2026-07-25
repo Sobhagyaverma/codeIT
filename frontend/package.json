@@ -11,11 +11,13 @@
     "test:ai-coach": "node scripts/check-ai-coach-gates.mjs"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
     "@monaco-editor/react": "^4.7.0",
     "@stomp/stompjs": "^7.3.0",
     "axios": "^1.18.1",
     "date-fns": "^4.4.0",
     "framer-motion": "^12.42.2",
+    "lib0": "^0.2.117",
     "lucide-react": "^1.25.0",
     "react": "^19.2.7",
     "react-datepicker": "^9.1.0",
@@ -23,7 +25,10 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.1",
     "remark-gfm": "^4.0.1",
-    "sockjs-client": "^1.6.1"
+    "sockjs-client": "^1.6.1",
+    "y-monaco": "^0.1.6",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.31"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",

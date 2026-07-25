@@ -20,6 +20,9 @@ import NotFound from "./pages/NotFound";
 import { Help, Privacy, Terms } from "./pages/Legal";
 import Profile from "./pages/Profile";
 import ProfileSettings from "./pages/ProfileSettings";
+import CodeRoomHub from "./pages/CodeRoomHub";
+import CodeRoomWorkspace from "./pages/CodeRoomWorkspace";
+import ProblemCollabRoom from "./pages/ProblemCollabRoom";
 
 export default function App() {
   return (
@@ -39,6 +42,30 @@ export default function App() {
               <Route path="/dsa-sheet" element={<DSASheet />} />
               <Route path="/problems" element={<ProblemList />} />
               <Route path="/problems/:id" element={<ProblemDetail />} />
+              <Route
+                path="/problems/:id/room/:roomId"
+                element={
+                  <ProtectedRoute>
+                    <ProblemCollabRoom />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/coderoom"
+                element={
+                  <ProtectedRoute>
+                    <CodeRoomHub />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/coderoom/:roomId"
+                element={
+                  <ProtectedRoute>
+                    <CodeRoomWorkspace />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/profile"
                 element={

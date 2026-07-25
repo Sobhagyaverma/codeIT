@@ -1,0 +1,9 @@
+services:
+  sync-server:
+    build: ./sync-server
+    ports:
+      - "1234:1234"
+    environment:
+      PORT: 1234
+      CODEIT_JWT_SECRET: ${CODEIT_JWT_SECRET:-1234567891011121314151617181920212223242526272829303132}
+    restart: unless-stopped
