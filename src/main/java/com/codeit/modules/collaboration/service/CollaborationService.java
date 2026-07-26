@@ -16,6 +16,7 @@ import com.codeit.modules.collaboration.RoomMessage;
 import com.codeit.modules.collaboration.RoomRole;
 import com.codeit.modules.collaboration.RoomStatus;
 import com.codeit.modules.collaboration.RoomType;
+import com.codeit.modules.collaboration.UserRoomMembership;
 import com.codeit.modules.collaboration.WorkspaceType;
 import com.codeit.modules.auth.JwtService;
 import com.codeit.modules.collaboration.dto.CreateRoomRequest;
@@ -24,6 +25,7 @@ import com.codeit.modules.collaboration.dto.RoomMessageResponse;
 import com.codeit.modules.collaboration.dto.RoomResponse;
 import com.codeit.modules.collaboration.dto.RoomRunRequest;
 import com.codeit.modules.collaboration.dto.RoomSubmitRequest;
+import com.codeit.modules.collaboration.dto.RoomSummaryResponse;
 import com.codeit.modules.collaboration.dto.SyncTokenResponse;
 import com.codeit.modules.collaboration.events.CollaborationEventPublisher;
 import com.codeit.modules.collaboration.repository.RoomMemberRepository;
@@ -160,6 +162,37 @@ public class CollaborationService {
         requireMember(roomId, userId);
         roomMemberRepository.updateLastSeen(roomId, userId);
         return toRoomResponse(room);
+    }
+
+    public List<RoomSummaryResponse> listMyRooms(
+            Integer userId, String type, String status, int limit) {
+        String resolvedStatus =
+                status == null || status.isBlank()
+                        ? RoomStatus.ACTIVE.name()
+                        : status.trim().toUpperCase();
+        try {
+            RoomStatus.valueOf(resolvedStatus);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "status must be ACTIVE or ARCHIVED");
+        }
+
+        String resolvedType = null;
+        if (type != null && !type.isBlank()) {
+            try {
+                resolvedType = RoomType.valueOf(type.trim().toUpperCase()).name();
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "type must be PROBLEM_COLLAB or CODEROOM");
+            }
+        }
+
+        int safeLimit = Math.min(Math.max(limit, 1), 50);
+        return roomMemberRepository
+                .findMembershipsByUserId(userId, resolvedStatus, resolvedType, safeLimit)
+                .stream()
+                .map(this::toRoomSummaryResponse)
+                .toList();
     }
 
     @Transactional
@@ -415,6 +448,21 @@ public class CollaborationService {
                 .map(this::toMemberResponse)
                 .toList();
         response.setMembers(members);
+        return response;
+    }
+
+    private RoomSummaryResponse toRoomSummaryResponse(UserRoomMembership row) {
+        RoomSummaryResponse response = new RoomSummaryResponse();
+        response.setId(row.getId());
+        response.setType(row.getType());
+        response.setLanguage(row.getLanguage());
+        response.setStatus(row.getStatus());
+        response.setActiveWorkspace(row.getActiveWorkspace());
+        response.setInviteToken(row.getInviteToken());
+        response.setRole(row.getRole());
+        response.setJoinedAt(row.getJoinedAt());
+        response.setLastSeenAt(row.getLastSeenAt());
+        response.setUpdatedAt(row.getUpdatedAt());
         return response;
     }
 

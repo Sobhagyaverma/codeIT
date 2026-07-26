@@ -81,6 +81,7 @@ export default function CodeRoomWorkspace() {
     enabled: !!room,
     readOnly: !canEdit,
     userName: user?.uniqueUserId || user?.name || "user",
+    userId: user?.id,
   });
 
   const board = useYjsWhiteboard({
@@ -88,6 +89,7 @@ export default function CodeRoomWorkspace() {
     enabled: !!room,
     readOnly: !canEdit,
     userName: user?.uniqueUserId || user?.name || "user",
+    userId: user?.id,
   });
 
   useEffect(() => {
@@ -134,9 +136,17 @@ export default function CodeRoomWorkspace() {
 
   useEffect(() => {
     if (!room) return;
-    setWorkspace(persistence.resolveWorkspace(room.activeWorkspace));
+    // Prefer authoritative server workspace; do not depend on local hint
+    // identity or STOMP updates get overwritten by a stale room snapshot.
+    if (
+      room.activeWorkspace === "CODE" ||
+      room.activeWorkspace === "WHITEBOARD"
+    ) {
+      setWorkspace(room.activeWorkspace);
+      persistence.saveWorkspace(room.activeWorkspace);
+    }
     setLanguage(room.language || "java");
-  }, [room, persistence.resolveWorkspace]);
+  }, [room?.id, room?.activeWorkspace, room?.language, persistence.saveWorkspace]);
 
   useEffect(() => {
     const code = roomCodeFromSearchParams(searchParams);
@@ -170,13 +180,19 @@ export default function CodeRoomWorkspace() {
 
   useEffect(() => {
     if (!roomId) return;
-    const u1 = subscribeTopic<{ workspace: WorkspaceType }>(
+    const u1 = subscribeTopic<{ workspace?: string; roomId?: string }>(
       roomWorkspaceTopic(roomId),
       (payload) => {
-        if (payload.workspace) {
-          setWorkspace(payload.workspace);
-          persistence.saveWorkspace(payload.workspace);
-        }
+        const next =
+          payload.workspace === "WHITEBOARD" || payload.workspace === "CODE"
+            ? payload.workspace
+            : null;
+        if (!next) return;
+        setWorkspace(next);
+        persistence.saveWorkspace(next);
+        setRoom((prev) =>
+          prev ? { ...prev, activeWorkspace: next } : prev
+        );
       }
     );
     const u2 = subscribeTopic<Record<string, unknown>>(
@@ -195,7 +211,7 @@ export default function CodeRoomWorkspace() {
       u1();
       u2();
     };
-  }, [roomId, persistence.saveWorkspace]);
+  }, [roomId, persistence.saveWorkspace, setRoom]);
 
   const languageId = useMemo(
     () => languages.find((l) => l.slug === language)?.languageId,
@@ -413,7 +429,6 @@ export default function CodeRoomWorkspace() {
               hostUserId={room.hostUserId}
               vertical
               compact
-              maxVisible={4}
             />
           }
         >
@@ -428,7 +443,8 @@ export default function CodeRoomWorkspace() {
               messages={messages}
               onSend={send}
               sending={sending}
-              emptyHint="Waiting for collaborators… Share your invite link."
+              emptyTitle="No messages yet"
+              emptySubtitle="Say hi to the room."
             />
           </div>
         </CollabSideRail>

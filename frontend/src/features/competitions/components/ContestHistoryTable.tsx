@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { History } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import ComingSoonButton from "../../practice/components/ComingSoonButton";
 import type { ContestHistoryRow } from "../types";
 import { formatContestWhen } from "../adapters";
@@ -10,10 +12,11 @@ export default function ContestHistoryTable({
 }) {
   if (!rows.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--bg-raised)] px-4 py-10 text-center text-sm text-[var(--text-dim)]">
-        No contest participation yet. Join a live or upcoming contest to build
-        history.
-      </div>
+      <EmptyState
+        icon={History}
+        title="No contest participation yet"
+        subtitle="Join a live or upcoming contest to build history."
+      />
     );
   }
 

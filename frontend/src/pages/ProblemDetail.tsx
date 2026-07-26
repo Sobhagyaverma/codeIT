@@ -115,8 +115,11 @@ export default function ProblemDetail() {
   const runAbortRef = useRef<AbortController | null>(null);
 
   const [splitPct, setSplitPct] = useState(48);
+  const [editorPct, setEditorPct] = useState(58);
   const splitRef = useRef<HTMLDivElement | null>(null);
+  const editorSplitRef = useRef<HTMLElement | null>(null);
   const draggingRef = useRef(false);
+  const draggingEditorRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,13 +188,19 @@ export default function ProblemDetail() {
 
   useEffect(() => {
     const onMove = (clientX: number, clientY: number) => {
-      if (!draggingRef.current || !splitRef.current) return;
-      const rect = splitRef.current.getBoundingClientRect();
-      const horizontal = window.matchMedia("(min-width: 1024px)").matches;
-      const pct = horizontal
-        ? ((clientX - rect.left) / rect.width) * 100
-        : ((clientY - rect.top) / rect.height) * 100;
-      setSplitPct(Math.min(72, Math.max(28, pct)));
+      if (draggingRef.current && splitRef.current) {
+        const rect = splitRef.current.getBoundingClientRect();
+        const horizontal = window.matchMedia("(min-width: 1024px)").matches;
+        const pct = horizontal
+          ? ((clientX - rect.left) / rect.width) * 100
+          : ((clientY - rect.top) / rect.height) * 100;
+        setSplitPct(Math.min(72, Math.max(28, pct)));
+      }
+      if (draggingEditorRef.current && editorSplitRef.current) {
+        const rect = editorSplitRef.current.getBoundingClientRect();
+        const pct = ((clientY - rect.top) / rect.height) * 100;
+        setEditorPct(Math.min(78, Math.max(28, pct)));
+      }
     };
 
     const onMouseMove = (e: MouseEvent) => onMove(e.clientX, e.clientY);
@@ -199,10 +208,12 @@ export default function ProblemDetail() {
       if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY);
     };
     const stop = () => {
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      if (draggingRef.current || draggingEditorRef.current) {
+        draggingRef.current = false;
+        draggingEditorRef.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
     };
 
     window.addEventListener("mousemove", onMouseMove);
@@ -222,6 +233,12 @@ export default function ProblemDetail() {
     document.body.style.cursor = window.matchMedia("(min-width: 1024px)").matches
       ? "col-resize"
       : "row-resize";
+    document.body.style.userSelect = "none";
+  };
+
+  const startEditorResize = () => {
+    draggingEditorRef.current = true;
+    document.body.style.cursor = "row-resize";
     document.body.style.userSelect = "none";
   };
 
@@ -546,8 +563,14 @@ export default function ProblemDetail() {
         </div>
 
         {/* Editor + panels */}
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="min-h-[220px] flex-[1.4] bg-[var(--bg-inset)]">
+        <section
+          ref={editorSplitRef}
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
+        >
+          <div
+            className="min-h-[140px] bg-[var(--bg-inset)]"
+            style={{ flex: `0 0 ${editorPct}%` }}
+          >
             <Editor
               height="100%"
               language={MONACO_LANG[language?.slug || "python"] || "plaintext"}
@@ -566,7 +589,24 @@ export default function ProblemDetail() {
             />
           </div>
 
-          <div className="flex min-h-[180px] flex-1 flex-col border-t border-[var(--line)]">
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize code and coach panel"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              startEditorResize();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              startEditorResize();
+            }}
+            className="group relative z-10 flex h-3 shrink-0 cursor-row-resize items-center justify-center border-y border-[var(--line)] bg-[var(--bg-raised)] hover:bg-[var(--accent)]/15"
+          >
+            <div className="h-1 w-10 rounded-full bg-[var(--line)] group-hover:bg-[var(--accent)]" />
+          </div>
+
+          <div className="flex min-h-[140px] min-w-0 flex-1 flex-col">
             <div className="flex shrink-0 items-center gap-1 border-b border-[var(--line)] bg-[var(--bg-raised)] px-2">
               {(
                 [
@@ -578,7 +618,10 @@ export default function ProblemDetail() {
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setRightTab(id)}
+                  onClick={() => {
+                    setRightTab(id);
+                    if (id !== "ai") setCoachOpen(false);
+                  }}
                   className={`verdict-strip border-b-2 px-3 py-2 ${
                     rightTab === id
                       ? "border-[var(--accent)] text-[var(--accent)]"
@@ -735,11 +778,11 @@ export default function ProblemDetail() {
         </section>
       </div>
 
-      {user && (
+      {user && rightTab !== "ai" && (
         <LearningCoachFab
-          open={coachOpen || rightTab === "ai"}
+          open={coachOpen}
           onToggle={() => {
-            const next = !(coachOpen || rightTab === "ai");
+            const next = !coachOpen;
             setCoachOpen(next);
             if (next) setRightTab("ai");
           }}

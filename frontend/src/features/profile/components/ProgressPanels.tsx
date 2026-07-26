@@ -1,3 +1,5 @@
+import { BarChart3, Code2, Layers } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import type { DifficultyStats, LanguageUsage, TopicProgress, WeeklyBucket } from "../types";
 import { ExpandToggle, useExpandableList } from "./ExpandableList";
 
@@ -17,7 +19,7 @@ export function DifficultyProgress({
       label: "Medium",
       solved: difficulty.medium,
       total: Math.max(difficulty.totalAvailable.medium, difficulty.medium),
-      color: "var(--warn)",
+      color: "var(--accent)",
     },
     {
       label: "Hard",
@@ -65,7 +67,14 @@ export function TopicProgressList({ topics }: { topics: TopicProgress[] }) {
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">Topic progress</h2>
       {topics.length === 0 ? (
-        <p className="text-sm text-[var(--text-dim)]">No topic progress yet.</p>
+        <EmptyState
+          icon={Layers}
+          title="No topic progress yet"
+          subtitle="Solve problems to build topic coverage."
+          size="sm"
+          bordered={false}
+          className="py-3"
+        />
       ) : (
         <div className="space-y-3">
           {list.visible.map((t) => {
@@ -108,7 +117,14 @@ export function LanguageBreakdown({ languages }: { languages: LanguageUsage[] })
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">Language usage</h2>
       {languages.length === 0 ? (
-        <p className="text-sm text-[var(--text-dim)]">No submissions yet.</p>
+        <EmptyState
+          icon={Code2}
+          title="No submissions yet"
+          subtitle="Language usage appears after you submit."
+          size="sm"
+          bordered={false}
+          className="py-3"
+        />
       ) : (
         <div className="space-y-2">
           {list.visible.map((lang) => (
@@ -147,24 +163,36 @@ export function ActivityBars({
   title: string;
   buckets: WeeklyBucket[];
 }) {
+  const hasActivity = buckets.some((b) => b.count > 0);
   const max = Math.max(1, ...buckets.map((b) => b.count));
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">{title}</h2>
-      <div className="flex h-32 items-end gap-2">
-        {buckets.map((b) => (
-          <div key={b.label} className="flex flex-1 flex-col items-center gap-1">
-            <div
-              className="w-full rounded-t-md bg-[var(--info)]/80 transition-all"
-              style={{ height: `${Math.max(8, (b.count / max) * 100)}%` }}
-              title={`${b.label}: ${b.count}`}
-            />
-            <span className="truncate text-[10px] text-[var(--text-dim)]">
-              {b.label}
-            </span>
-          </div>
-        ))}
-      </div>
+      {!hasActivity ? (
+        <EmptyState
+          icon={BarChart3}
+          title="No activity yet"
+          subtitle="Your submissions will show up here."
+          size="sm"
+          bordered={false}
+          className="py-3"
+        />
+      ) : (
+        <div className="flex h-32 items-end gap-2">
+          {buckets.map((b) => (
+            <div key={b.label} className="flex flex-1 flex-col items-center gap-1">
+              <div
+                className="w-full rounded-t-md bg-[var(--info)]/80 transition-all"
+                style={{ height: `${Math.max(8, (b.count / max) * 100)}%` }}
+                title={`${b.label}: ${b.count}`}
+              />
+              <span className="truncate text-[10px] text-[var(--text-dim)]">
+                {b.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

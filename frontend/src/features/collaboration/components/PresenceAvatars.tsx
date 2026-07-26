@@ -1,9 +1,13 @@
 import type { RoomMember } from "../types";
+import { avatarColorFor } from "../userColors";
+
+export { avatarColorFor, USER_COLORS as AVATAR_COLORS } from "../userColors";
 
 type Props = {
   members: RoomMember[];
   onlineUserIds: number[];
   hostUserId: number;
+  /** Omit or pass a large number to show every member */
   maxVisible?: number;
   compact?: boolean;
   /** Vertical stack for collapsed rail */
@@ -17,24 +21,11 @@ function initials(name: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-export const AVATAR_COLORS = [
-  "#f5a623",
-  "#3b82f6",
-  "#22c55e",
-  "#ec4899",
-  "#a78bfa",
-  "#14b8a6",
-];
-
-export function avatarColorFor(userId: number): string {
-  return AVATAR_COLORS[Math.abs(userId) % AVATAR_COLORS.length];
-}
-
 export default function PresenceAvatars({
   members,
   onlineUserIds,
   hostUserId,
-  maxVisible = 5,
+  maxVisible,
   compact = false,
   vertical = false,
 }: Props) {
@@ -48,7 +39,8 @@ export default function PresenceAvatars({
     return a.username.localeCompare(b.username);
   });
 
-  const visible = sorted.slice(0, maxVisible);
+  const limit = maxVisible ?? sorted.length;
+  const visible = sorted.slice(0, limit);
   const overflow = sorted.length - visible.length;
   const onlineCount = members.filter((m) => online.has(m.userId)).length;
   const size = compact ? "h-6 w-6 text-[9px]" : "h-7 w-7 text-[10px]";
@@ -60,6 +52,7 @@ export default function PresenceAvatars({
       <div className={`flex ${vertical ? "flex-col gap-1.5" : "-space-x-2"}`}>
         {visible.map((m, i) => {
           const isOnline = online.has(m.userId);
+          const color = avatarColorFor(m.userId);
           return (
             <div
               key={m.userId}
@@ -68,7 +61,8 @@ export default function PresenceAvatars({
                 isOnline ? "" : "opacity-45"
               }`}
               style={{
-                background: avatarColorFor(m.userId),
+                background: color,
+                boxShadow: `0 0 0 1px ${color}`,
                 zIndex: vertical ? 1 : visible.length - i,
               }}
             >
@@ -84,6 +78,10 @@ export default function PresenceAvatars({
         {overflow > 0 && !vertical && (
           <div
             className={`flex items-center justify-center rounded-full border-2 border-[var(--bg)] bg-[var(--bg-inset)] font-semibold text-[var(--text-dim)] ${size}`}
+            title={sorted
+              .slice(limit)
+              .map((m) => m.username)
+              .join(", ")}
           >
             +{overflow}
           </div>

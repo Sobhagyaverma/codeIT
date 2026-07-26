@@ -5,6 +5,7 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 type AuthPasswordFieldProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -47,7 +48,7 @@ const AuthPasswordField = forwardRef<HTMLInputElement, AuthPasswordFieldProps>(
             type={visible ? "text" : "password"}
             aria-invalid={error ? true : undefined}
             aria-describedby={describedBy}
-            className={`auth-input w-full rounded-md border bg-[var(--bg-inset)] px-3 py-2.5 pr-16 text-sm text-[var(--text)] transition placeholder:text-[var(--text-dim)]/70 focus:outline-none ${
+            className={`auth-input w-full rounded-md border bg-[var(--bg-inset)] px-3 py-2.5 pr-10 text-sm text-[var(--text)] transition placeholder:text-[var(--text-dim)]/70 focus:outline-none ${
               error
                 ? "border-[var(--err)] focus:border-[var(--err)]"
                 : "border-[var(--line)] focus:border-[var(--info)]"
@@ -57,11 +58,15 @@ const AuthPasswordField = forwardRef<HTMLInputElement, AuthPasswordFieldProps>(
           <button
             type="button"
             onClick={() => setVisible((v) => !v)}
-            className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-[var(--text-dim)] transition hover:text-[var(--info)]"
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--text-dim)] transition hover:text-[var(--info)]"
             aria-label={visible ? "Hide password" : "Show password"}
             aria-pressed={visible}
           >
-            {visible ? "Hide" : "Show"}
+            {visible ? (
+              <EyeOff className="h-4 w-4" aria-hidden />
+            ) : (
+              <Eye className="h-4 w-4" aria-hidden />
+            )}
           </button>
         </div>
         {hint && (

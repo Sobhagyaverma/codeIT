@@ -1,3 +1,5 @@
+import { Play } from "lucide-react";
+import EmptyState from "./EmptyState";
 import type { RunVerdictKind, SampleCaseResult, SampleRunSession } from "../lib/runSampleTests";
 
 const VERDICT_META: Record<
@@ -251,10 +253,12 @@ export function RunResultsEmpty({
   message?: string;
 }) {
   return (
-    <div className="flex h-full min-h-[160px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--line)] bg-[var(--bg-raised)] px-4 py-8 text-center">
-      <div className="verdict-strip mb-2 text-[var(--text-dim)]">No run yet</div>
-      <p className="max-w-sm text-sm text-[var(--text-dim)]">{message}</p>
-    </div>
+    <EmptyState
+      icon={Play}
+      title="No run yet"
+      subtitle={message}
+      className="h-full min-h-[160px] justify-center rounded-lg py-8"
+    />
   );
 }
 

@@ -201,7 +201,7 @@ Default config has Redis **disabled**. To enable:
 
 ### 4. Judge0
 
-Expect Judge0 at `http://localhost:2358`.
+Expect Judge0 at `https://judge0.ktatva.com` (override with `JUDGE0_API_URL` if needed).
 
 - Homelab: [`docs/JUDGE0_HOMELAB_DEPLOY.md`](docs/JUDGE0_HOMELAB_DEPLOY.md)
 - DigitalOcean: [`docs/JUDGE0_DIGITALOCEAN_DEPLOY.md`](docs/JUDGE0_DIGITALOCEAN_DEPLOY.md)
@@ -212,7 +212,7 @@ Expect Judge0 at `http://localhost:2358`.
 export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/codeit
 export SPRING_DATASOURCE_USERNAME=postgres
 export SPRING_DATASOURCE_PASSWORD=your_password
-export JUDGE0_API_URL=http://localhost:2358
+export JUDGE0_API_URL=https://judge0.ktatva.com
 export CODEIT_JWT_SECRET=replace-with-a-secret-at-least-32-characters-long
 export GROQ_API_KEY=your_groq_api_key
 ```
@@ -270,7 +270,7 @@ Frontend: `http://localhost:5173`
 | Property | Default | Purpose |
 | --- | --- | --- |
 | `server.port` | `9091` | Backend HTTP port |
-| `judge0.api.url` | `http://localhost:2358` | Judge0 base URL |
+| `judge0.api.url` | `https://judge0.ktatva.com` | Judge0 base URL |
 | `codeit.redis.enabled` | `false` | Enable Redis caching |
 | `codeit.jwt.expiration-ms` | `86400000` | JWT lifetime |
 | `codeit.ai.enabled` | `true` | AI coach |

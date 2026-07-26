@@ -14,11 +14,3 @@ export function ErrorState({ message }: { message: string }) {
     </div>
   );
 }
-
-export function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-[var(--line)] p-8 text-center text-sm text-[var(--text-dim)]">
-      {message}
-    </div>
-  );
-}

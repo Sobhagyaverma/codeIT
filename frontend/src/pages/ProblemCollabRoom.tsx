@@ -98,6 +98,7 @@ export default function ProblemCollabRoom() {
     enabled: !!room,
     readOnly: !canEdit,
     userName: user?.uniqueUserId || user?.name || "user",
+    userId: user?.id,
   });
 
   useEffect(() => {
@@ -583,7 +584,6 @@ export default function ProblemCollabRoom() {
               hostUserId={room.hostUserId}
               vertical
               compact
-              maxVisible={4}
             />
           }
         >
@@ -598,7 +598,8 @@ export default function ProblemCollabRoom() {
               messages={messages}
               onSend={send}
               sending={sending}
-              emptyHint="Waiting for collaborators… Start the conversation."
+              emptyTitle="No messages yet"
+              emptySubtitle="Start the conversation."
             />
           </div>
         </CollabSideRail>

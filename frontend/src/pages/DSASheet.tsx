@@ -11,8 +11,6 @@ import PracticeSkeleton from "../features/practice/components/PracticeSkeleton";
 import EmptyPractice from "../features/practice/components/EmptyPractice";
 import SearchBar from "../features/practice/components/SearchBar";
 import FilterChips from "../features/practice/components/FilterChips";
-import ProgressCircle from "../features/practice/components/ProgressCircle";
-import ProgressBar from "../features/practice/components/ProgressBar";
 import type { PracticeModule, PracticeProblem } from "../features/practice/types";
 
 function matchesFilters(
@@ -89,42 +87,19 @@ export default function DSASheet() {
     return filteredModules.filter((m) => m.total > 0);
   }, [data, filteredModules, filters]);
 
-  const overall =
-    data && data.stats.total
-      ? Math.round((data.stats.solved / data.stats.total) * 100)
-      : 0;
-
   return (
     <div className="practice-shell min-h-[calc(100vh-3.5rem)]">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="verdict-strip text-[var(--accent)]">Complete DSA Sheet</p>
-            <h1 className="display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-              Structured roadmap for mastery
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-[var(--text-dim)]">
-              Learn topic-by-topic with CodeIT’s original curriculum. Track
-              progress, bookmark favorites, and jump into practice without leaving
-              your flow.
-            </p>
-          </div>
-          {data && (
-            <div className="flex items-center gap-4 rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]/80 p-4 practice-glass">
-              <ProgressCircle value={overall} size={76} label="Sheet progress" />
-              <div>
-                <div className="text-sm font-semibold">
-                  {data.stats.solved} / {data.stats.total} solved
-                </div>
-                <div className="mt-1 text-xs text-[var(--text-dim)]">
-                  Easy {data.stats.difficulty.solved.easy} · Med{" "}
-                  {data.stats.difficulty.solved.medium} · Hard{" "}
-                  {data.stats.difficulty.solved.hard}
-                </div>
-                <ProgressBar value={overall} className="mt-2 w-40" />
-              </div>
-            </div>
-          )}
+        <header className="mb-6">
+          <p className="verdict-strip text-[var(--accent)]">Complete DSA Sheet</p>
+          <h1 className="display mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+            Structured roadmap for mastery
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[var(--text-dim)]">
+            Learn topic-by-topic with CodeIT’s original curriculum. Track
+            progress, bookmark favorites, and jump into practice without leaving
+            your flow.
+          </p>
         </header>
 
         {data && <OverviewStats stats={data.stats} className="mb-5" />}

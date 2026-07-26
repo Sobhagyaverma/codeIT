@@ -52,3 +52,16 @@ export type CreateRoomPayload = {
   problemId?: number | null;
   language?: string;
 };
+
+export type RoomSummary = {
+  id: string;
+  type: RoomType;
+  language: string;
+  status: RoomStatus;
+  activeWorkspace: WorkspaceType;
+  inviteToken: string;
+  role: RoomRole;
+  joinedAt?: string;
+  lastSeenAt?: string;
+  updatedAt?: string;
+};

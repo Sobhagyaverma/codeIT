@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { Bookmark, History, ScrollText, Award } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import type {
   Achievement,
   ContestHistoryRow,
@@ -23,9 +25,11 @@ export function RecentSubmissionsPanel({
 
   if (!rows.length) {
     return (
-      <EmptyCard
+      <EmptyState
+        icon={ScrollText}
         title="Recent submissions"
-        message="Submit a solution to see activity here."
+        subtitle="Submit a solution to see activity here."
+        className="rounded-xl"
       />
     );
   }
@@ -83,9 +87,11 @@ export function ContestHistoryPanel({
 
   if (!rows.length) {
     return (
-      <EmptyCard
+      <EmptyState
+        icon={History}
         title="Contest history"
-        message="Join a contest to build your standings history."
+        subtitle="Join a contest to build your standings history."
+        className="rounded-xl"
       />
     );
   }
@@ -154,7 +160,14 @@ export function ProblemListPanel({
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">{title}</h2>
       {problems.length === 0 ? (
-        <p className="text-sm text-[var(--text-dim)]">{empty}</p>
+        <EmptyState
+          icon={Bookmark}
+          title="Nothing here yet"
+          subtitle={empty}
+          size="sm"
+          bordered={false}
+          className="py-3"
+        />
       ) : (
         <div className="space-y-2">
           {list.visible.map((p) => (
@@ -193,9 +206,14 @@ export function AchievementsPanel({
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4">
       <h2 className="mb-3 text-sm font-semibold">Achievements</h2>
       {achievements.length === 0 ? (
-        <p className="text-sm text-[var(--text-dim)]">
-          Achievements are not available yet.
-        </p>
+        <EmptyState
+          icon={Award}
+          title="No achievements yet"
+          subtitle="Achievements unlock as you solve problems and join contests."
+          size="sm"
+          bordered={false}
+          className="py-3"
+        />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
           {list.visible.map((a) => (
@@ -315,15 +333,6 @@ export function ContinuePanel({
           </div>
         )}
       </div>
-    </section>
-  );
-}
-
-function EmptyCard({ title, message }: { title: string; message: string }) {
-  return (
-    <section className="rounded-xl border border-dashed border-[var(--line)] bg-[var(--bg-raised)] p-4">
-      <h2 className="mb-2 text-sm font-semibold">{title}</h2>
-      <p className="text-sm text-[var(--text-dim)]">{message}</p>
     </section>
   );
 }

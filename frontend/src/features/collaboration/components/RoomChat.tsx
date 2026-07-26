@@ -5,14 +5,17 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { MessageSquare } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import type { RoomMessage } from "../types";
-import { avatarColorFor } from "./PresenceAvatars";
+import { avatarColorFor } from "../userColors";
 
 type Props = {
   messages: RoomMessage[];
   onSend: (content: string) => Promise<void>;
   sending?: boolean;
-  emptyHint?: string;
+  emptyTitle?: string;
+  emptySubtitle?: string;
 };
 
 const EMOJIS = ["👍", "🔥", "✅", "😂", "🤔", "🎉", "👀", "💡"];
@@ -79,7 +82,8 @@ export default function RoomChat({
   messages,
   onSend,
   sending,
-  emptyHint = "No messages yet. Say hi to the room.",
+  emptyTitle = "No messages yet",
+  emptySubtitle = "Say hi to the room.",
 }: Props) {
   const [draft, setDraft] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -119,7 +123,13 @@ export default function RoomChat({
         className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3"
       >
         {messages.length === 0 && (
-          <p className="text-xs text-[var(--text-dim)]">{emptyHint}</p>
+          <EmptyState
+            icon={MessageSquare}
+            title={emptyTitle}
+            subtitle={emptySubtitle}
+            size="sm"
+            className="mx-auto max-w-xs"
+          />
         )}
         {messages.map((m) => (
           <div key={m.id} className="flex gap-2">

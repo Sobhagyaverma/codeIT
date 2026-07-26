@@ -5,9 +5,14 @@ import {
   formatPercent,
   formatRelativeShort,
 } from "../utils";
+import { PRACTICE_FLAGS } from "../config/flags";
 import DifficultyBadge from "../../../components/DifficultyBadge";
 import FavoriteButton from "./FavoriteButton";
 import StatusBadge from "./StatusBadge";
+
+const DESKTOP_GRID = PRACTICE_FLAGS.showAcceptanceColumn
+  ? "lg:grid-cols-[48px_minmax(0,1.6fr)_90px_100px_130px_44px_100px]"
+  : "lg:grid-cols-[48px_minmax(0,1.8fr)_110px_140px_44px_minmax(100px,1fr)]";
 
 export default function CatalogProblemRow({
   problem,
@@ -22,7 +27,7 @@ export default function CatalogProblemRow({
 }) {
   return (
     <article className="practice-card rounded-xl border border-[var(--line)] bg-[var(--bg-raised)]/70 px-3 py-3 transition hover:-translate-y-0.5 hover:border-[var(--info)]/40 hover:shadow-[0_12px_30px_rgba(0,0,0,0.28)] sm:px-4">
-      <div className="hidden items-center gap-3 lg:grid lg:grid-cols-[48px_minmax(0,1.6fr)_90px_100px_130px_44px_100px]">
+      <div className={`hidden items-center gap-3 lg:grid ${DESKTOP_GRID}`}>
         <div className="text-sm text-[var(--text-dim)]">{index}</div>
         <div className="min-w-0">
           <Link
@@ -42,9 +47,11 @@ export default function CatalogProblemRow({
             ))}
           </div>
         </div>
-        <div className="text-sm text-[var(--text-dim)]">
-          {formatPercent(problem.acceptanceRate)}
-        </div>
+        {PRACTICE_FLAGS.showAcceptanceColumn && (
+          <div className="text-sm text-[var(--text-dim)]">
+            {formatPercent(problem.acceptanceRate)}
+          </div>
+        )}
         <div>
           <DifficultyBadge difficulty={problem.difficulty} />
         </div>
@@ -83,12 +90,16 @@ export default function CatalogProblemRow({
         <div className="flex flex-wrap items-center gap-2">
           <DifficultyBadge difficulty={problem.difficulty} />
           <StatusBadge status={problem.status} />
-          <span className="text-xs text-[var(--text-dim)]">
-            Acc {formatPercent(problem.acceptanceRate)}
-          </span>
-          <span className="text-xs text-[var(--text-dim)]">
-            Solved {formatCompactNumber(problem.solvedCount)}
-          </span>
+          {PRACTICE_FLAGS.showAcceptanceColumn && (
+            <span className="text-xs text-[var(--text-dim)]">
+              Acc {formatPercent(problem.acceptanceRate)}
+            </span>
+          )}
+          {PRACTICE_FLAGS.showSolvedCountMetrics && (
+            <span className="text-xs text-[var(--text-dim)]">
+              Solved {formatCompactNumber(problem.solvedCount)}
+            </span>
+          )}
         </div>
         <div className="text-xs text-[var(--text-dim)]">
           Last attempt {formatRelativeShort(problem.lastAttemptAt)}

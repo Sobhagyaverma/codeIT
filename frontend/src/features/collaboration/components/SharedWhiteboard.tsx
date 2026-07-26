@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Excalidraw } from "@excalidraw/excalidraw";
+import { Excalidraw, WelcomeScreen } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import { Hand } from "lucide-react";
 import type {
   AppState,
   BinaryFiles,
@@ -9,6 +10,7 @@ import type {
   SocketId,
 } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import EmptyState from "../../../components/EmptyState";
 import DsaLibraryPanel from "../whiteboard/DsaLibraryPanel";
 import StructureInspector from "../whiteboard/StructureInspector";
 import TemplatesBar from "../whiteboard/TemplatesBar";
@@ -312,7 +314,19 @@ export default function SharedWhiteboard({
                   clearCanvas: false,
                 },
               }}
-            />
+            >
+              <WelcomeScreen>
+                <WelcomeScreen.Center>
+                  <EmptyState
+                    icon={Hand}
+                    title="Blank whiteboard"
+                    subtitle="To move canvas, hold mouse wheel or spacebar while dragging, or use the hand tool."
+                    bordered={false}
+                    className="pointer-events-none py-6"
+                  />
+                </WelcomeScreen.Center>
+              </WelcomeScreen>
+            </Excalidraw>
           </div>
         </div>
 

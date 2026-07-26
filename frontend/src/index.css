@@ -162,6 +162,16 @@ code, pre, .mono { font-family: var(--font-mono); }
   height: 100% !important;
 }
 
+/* Yjs / Monaco remote collaborator cursors (per-user colors injected at runtime) */
+.yRemoteSelection {
+  background-color: rgba(245, 166, 35, 0.22);
+}
+.yRemoteSelectionHead {
+  position: absolute;
+  border-left: 2px solid var(--accent);
+  box-sizing: border-box;
+}
+
 .toast-enter {
   animation: toast-in 220ms ease-out both;
 }

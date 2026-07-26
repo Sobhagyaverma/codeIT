@@ -49,7 +49,7 @@ export default function ProfileDashboard({
       <div
         role="tablist"
         aria-label="Profile sections"
-        className="flex flex-wrap gap-1 rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-1"
+        className="flex flex-wrap items-center gap-1 border-b border-[var(--line)]"
       >
         {TABS.map((t) => (
           <button
@@ -58,10 +58,10 @@ export default function ProfileDashboard({
             role="tab"
             aria-selected={active === t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+            className={`verdict-strip border-b-2 px-3 py-2 ${
               active === t.id
-                ? "bg-[var(--bg-inset)] text-[var(--text)]"
-                : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                ? "border-[var(--accent)] text-[var(--accent)]"
+                : "border-transparent text-[var(--text-dim)] hover:text-[var(--text)]"
             }`}
           >
             {t.label}

@@ -12,10 +12,10 @@ const NAV_ITEMS = [
 ] as const;
 
 function navLinkClass({ isActive }: { isActive: boolean }) {
-  return `group relative px-3 py-2 text-sm font-medium transition-all duration-200 ${
+  return `border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none ${
     isActive
-      ? "text-[var(--text)]"
-      : "text-[var(--text-dim)] hover:-translate-y-0.5 hover:text-[var(--text)]"
+      ? "border-[var(--accent)] text-[var(--text)]"
+      : "border-transparent text-[var(--text-dim)] hover:text-[var(--text)]"
   }`;
 }
 
@@ -87,18 +87,7 @@ export default function NavBar() {
         >
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} className={navLinkClass}>
-              {({ isActive }) => (
-                <>
-                  {item.label}
-                  <span
-                    className={`absolute inset-x-3 -bottom-[6px] h-0.5 origin-left rounded-full bg-[var(--accent)] transition-transform duration-200 ${
-                      isActive
-                        ? "scale-x-100"
-                        : "scale-x-0 group-hover:scale-x-100"
-                    }`}
-                  />
-                </>
-              )}
+              {item.label}
             </NavLink>
           ))}
         </nav>

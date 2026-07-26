@@ -20,6 +20,11 @@ function StatCard({
   );
 }
 
+function formatTotalRuntime(seconds: number): string {
+  if (!Number.isFinite(seconds)) return "—";
+  return `${seconds.toFixed(2)}s`;
+}
+
 export default function ProfileStatsGrid({ stats }: { stats: ProfileStats }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -31,13 +36,13 @@ export default function ProfileStatsGrid({ stats }: { stats: ProfileStats }) {
       />
       <StatCard
         label="Total runtime"
-        value={`${stats.totalRuntimeSeconds}s`}
+        value={formatTotalRuntime(stats.totalRuntimeSeconds)}
         hint="Sum of recorded execution times"
       />
       <StatCard
         label="Contest rating"
         value={stats.rating ?? "—"}
-        hint={stats.rating == null ? "Not available yet" : undefined}
+        hint={stats.rating == null ? "Ratings not tracked yet" : undefined}
       />
       <StatCard
         label="Easy / Med / Hard"

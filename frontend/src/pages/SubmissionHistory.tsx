@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ScrollText } from "lucide-react";
 import { getUserSubmissions } from "../lib/api";
 import type { Submission } from "../lib/types";
 import { useAuth } from "../context/AuthContext";
-import { Loading, ErrorState, EmptyState } from "../components/Loading";
+import { Loading, ErrorState } from "../components/Loading";
+import EmptyState from "../components/EmptyState";
 
 const VERDICT_COLOR: Record<string, string> = {
   Accepted: "var(--ok)",
@@ -36,7 +38,11 @@ export default function SubmissionHistory() {
       {loading && <Loading label="Loading submissions" />}
       {error && <ErrorState message={error} />}
       {!loading && !error && subs.length === 0 && (
-        <EmptyState message="No submissions yet. Solve a problem to see it here." />
+        <EmptyState
+          icon={ScrollText}
+          title="No submissions yet"
+          subtitle="Solve a problem to see it here."
+        />
       )}
 
       {!loading && subs.length > 0 && (

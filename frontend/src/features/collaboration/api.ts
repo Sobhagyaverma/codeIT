@@ -3,6 +3,8 @@ import type {
   CreateRoomPayload,
   Room,
   RoomMessage,
+  RoomSummary,
+  RoomType,
   SyncToken,
 } from "./types";
 
@@ -16,6 +18,19 @@ export const joinRoom = (inviteToken: string) =>
   request<Room>(`/api/rooms/join/${encodeURIComponent(inviteToken)}`, {
     method: "POST",
   });
+
+export const getMyRooms = (opts?: {
+  type?: RoomType;
+  status?: string;
+  limit?: number;
+}) => {
+  const params = new URLSearchParams();
+  if (opts?.type) params.set("type", opts.type);
+  if (opts?.status) params.set("status", opts.status);
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  return request<RoomSummary[]>(`/api/rooms/mine${qs ? `?${qs}` : ""}`);
+};
 
 export const getRoom = (roomId: string) =>
   request<Room>(`/api/rooms/${roomId}`);

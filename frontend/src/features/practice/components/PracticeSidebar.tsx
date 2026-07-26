@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Flame, Target, Sparkles } from "lucide-react";
+import { CheckCircle2, Flame, PlayCircle, Sparkles, Target } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import type { PracticeCatalogData } from "../types";
 import ContributionHeatmap from "../../profile/components/ContributionHeatmap";
 import ProgressCircle from "./ProgressCircle";
@@ -84,15 +85,27 @@ export default function PracticeSidebar({
             </div>
           </Link>
         ) : (
-          <p className="text-sm text-[var(--text-dim)]">
-            Attempt a problem to unlock your continue trail.
-          </p>
+          <EmptyState
+            icon={PlayCircle}
+            title="Nothing to continue"
+            subtitle="Attempt a problem to unlock your continue trail."
+            size="sm"
+            bordered={false}
+            className="py-2"
+          />
         )}
       </SidebarWidget>
 
       <SidebarWidget title="Recently solved">
         {data.recentSolved.length === 0 ? (
-          <p className="text-sm text-[var(--text-dim)]">No accepted solves yet.</p>
+          <EmptyState
+            icon={CheckCircle2}
+            title="No accepted solves yet"
+            subtitle="Solved problems will show up here."
+            size="sm"
+            bordered={false}
+            className="py-2"
+          />
         ) : (
           <ul className="space-y-2">
             {data.recentSolved.slice(0, 5).map((problem) => (

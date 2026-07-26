@@ -11,6 +11,10 @@ import {
 } from "../sync";
 import type { ConnectionState } from "../components/ConnectionStatus";
 import { mapProviderStatus } from "../components/ConnectionStatus";
+import {
+  avatarColorFor,
+  syncMonacoRemoteCursorStyles,
+} from "../userColors";
 
 type Options = {
   roomId: string;
@@ -18,6 +22,7 @@ type Options = {
   enabled: boolean;
   readOnly?: boolean;
   userName?: string;
+  userId?: number;
 };
 
 export function useYjsCodeEditor({
@@ -26,6 +31,7 @@ export function useYjsCodeEditor({
   enabled,
   readOnly = false,
   userName = "anon",
+  userId,
 }: Options) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +47,7 @@ export function useYjsCodeEditor({
   const languageRef = useRef(language);
   const hydratedRef = useRef(false);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const userColor = avatarColorFor(userId ?? 0);
 
   languageRef.current = language;
 
@@ -49,6 +56,7 @@ export function useYjsCodeEditor({
 
     let cancelled = false;
     let persistInterval = 0;
+    let onAwarenessChange: (() => void) | null = null;
     const ydoc = new Y.Doc();
     ydocRef.current = ydoc;
     const ytext = ydoc.getText("monaco");
@@ -79,8 +87,14 @@ export function useYjsCodeEditor({
         providerRef.current = provider;
         provider.awareness.setLocalStateField("user", {
           name: userName,
-          color: "#f5a623",
+          color: userColor,
         });
+
+        onAwarenessChange = () => {
+          syncMonacoRemoteCursorStyles(provider.awareness);
+        };
+        provider.awareness.on("change", onAwarenessChange);
+        onAwarenessChange();
 
         const applyHydrateIfEmpty = () => {
           if (hydratedRef.current) return;
@@ -101,7 +115,9 @@ export function useYjsCodeEditor({
               editorRef.current &&
               Number.isFinite(local.cursor)
             ) {
-              const pos = editorRef.current.getModel()?.getPositionAt(local.cursor);
+              const pos = editorRef.current
+                .getModel()
+                ?.getPositionAt(local.cursor);
               if (pos) {
                 editorRef.current.setPosition(pos);
                 editorRef.current.revealPositionInCenter(pos);
@@ -122,7 +138,6 @@ export function useYjsCodeEditor({
           }
         });
 
-        // Fallback hydrate shortly after connect even if sync event is late
         window.setTimeout(() => {
           if (!cancelled) applyHydrateIfEmpty();
         }, 800);
@@ -154,6 +169,9 @@ export function useYjsCodeEditor({
       if (persistInterval) window.clearInterval(persistInterval);
       bindingRef.current?.destroy();
       bindingRef.current = null;
+      if (providerRef.current && onAwarenessChange) {
+        providerRef.current.awareness.off("change", onAwarenessChange);
+      }
       providerRef.current?.destroy();
       providerRef.current = null;
       ydoc.destroy();
@@ -163,7 +181,7 @@ export function useYjsCodeEditor({
       setReady(false);
       setConnectionStatus("disconnected");
     };
-  }, [roomId, enabled, userName]);
+  }, [roomId, enabled, userName, userColor]);
 
   useEffect(() => {
     const meta = ymetaRef.current;
@@ -194,6 +212,7 @@ export function useYjsCodeEditor({
         new Set([editor]),
         provider.awareness
       );
+      syncMonacoRemoteCursorStyles(provider.awareness);
       editor.updateOptions({ readOnly });
       void monaco;
     },
@@ -227,5 +246,6 @@ export function useYjsCodeEditor({
     setCustomStdin: setSharedCustomStdin,
     ytextRef,
     ymetaRef,
+    userColor,
   };
 }

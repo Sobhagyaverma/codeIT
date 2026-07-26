@@ -1,6 +1,8 @@
 import type { RoomMember } from "../types";
-import { avatarColorFor } from "./PresenceAvatars";
+import EmptyState from "../../../components/EmptyState";
+import { avatarColorFor } from "../userColors";
 import RoleBadge from "./RoleBadge";
+import { Users } from "lucide-react";
 
 type Props = {
   members: RoomMember[];
@@ -46,23 +48,24 @@ export default function ParticipantsPanel({
       </div>
 
       {alone && (
-        <div className="mb-2.5 rounded-lg border border-dashed border-[var(--line)] bg-[var(--bg-inset)]/80 px-2.5 py-2">
-          <p className="text-xs text-[var(--text)]">
-            Waiting for collaborators…
-          </p>
-          <p className="mt-0.5 text-[11px] text-[var(--text-dim)]">
-            Share your invite link with friends.
-          </p>
-          {onInvite && (
-            <button
-              type="button"
-              onClick={onInvite}
-              className="mt-2 text-[11px] font-semibold text-[var(--accent)] hover:underline"
-            >
-              Open invite
-            </button>
-          )}
-        </div>
+        <EmptyState
+          icon={Users}
+          title="Waiting for collaborators…"
+          subtitle="Share your invite link with friends."
+          size="sm"
+          className="mb-2.5 rounded-lg bg-[var(--bg-inset)]/80"
+          action={
+            onInvite ? (
+              <button
+                type="button"
+                onClick={onInvite}
+                className="text-[11px] font-semibold text-[var(--accent)] hover:underline"
+              >
+                Open invite
+              </button>
+            ) : undefined
+          }
+        />
       )}
 
       <ul className="space-y-2">

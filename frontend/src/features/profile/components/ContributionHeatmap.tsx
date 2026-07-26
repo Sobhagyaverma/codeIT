@@ -109,7 +109,7 @@ export default function ContributionHeatmap({
 
   return (
     <section className="rounded-xl border border-[var(--line)] bg-[var(--bg-raised)] p-4 lg:col-span-2">
-      <h2 className="mb-4 text-base font-semibold">
+      <h2 className="mb-3 text-sm font-semibold">
         {total} {total === 1 ? "submission" : "submissions"} in {year}
       </h2>
       <div className="overflow-x-auto">

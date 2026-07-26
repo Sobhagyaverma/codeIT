@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import com.codeit.modules.collaboration.RoomMember;
+import com.codeit.modules.collaboration.UserRoomMembership;
 
 @Repository
 public class RoomMemberRepository {
@@ -114,6 +115,44 @@ public class RoomMemberRepository {
                 Timestamp.from(Instant.now()),
                 roomId,
                 userId);
+    }
+
+    public List<UserRoomMembership> findMembershipsByUserId(
+            Integer userId, String status, String type, int limit) {
+        return jdbcTemplate.query(
+                """
+                SELECT r.id, r.type, r.language, r.status, r.active_workspace,
+                       r.invite_token, r.updated_at,
+                       m.role, m.joined_at, m.last_seen_at
+                FROM room_members m
+                JOIN rooms r ON r.id = m.room_id
+                WHERE m.user_id = ?
+                  AND r.status = ?
+                  AND (? IS NULL OR r.type = ?)
+                ORDER BY m.last_seen_at DESC
+                LIMIT ?
+                """,
+                (rs, rowNum) -> mapUserRoomMembership(rs),
+                userId,
+                status,
+                type,
+                type,
+                limit);
+    }
+
+    private UserRoomMembership mapUserRoomMembership(ResultSet rs) throws SQLException {
+        UserRoomMembership row = new UserRoomMembership();
+        row.setId((UUID) rs.getObject("id"));
+        row.setType(rs.getString("type"));
+        row.setLanguage(rs.getString("language"));
+        row.setStatus(rs.getString("status"));
+        row.setActiveWorkspace(rs.getString("active_workspace"));
+        row.setInviteToken(rs.getString("invite_token"));
+        row.setUpdatedAt(rs.getTimestamp("updated_at"));
+        row.setRole(rs.getString("role"));
+        row.setJoinedAt(rs.getTimestamp("joined_at"));
+        row.setLastSeenAt(rs.getTimestamp("last_seen_at"));
+        return row;
     }
 
     private RoomMember mapMember(ResultSet rs) throws SQLException {

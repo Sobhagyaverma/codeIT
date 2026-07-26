@@ -38,7 +38,9 @@ import {
   type SampleRunSession,
 } from "../lib/runSampleTests";
 import { useAuth } from "../context/AuthContext";
-import { Loading, ErrorState, EmptyState } from "../components/Loading";
+import { Loading, ErrorState } from "../components/Loading";
+import EmptyState from "../components/EmptyState";
+import { FileText, ListChecks, TriangleAlert } from "lucide-react";
 import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
 import RunResultsPanel from "../components/RunResultsPanel";
@@ -647,9 +649,14 @@ export default function CompetitionRoom() {
         {/* Problem tabs */}
         <div className="mx-auto flex max-w-[1600px] items-end gap-1 overflow-x-auto px-4 sm:px-5">
           {problemIds.length === 0 ? (
-            <p className="pb-3 text-sm text-[var(--text-dim)]">
-              No problems in this contest yet.
-            </p>
+            <EmptyState
+              icon={FileText}
+              title="No problems yet"
+              subtitle="No problems in this contest yet."
+              size="sm"
+              bordered={false}
+              className="pb-3"
+            />
           ) : (
             problemIds.map((pid, index) => {
               const letter = PROBLEM_LETTERS[index] || String(index + 1);
@@ -742,7 +749,11 @@ export default function CompetitionRoom() {
                 {sortedBoard.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-10">
-                      <EmptyState message="No submissions yet. Be the first on the board." />
+                      <EmptyState
+                        icon={ListChecks}
+                        title="No submissions yet"
+                        subtitle="Be the first on the board."
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -825,11 +836,19 @@ export default function CompetitionRoom() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
               {!selectedProblem ? (
-                <EmptyState message="Pick a problem from the tabs above." />
+                <EmptyState
+                  icon={FileText}
+                  title="Pick a problem"
+                  subtitle="Choose a problem from the tabs above."
+                />
               ) : problemLoading && !activeProblem ? (
                 <Loading label="Loading statement" />
               ) : !activeProblem ? (
-                <EmptyState message="Could not load this problem." />
+                <EmptyState
+                  icon={TriangleAlert}
+                  title="Could not load this problem"
+                  subtitle="Try selecting another problem or refresh the page."
+                />
               ) : (
                 <div className="space-y-6">
                   <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text)]">

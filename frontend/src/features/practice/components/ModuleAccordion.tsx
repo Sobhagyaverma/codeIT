@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import type { PracticeModule, PracticeProblem } from "../types";
 import { formatRelativeShort } from "../utils";
 import DifficultyBadge from "../../../components/DifficultyBadge";
+import EmptyState from "../../../components/EmptyState";
 import ComingSoonButton from "./ComingSoonButton";
 import FavoriteButton from "./FavoriteButton";
 import ProgressBar from "./ProgressBar";
@@ -149,9 +150,14 @@ export default function ModuleAccordion({
             className="overflow-hidden border-t border-[var(--line)]"
           >
             {module.problems.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-[var(--text-dim)]">
-                No problems mapped to this module yet.
-              </p>
+              <EmptyState
+                icon={BookOpen}
+                title="No problems yet"
+                subtitle="No problems mapped to this module yet."
+                size="sm"
+                bordered={false}
+                className="px-4 py-6"
+              />
             ) : (
               module.problems.map((problem) => (
                 <SheetProblemRow

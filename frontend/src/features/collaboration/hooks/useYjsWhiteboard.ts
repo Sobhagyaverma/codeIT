@@ -16,12 +16,14 @@ import {
 } from "../sync";
 import type { ConnectionState } from "../components/ConnectionStatus";
 import { mapProviderStatus } from "../components/ConnectionStatus";
+import { avatarColorFor } from "../userColors";
 
 type Options = {
   roomId: string;
   enabled: boolean;
   readOnly?: boolean;
   userName?: string;
+  userId?: number;
   userColor?: string;
 };
 
@@ -30,28 +32,12 @@ export type WhiteboardScene = {
   files?: BinaryFiles;
 };
 
-const COLORS = [
-  "#f5a623",
-  "#3b82f6",
-  "#22c55e",
-  "#ec4899",
-  "#a78bfa",
-  "#14b8a6",
-];
-
-function colorForName(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  }
-  return COLORS[Math.abs(hash) % COLORS.length];
-}
-
 export function useYjsWhiteboard({
   roomId,
   enabled,
   readOnly = false,
   userName = "anon",
+  userId,
   userColor,
 }: Options) {
   const [ready, setReady] = useState(false);
@@ -72,7 +58,7 @@ export function useYjsWhiteboard({
   const publishTimerRef = useRef(0);
   const lastPublishedSigRef = useRef("");
   const pendingSceneRef = useRef<WhiteboardScene | null>(null);
-  const color = userColor || colorForName(userName);
+  const color = userColor || avatarColorFor(userId ?? 0);
 
   const sceneSignature = useCallback(
     (elements: readonly ExcalidrawElement[]) =>
@@ -159,7 +145,7 @@ export function useYjsWhiteboard({
             const pointer = state.pointer as
               | { x: number; y: number; tool: "pointer" | "laser" }
               | undefined;
-            const c = user?.color || colorForName(String(clientId));
+            const c = user?.color || avatarColorFor(Number(clientId) || 0);
             next.set(String(clientId) as SocketId, {
               username: user?.name || `user-${clientId}`,
               color: { background: c, stroke: c },

@@ -19,6 +19,7 @@ import com.codeit.modules.collaboration.dto.RoomMessageResponse;
 import com.codeit.modules.collaboration.dto.RoomResponse;
 import com.codeit.modules.collaboration.dto.RoomRunRequest;
 import com.codeit.modules.collaboration.dto.RoomSubmitRequest;
+import com.codeit.modules.collaboration.dto.RoomSummaryResponse;
 import com.codeit.modules.collaboration.dto.SendMessageRequest;
 import com.codeit.modules.collaboration.dto.SyncTokenResponse;
 import com.codeit.modules.collaboration.dto.TransferHostRequest;
@@ -48,6 +49,15 @@ public class CollaborationController {
     public RoomResponse joinRoom(@PathVariable String inviteToken) {
         Integer userId = SecurityUtils.currentUserId();
         return collaborationService.joinByInviteToken(userId, inviteToken);
+    }
+
+    @GetMapping("/mine")
+    public List<RoomSummaryResponse> listMyRooms(
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "ACTIVE") String status,
+            @RequestParam(defaultValue = "10") int limit) {
+        Integer userId = SecurityUtils.currentUserId();
+        return collaborationService.listMyRooms(userId, type, status, limit);
     }
 
     @GetMapping("/{roomId}")

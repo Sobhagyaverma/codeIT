@@ -31,6 +31,12 @@ export interface CoachTool {
 
 export const COACH_TOOLS: CoachTool[] = [
   {
+    id: "ask",
+    action: "ASK_AI",
+    label: "Ask AI",
+    description: "Ask a conceptual question about this problem.",
+  },
+  {
     id: "explain",
     action: "EXPLAIN_PROBLEM",
     label: "Explain Problem",
@@ -41,12 +47,6 @@ export const COACH_TOOLS: CoachTool[] = [
     action: "EXPLAIN_CONSTRAINTS",
     label: "Explain Constraints",
     description: "Edge cases, complexity bounds, and observations.",
-  },
-  {
-    id: "ask",
-    action: "ASK_AI",
-    label: "Ask AI",
-    description: "Ask a conceptual question about this problem.",
   },
   {
     id: "hints",

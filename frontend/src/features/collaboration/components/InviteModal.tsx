@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Check, Copy, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import EmptyState from "../../../components/EmptyState";
 import { copyText, roomCodeOf } from "../roomLinks";
 import type { Room } from "../types";
 import type { ConnectionState } from "./ConnectionStatus";
@@ -22,6 +24,11 @@ type Props = {
   connectionStatus?: ConnectionState;
   onClose: () => void;
 };
+
+function shortRoomCode(code: string): string {
+  if (code.length <= 8) return code;
+  return `${code.slice(0, 8)}...`;
+}
 
 function CopyButton({
   label,
@@ -56,6 +63,43 @@ function CopyButton({
   );
 }
 
+function InlineCopyButton({
+  onCopy,
+  label,
+}: {
+  onCopy: () => Promise<boolean>;
+  label: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleClick() {
+    const ok = await onCopy();
+    if (!ok) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleClick()}
+      className={`absolute inset-y-0 right-0 flex items-center px-2.5 transition ${
+        copied
+          ? "text-[var(--ok)]"
+          : "text-[var(--text-dim)] hover:text-[var(--accent)]"
+      }`}
+      aria-label={copied ? "Copied" : label}
+      title={copied ? "Copied" : label}
+    >
+      {copied ? (
+        <Check className="h-4 w-4" aria-hidden />
+      ) : (
+        <Copy className="h-4 w-4" aria-hidden />
+      )}
+    </button>
+  );
+}
+
 export default function InviteModal({
   open,
   room,
@@ -73,6 +117,7 @@ export default function InviteModal({
   const [linkCopiedHint, setLinkCopiedHint] = useState(false);
 
   const roomCode = room ? roomCodeOf(room) : "";
+  const roomCodeDisplay = shortRoomCode(roomCode);
   const members = room?.members ?? [];
   const online = onlineUserIds ?? members.map((m) => m.userId);
   const onlineCount = members.filter((m) => online.includes(m.userId)).length;
@@ -156,12 +201,13 @@ export default function InviteModal({
         </div>
 
         {alone && (
-          <p className="mt-3 rounded-lg border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm text-[var(--text-dim)]">
-            Waiting for collaborators…
-            <span className="mt-0.5 block text-xs">
-              Share your invite link with friends.
-            </span>
-          </p>
+          <EmptyState
+            icon={Users}
+            title="Waiting for collaborators…"
+            subtitle="Share your invite link with friends."
+            size="sm"
+            className="mt-3 rounded-lg bg-[var(--bg-inset)]"
+          />
         )}
 
         <div className="mt-5 space-y-4">
@@ -169,11 +215,14 @@ export default function InviteModal({
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
               Room Code
             </label>
-            <div className="flex items-center gap-2">
-              <code className="mono flex-1 truncate rounded-lg border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2.5 text-sm tracking-wide text-[var(--accent)]">
-                {roomCode}
+            <div className="relative">
+              <code
+                className="mono block w-full rounded-lg border border-[var(--line)] bg-[var(--bg-inset)] py-2.5 pl-3 pr-10 text-sm tracking-wide text-[var(--accent)]"
+                title={roomCode}
+              >
+                {roomCodeDisplay}
               </code>
-              <CopyButton
+              <InlineCopyButton
                 label="Copy Room Code"
                 onCopy={() => copyText(roomCode)}
               />

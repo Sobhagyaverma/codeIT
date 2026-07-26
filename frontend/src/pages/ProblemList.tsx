@@ -16,6 +16,11 @@ import SearchBar from "../features/practice/components/SearchBar";
 import FilterChips from "../features/practice/components/FilterChips";
 import type { PracticeProblem } from "../features/practice/types";
 import { difficultyRank } from "../features/practice/utils";
+import { PRACTICE_FLAGS } from "../features/practice/config/flags";
+
+const PROBLEMS_TABLE_GRID = PRACTICE_FLAGS.showAcceptanceColumn
+  ? "grid-cols-[48px_minmax(0,1.6fr)_90px_100px_130px_44px_100px]"
+  : "grid-cols-[48px_minmax(0,1.8fr)_110px_140px_44px_minmax(100px,1fr)]";
 
 function hashSeed(input: string): number {
   let h = 2166136261;
@@ -188,8 +193,12 @@ export default function ProblemList() {
                     ["difficulty", "Difficulty"],
                     ["newest", "Newest"],
                     ["oldest", "Oldest"],
-                    ["acceptance", "Acceptance"],
-                    ["mostSolved", "Most solved"],
+                    ...(PRACTICE_FLAGS.showAcceptanceColumn
+                      ? ([["acceptance", "Acceptance"]] as const)
+                      : []),
+                    ...(PRACTICE_FLAGS.showSolvedCountMetrics
+                      ? ([["mostSolved", "Most solved"]] as const)
+                      : []),
                     ["random", "Random"],
                   ] as const
                 ).map(([value, label]) => (
@@ -264,12 +273,14 @@ export default function ProblemList() {
               >
                 Favorites
               </button>
-              <span
-                className="rounded-full border border-dashed border-[var(--line)] px-3 py-1.5 text-xs text-[var(--text-dim)]"
-                title="Acceptance range filters require catalog metrics API"
-              >
-                Acceptance range · Coming soon
-              </span>
+              {PRACTICE_FLAGS.showAcceptanceColumn && (
+                <span
+                  className="rounded-full border border-dashed border-[var(--line)] px-3 py-1.5 text-xs text-[var(--text-dim)]"
+                  title="Acceptance range filters require catalog metrics API"
+                >
+                  Acceptance range · Coming soon
+                </span>
+              )}
               {(filters.q ||
                 filters.difficulty !== "ALL" ||
                 filters.status !== "ALL" ||
@@ -310,10 +321,12 @@ export default function ProblemList() {
         {!loading && !error && data && (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div>
-              <div className="mb-3 hidden grid-cols-[48px_minmax(0,1.6fr)_90px_100px_130px_44px_100px] gap-3 px-4 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-dim)] lg:grid">
+              <div
+                className={`mb-3 hidden gap-3 px-4 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-dim)] lg:grid ${PROBLEMS_TABLE_GRID}`}
+              >
                 <div>#</div>
                 <div>Problem</div>
-                <div>Acc</div>
+                {PRACTICE_FLAGS.showAcceptanceColumn && <div>Acc</div>}
                 <div>Difficulty</div>
                 <div>Status</div>
                 <div />
@@ -340,8 +353,9 @@ export default function ProblemList() {
               )}
               <p className="mt-4 text-xs text-[var(--text-dim)]">
                 Showing {filtered.length} of {data.stats.total} problems.
-                Acceptance and most-solved metrics appear when the catalog API
-                ships.
+                {PRACTICE_FLAGS.showAcceptanceColumn
+                  ? " Acceptance and most-solved metrics appear when the catalog API ships."
+                  : ""}
               </p>
             </div>
             <PracticeSidebar data={data} mode="problems" />

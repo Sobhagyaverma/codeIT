@@ -4,7 +4,37 @@ import { API_BASE } from "./api";
 import { getAuthToken } from "./authStorage";
 
 let client: Client | null = null;
-const subscriptions = new Map<string, StompSubscription>();
+
+type TopicListener = (payload: unknown) => void;
+
+type TopicEntry = {
+  subscription: StompSubscription | null;
+  listeners: Set<TopicListener>;
+};
+
+const topics = new Map<string, TopicEntry>();
+
+function ensureTopicSubscription(topic: string, entry: TopicEntry) {
+  if (!client?.connected || entry.subscription) return;
+  entry.subscription = client.subscribe(topic, (msg: IMessage) => {
+    let payload: unknown = msg.body;
+    try {
+      payload = JSON.parse(msg.body);
+    } catch {
+      /* keep raw */
+    }
+    entry.listeners.forEach((listener) => listener(payload));
+  });
+}
+
+function resubscribeAll() {
+  topics.forEach((entry, topic) => {
+    entry.subscription = null;
+    if (entry.listeners.size > 0) {
+      ensureTopicSubscription(topic, entry);
+    }
+  });
+}
 
 function getClient(): Client {
   if (client) return client;
@@ -20,6 +50,9 @@ function getClient(): Client {
         ? { Authorization: `Bearer ${token}` }
         : {};
     },
+    onConnect: () => {
+      resubscribeAll();
+    },
   });
   client.activate();
   return client;
@@ -30,11 +63,16 @@ async function whenConnected(c: Client): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const prevConnect = c.onConnect;
     const prevError = c.onStompError;
+    const timer = window.setTimeout(() => {
+      reject(new Error("STOMP connect timeout"));
+    }, 15000);
     c.onConnect = (frame) => {
+      window.clearTimeout(timer);
       prevConnect?.(frame);
       resolve();
     };
     c.onStompError = (frame) => {
+      window.clearTimeout(timer);
       prevError?.(frame);
       reject(new Error(frame.headers["message"] || "STOMP error"));
     };
@@ -47,30 +85,32 @@ export function subscribeTopic<T>(
   onMessage: (payload: T) => void
 ): () => void {
   const c = getClient();
+  const listener: TopicListener = (payload) => onMessage(payload as T);
 
-  const doSubscribe = () => {
-    if (subscriptions.has(topic)) return;
-    const sub = c.subscribe(topic, (msg: IMessage) => {
-      try {
-        onMessage(JSON.parse(msg.body));
-      } catch {
-        onMessage(msg.body as unknown as T);
-      }
-    });
-    subscriptions.set(topic, sub);
-  };
+  let entry = topics.get(topic);
+  if (!entry) {
+    entry = { subscription: null, listeners: new Set() };
+    topics.set(topic, entry);
+  }
+  entry.listeners.add(listener);
 
+  const attach = () => ensureTopicSubscription(topic, entry!);
   if (c.connected) {
-    doSubscribe();
+    attach();
   } else {
-    whenConnected(c).then(doSubscribe).catch(() => {
-      /* connection failed; caller may retry */
+    void whenConnected(c).then(attach).catch(() => {
+      /* connection failed; onConnect resubscribe will retry */
     });
   }
 
   return () => {
-    subscriptions.get(topic)?.unsubscribe();
-    subscriptions.delete(topic);
+    const current = topics.get(topic);
+    if (!current) return;
+    current.listeners.delete(listener);
+    if (current.listeners.size === 0) {
+      current.subscription?.unsubscribe();
+      topics.delete(topic);
+    }
   };
 }
 
@@ -106,4 +146,3 @@ export const roomSubmitTopic = (roomId: string) =>
   `/topic/rooms/${roomId}/submit`;
 export const roomWorkspaceTopic = (roomId: string) =>
   `/topic/rooms/${roomId}/workspace`;
-

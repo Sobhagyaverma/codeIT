@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import type { PresenceEvent } from "../types";
+import { avatarColorFor } from "../userColors";
 
 type Chip = {
   id: string;
   kind: "joined" | "left";
   text: string;
+  color: string;
 };
 
 const DISMISS_MS = 3200;
@@ -39,6 +41,7 @@ export default function PresenceChips({
         kind === "joined"
           ? `${name} joined the room`
           : `${name} left the room`,
+      color: avatarColorFor(lastEvent.userId),
     };
 
     setChips((prev) => [...prev.slice(-3), chip]);
@@ -61,9 +64,8 @@ export default function PresenceChips({
           className="animate-[fadeIn_180ms_ease-out] rounded-full border border-[var(--line)] bg-[var(--bg-raised)]/95 px-3.5 py-1.5 text-sm text-[var(--text)] shadow-lg backdrop-blur"
         >
           <span
-            className={`mr-2 inline-block h-2 w-2 rounded-full ${
-              c.kind === "joined" ? "bg-emerald-400" : "bg-[var(--err)]"
-            }`}
+            className="mr-2 inline-block h-2 w-2 rounded-full"
+            style={{ background: c.color }}
             aria-hidden
           />
           {c.text}
