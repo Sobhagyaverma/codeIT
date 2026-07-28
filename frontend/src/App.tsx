@@ -12,6 +12,7 @@ import Register from "./pages/Register";
 import ProblemList from "./pages/ProblemList";
 import ProblemDetail from "./pages/ProblemDetail";
 import DSASheet from "./pages/DSASheet";
+import LessonPage from "./pages/LessonPage";
 import SubmissionHistory from "./pages/SubmissionHistory";
 import CompetitionList from "./pages/CompetitionList";
 import CompetitionRoom from "./pages/CompetitionRoom";
@@ -40,6 +41,10 @@ export default function App() {
               <Route path="/terms" element={<Terms />} />
               <Route path="/help" element={<Help />} />
               <Route path="/dsa-sheet" element={<DSASheet />} />
+              <Route
+                path="/dsa-sheet/:sectionId/:slug"
+                element={<LessonPage />}
+              />
               <Route path="/problems" element={<ProblemList />} />
               <Route path="/problems/:id" element={<ProblemDetail />} />
               <Route

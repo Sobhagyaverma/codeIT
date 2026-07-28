@@ -1,5 +1,6 @@
 import { Play } from "lucide-react";
 import EmptyState from "./EmptyState";
+import { IoPre } from "./ProblemExamples";
 import type { RunVerdictKind, SampleCaseResult, SampleRunSession } from "../lib/runSampleTests";
 
 const VERDICT_META: Record<
@@ -95,24 +96,15 @@ function CodeBlock({
   children: string;
   tone?: "default" | "error" | "warn";
 }) {
-  const color =
-    tone === "error"
-      ? "var(--err)"
-      : tone === "warn"
-        ? "var(--warn)"
-        : "var(--text)";
+  const ioTone =
+    tone === "error" ? "error" : tone === "warn" ? "dim" : "default";
 
   return (
     <div>
       <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-dim)]">
         {label}
       </div>
-      <pre
-        className="mono max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs leading-relaxed"
-        style={{ color }}
-      >
-        {children || "—"}
-      </pre>
+      <IoPre tone={ioTone}>{children}</IoPre>
     </div>
   );
 }

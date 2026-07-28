@@ -1,5 +1,6 @@
 import type { ProfileResponse } from "../../lib/api";
 import type { ProblemPublicDTO, Submission } from "../../lib/types";
+import { isRoadmapExcludedTopic } from "../learn/content/sections";
 import { OTHER_MODULE_ID, PRACTICE_ROADMAP } from "./config/roadmap";
 import type {
   DifficultyCounts,
@@ -161,6 +162,10 @@ export function buildPracticeCatalog(
     PRACTICE_ROADMAP.map((module) => [module.id, []])
   );
   for (const problem of practiceProblems) {
+    // Learn-track / Pattern Problems stay outside the DSA roadmap buckets.
+    if (problem.topics.some((topic) => isRoadmapExcludedTopic(topic))) {
+      continue;
+    }
     problemsByModule.get(moduleIdFor(problem.topics))!.push(problem);
   }
 

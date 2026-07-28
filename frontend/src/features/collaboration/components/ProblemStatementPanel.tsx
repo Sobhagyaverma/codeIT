@@ -1,9 +1,7 @@
 import { useMemo } from "react";
 import DifficultyBadge from "../../../components/DifficultyBadge";
-import {
-  formatExample,
-  parseExamples,
-} from "../../../lib/examples";
+import { ProblemExamples } from "../../../components/ProblemExamples";
+import { parseExamples } from "../../../lib/examples";
 import type { ProblemPublicDTO } from "../../../lib/types";
 
 function parseTopics(topics: string[] | string | undefined): string[] {
@@ -90,44 +88,7 @@ export default function ProblemStatementPanel({
           </p>
         </div>
 
-        {examples.length > 0 && (
-          <div>
-            <h2 className="verdict-strip mb-3 text-[var(--text-dim)]">
-              Examples
-            </h2>
-            <div className="space-y-3">
-              {examples.map((ex, index) => (
-                <div
-                  key={index}
-                  className="rounded-md border border-[var(--line)] bg-[var(--bg-inset)] p-3"
-                >
-                  <p className="verdict-strip mb-2 text-[var(--text-dim)]">
-                    Example {index + 1}
-                  </p>
-                  <div className="mono space-y-2 text-xs">
-                    <div>
-                      <span className="text-[var(--text-dim)]">Input: </span>
-                      <span className="text-[var(--text)]">
-                        {formatExample(ex.input)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[var(--text-dim)]">Output: </span>
-                      <span className="text-[var(--ok)]">
-                        {formatExample(ex.output)}
-                      </span>
-                    </div>
-                    {ex.explanation && (
-                      <p className="font-sans text-[var(--text-dim)]">
-                        {ex.explanation}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {examples.length > 0 && <ProblemExamples examples={examples} />}
 
         {constraints.length > 0 && (
           <div>

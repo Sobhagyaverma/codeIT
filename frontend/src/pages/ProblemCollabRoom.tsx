@@ -5,6 +5,7 @@ import { Loading, ErrorState } from "../components/Loading";
 import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
 import RunResultsPanel from "../components/RunResultsPanel";
+import { IoPre } from "../components/ProblemExamples";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/toast/ToastProvider";
 import { getLanguages, getProblem } from "../lib/api";
@@ -504,11 +505,11 @@ export default function ProblemCollabRoom() {
                           <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
                             Expected Output
                           </div>
-                          <pre className="mono whitespace-pre-wrap rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text-dim)]">
+                          <IoPre tone="dim">
                             {exampleOutputToExpected(
                               examples[activeCaseIdx]?.output
-                            ) || "—"}
-                          </pre>
+                            )}
+                          </IoPre>
                         </div>
                       </>
                     ) : (

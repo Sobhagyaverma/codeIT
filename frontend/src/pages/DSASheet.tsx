@@ -11,6 +11,12 @@ import PracticeSkeleton from "../features/practice/components/PracticeSkeleton";
 import EmptyPractice from "../features/practice/components/EmptyPractice";
 import SearchBar from "../features/practice/components/SearchBar";
 import FilterChips from "../features/practice/components/FilterChips";
+import LearnSectionCard from "../features/learn/components/LearnSectionCard";
+import {
+  LEARN_SECTION_ORDER,
+  getLearnSection,
+} from "../features/learn/content/sections";
+import PatternProblemsSection from "../features/patterns/components/PatternProblemsSection";
 import type { PracticeModule, PracticeProblem } from "../features/practice/types";
 
 function matchesFilters(
@@ -86,6 +92,14 @@ export default function DSASheet() {
     if (!hasActive) return data.modules;
     return filteredModules.filter((m) => m.total > 0);
   }, [data, filteredModules, filters]);
+
+  const solvedProblemIds = useMemo(() => {
+    const set = new Set<number>();
+    data?.problems.forEach((p) => {
+      if (p.status === "SOLVED") set.add(p.id);
+    });
+    return set;
+  }, [data]);
 
   return (
     <div className="practice-shell min-h-[calc(100vh-3.5rem)]">
@@ -208,15 +222,35 @@ export default function DSASheet() {
         {loading && <PracticeSkeleton />}
         {error && <ErrorState message={error} />}
 
-        {!loading && !error && data && (
+        {/* Learn sections stay visible regardless of search/filters; same accordion
+            column as roadmap modules. */}
+        {!loading && !error && (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-3">
-              {visibleModules.length === 0 ? (
+              {LEARN_SECTION_ORDER.map((id) => {
+                const section = getLearnSection(id);
+                if (!section) return null;
+                return (
+                  <LearnSectionCard
+                    key={section.id}
+                    section={section}
+                    solvedProblemIds={solvedProblemIds}
+                  />
+                );
+              })}
+              <PatternProblemsSection
+                problems={data?.problems ?? []}
+                solvedProblemIds={solvedProblemIds}
+                canFavorite={Boolean(user)}
+                onToggleFavorite={toggleBookmark}
+              />
+              {data && visibleModules.length === 0 ? (
                 <EmptyPractice
                   title="No modules match"
                   description="Try clearing search or filters to see the full roadmap."
                 />
               ) : (
+                data &&
                 visibleModules.map((module) => {
                   const display =
                     filteredModules.find((m) => m.id === module.id) ?? module;
@@ -239,7 +273,7 @@ export default function DSASheet() {
                 })
               )}
             </div>
-            <PracticeSidebar data={data} mode="sheet" />
+            {data && <PracticeSidebar data={data} mode="sheet" />}
           </div>
         )}
       </div>

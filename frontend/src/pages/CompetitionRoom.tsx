@@ -33,6 +33,7 @@ import {
   formatExample,
   parseExamples,
 } from "../lib/examples";
+import { ProblemExamples, IoPre } from "../components/ProblemExamples";
 import {
   runSampleTests,
   type SampleRunSession,
@@ -856,46 +857,7 @@ export default function CompetitionRoom() {
                   </div>
 
                   {examples.length > 0 && (
-                    <div>
-                      <h3 className="verdict-strip mb-3 text-[var(--text-dim)]">
-                        Examples
-                      </h3>
-                      <div className="space-y-3">
-                        {examples.map((ex, i) => (
-                          <div
-                            key={i}
-                            className="rounded-md border border-[var(--line)] bg-[var(--bg-inset)] p-3"
-                          >
-                            <p className="verdict-strip mb-2 text-[var(--text-dim)]">
-                              Example {i + 1}
-                            </p>
-                            <div className="mono space-y-2 text-xs">
-                              <div>
-                                <span className="text-[var(--text-dim)]">
-                                  Input:{" "}
-                                </span>
-                                <span className="text-[var(--text)]">
-                                  {formatExample(ex.input)}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[var(--text-dim)]">
-                                  Output:{" "}
-                                </span>
-                                <span className="text-[var(--ok)]">
-                                  {formatExample(ex.output)}
-                                </span>
-                              </div>
-                              {ex.explanation && (
-                                <p className="font-sans text-[var(--text-dim)]">
-                                  {ex.explanation}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <ProblemExamples examples={examples} />
                   )}
 
                   {constraints.length > 0 && (
@@ -1070,16 +1032,16 @@ export default function CompetitionRoom() {
                           />
                         </div>
 
-                        <div>
-                          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                            Expected Output
+                          <div>
+                            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
+                              Expected Output
+                            </div>
+                            <IoPre tone="dim">
+                              {exampleOutputToExpected(
+                                examples[activeCaseIdx]?.output
+                              )}
+                            </IoPre>
                           </div>
-                          <pre className="mono whitespace-pre-wrap rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text-dim)]">
-                            {exampleOutputToExpected(
-                              examples[activeCaseIdx]?.output
-                            ) || "—"}
-                          </pre>
-                        </div>
 
                         <p className="text-xs text-[var(--text-dim)]">
                           Run checks sample cases only. Submit judges hidden

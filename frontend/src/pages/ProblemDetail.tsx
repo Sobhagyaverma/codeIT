@@ -18,8 +18,8 @@ import type {
 import {
   exampleInputToStdin,
   exampleOutputToExpected,
-  formatExample,
   parseExamples,
+  resolveSampleStdin,
 } from "../lib/examples";
 import {
   runSampleTests,
@@ -32,8 +32,11 @@ import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
 import RunResultsPanel from "../components/RunResultsPanel";
 import LearningCoachFab from "../features/ai-coach/components/LearningCoachFab";
+import { ProblemExamples, IoPre } from "../components/ProblemExamples";
 import LearningCoachPanel from "../features/ai-coach/components/LearningCoachPanel";
 import InviteButton from "../features/collaboration/components/InviteButton";
+import LessonSideRail from "../features/learn/components/LessonSideRail";
+import { findLearnSectionByTopics } from "../features/learn/content/sections";
 
 const MONACO_LANG: Record<string, string> = {
   c: "c",
@@ -146,9 +149,10 @@ export default function ProblemDetail() {
         setCode(STARTER[py?.slug] || "");
 
         const exs = parseExamples(p.examples);
-        setCaseStdins(exs.map((ex) => exampleInputToStdin(ex.input)));
+        const stdins = exs.map((ex) => exampleInputToStdin(ex.input));
+        setCaseStdins(stdins);
         setActiveCaseIdx(0);
-        setCustomStdin(exs[0] ? exampleInputToStdin(exs[0].input) : "");
+        setCustomStdin(stdins[0] ?? "");
       })
       .catch((err) => {
         if (!cancelled) setError(err.message);
@@ -256,6 +260,15 @@ export default function ProblemDetail() {
     () => (problem ? parseTopics(problem.topics) : []),
     [problem]
   );
+  const learnSection = useMemo(
+    () => findLearnSectionByTopics(topics),
+    [topics]
+  );
+  const learnLesson = useMemo(
+    () =>
+      learnSection?.lessons.find((l) => l.linkedProblemId === problemId),
+    [learnSection, problemId]
+  );
 
   const handleLanguageChange = (slug: string) => {
     const lang = languages.find((l) => l.slug === slug) || null;
@@ -282,11 +295,15 @@ export default function ProblemDetail() {
     try {
       const samples =
         examples.length > 0
-          ? examples.map((ex, i) => ({
-              stdin: caseStdins[i] ?? exampleInputToStdin(ex.input),
-              expectedOutput: exampleOutputToExpected(ex.output),
-              inputDisplay: formatExample(ex.input),
-            }))
+          ? examples.map((ex, i) => {
+              const stdin = resolveSampleStdin(caseStdins[i], ex.input);
+              return {
+                stdin,
+                expectedOutput: exampleOutputToExpected(ex.output),
+                // Show what was actually sent to the judge (avoids misleading WA).
+                inputDisplay: stdin || "(empty)",
+              };
+            })
           : undefined;
 
       const session = await runSampleTests({
@@ -349,7 +366,16 @@ export default function ProblemDetail() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-57px)] flex-col overflow-hidden">
+    <div className="flex h-[calc(100vh-57px)] overflow-hidden">
+      {learnSection && (
+        <LessonSideRail
+          sectionId={learnSection.id}
+          activeProblemId={problemId}
+          stickyClassName="top-0 h-[calc(100vh-57px)]"
+        />
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
       {/* Header */}
       <header className="shrink-0 border-b border-[var(--line)] bg-[var(--bg)]/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
@@ -377,6 +403,14 @@ export default function ProblemDetail() {
                     {t}
                   </span>
                 ))}
+                {learnSection && learnLesson && (
+                  <Link
+                    to={`/dsa-sheet/${learnSection.id}/${learnLesson.slug}`}
+                    className="rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--accent)] hover:bg-[var(--accent)]/20"
+                  >
+                    Back to lesson
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -488,46 +522,7 @@ export default function ProblemDetail() {
               </p>
             </div>
 
-            {examples.length > 0 && (
-              <div>
-                <h2 className="verdict-strip mb-3 text-[var(--text-dim)]">
-                  Examples
-                </h2>
-                <div className="space-y-3">
-                  {examples.map((ex, index) => (
-                    <div
-                      key={index}
-                      className="rounded-md border border-[var(--line)] bg-[var(--bg-inset)] p-3"
-                    >
-                      <p className="verdict-strip mb-2 text-[var(--text-dim)]">
-                        Example {index + 1}
-                      </p>
-                      <div className="mono space-y-2 text-xs">
-                        <div>
-                          <span className="text-[var(--text-dim)]">Input: </span>
-                          <span className="text-[var(--text)]">
-                            {formatExample(ex.input)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[var(--text-dim)]">
-                            Output:{" "}
-                          </span>
-                          <span className="text-[var(--ok)]">
-                            {formatExample(ex.output)}
-                          </span>
-                        </div>
-                        {ex.explanation && (
-                          <p className="font-sans text-[var(--text-dim)]">
-                            {ex.explanation}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {examples.length > 0 && <ProblemExamples examples={examples} />}
 
             {constraints.length > 0 && (
               <div>
@@ -679,11 +674,11 @@ export default function ProblemDetail() {
                         <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
                           Expected Output
                         </div>
-                        <pre className="mono whitespace-pre-wrap rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text-dim)]">
+                        <IoPre tone="dim">
                           {exampleOutputToExpected(
                             examples[activeCaseIdx]?.output
-                          ) || "—"}
-                        </pre>
+                          )}
+                        </IoPre>
                       </div>
 
                       <p className="text-xs text-[var(--text-dim)]">
@@ -788,6 +783,7 @@ export default function ProblemDetail() {
           }}
         />
       )}
+      </div>
     </div>
   );
 }
