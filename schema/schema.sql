@@ -116,3 +116,109 @@ CREATE TABLE IF NOT EXISTS competition_results (
 
 CREATE INDEX IF NOT EXISTS idx_competition_results_user
     ON competition_results(user_id, finalized_at DESC);
+
+-- AI Learning Coach tables
+CREATE TABLE IF NOT EXISTS ai_sessions (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    problem_id  INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, problem_id)
+);
+
+CREATE TABLE IF NOT EXISTS ai_messages (
+    id          BIGSERIAL PRIMARY KEY,
+    session_id  BIGINT NOT NULL REFERENCES ai_sessions(id) ON DELETE CASCADE,
+    role        VARCHAR(20) NOT NULL,
+    action      VARCHAR(64),
+    content     TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_messages_session
+    ON ai_messages(session_id, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS ai_hint_progress (
+    user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    problem_id          INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+    max_unlocked_level  INTEGER NOT NULL DEFAULT 0 CHECK (max_unlocked_level BETWEEN 0 AND 3),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, problem_id)
+);
+
+CREATE TABLE IF NOT EXISTS submission_diagnostics (
+    submission_id    INTEGER PRIMARY KEY REFERENCES submissions(id) ON DELETE CASCADE,
+    verdict          VARCHAR(50) NOT NULL,
+    passed_count     INTEGER NOT NULL DEFAULT 0,
+    total_count      INTEGER NOT NULL DEFAULT 0,
+    failed_index     INTEGER,
+    compile_output   TEXT,
+    stderr_summary   TEXT,
+    judge_engine     VARCHAR(40),
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Collaboration rooms tables
+CREATE TABLE IF NOT EXISTS rooms (
+    id               UUID PRIMARY KEY,
+    type             VARCHAR(20) NOT NULL,  -- PROBLEM_COLLAB | CODEROOM
+    problem_id       INTEGER NULL REFERENCES problems(id),
+    host_user_id     INTEGER NOT NULL REFERENCES users(id),
+    invite_token     VARCHAR(64) NOT NULL UNIQUE,
+    active_workspace VARCHAR(20) NOT NULL DEFAULT 'CODE',    -- CODE | WHITEBOARD
+    language         VARCHAR(32) NOT NULL DEFAULT 'java',
+    status           VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE | ARCHIVED
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rooms_invite_token ON rooms(invite_token);
+CREATE INDEX IF NOT EXISTS idx_rooms_problem_id ON rooms(problem_id);
+CREATE INDEX IF NOT EXISTS idx_rooms_host_user_id ON rooms(host_user_id);
+
+CREATE TABLE IF NOT EXISTS room_members (
+    room_id      UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role         VARCHAR(20) NOT NULL,  -- HOST | EDITOR | VIEWER
+    joined_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (room_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_room_members_user_id ON room_members(user_id);
+
+CREATE TABLE IF NOT EXISTS room_messages (
+    id         BIGSERIAL PRIMARY KEY,
+    room_id    UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content    TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_room_messages_room_created
+    ON room_messages(room_id, created_at ASC);
+
+CREATE TABLE IF NOT EXISTS room_snapshots (
+    id            BIGSERIAL PRIMARY KEY,
+    room_id       UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    workspace     VARCHAR(20) NOT NULL,  -- CODE | WHITEBOARD
+    snapshot_data BYTEA NOT NULL,        -- Yjs encoded state
+    updated_by    INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_room_snapshots_room_workspace
+    ON room_snapshots(room_id, workspace);
+
+CREATE TABLE IF NOT EXISTS room_events (
+    id         BIGSERIAL PRIMARY KEY,
+    room_id    UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+    user_id    INTEGER NULL REFERENCES users(id) ON DELETE SET NULL,
+    event_type VARCHAR(64) NOT NULL,  -- MEMBER_JOINED, WORKSPACE_SWITCHED, RUN_STARTED
+    payload    JSONB NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_room_events_room_created
+    ON room_events(room_id, created_at ASC);

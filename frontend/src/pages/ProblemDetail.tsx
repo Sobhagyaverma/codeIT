@@ -403,13 +403,23 @@ export default function ProblemDetail() {
                     {t}
                   </span>
                 ))}
-                {learnSection && learnLesson && (
+                {learnSection?.id === "proving-grounds" ? (
                   <Link
-                    to={`/dsa-sheet/${learnSection.id}/${learnLesson.slug}`}
+                    to="/dsa-sheet"
                     className="rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--accent)] hover:bg-[var(--accent)]/20"
                   >
-                    Back to lesson
+                    Back to DSA Sheet
                   </Link>
+                ) : (
+                  learnSection &&
+                  learnLesson && (
+                    <Link
+                      to={`/dsa-sheet/${learnSection.id}/${learnLesson.slug}`}
+                      className="rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--accent)] hover:bg-[var(--accent)]/20"
+                    >
+                      Back to lesson
+                    </Link>
+                  )
                 )}
               </div>
             )}

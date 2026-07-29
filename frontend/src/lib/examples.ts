@@ -144,7 +144,7 @@ export function exampleOutputToExpected(output: unknown): string {
     try {
       value = JSON.parse(trimmed);
     } catch {
-      return unescapeIoString(value);
+      return unescapeIoString(trimmed);
     }
   }
 

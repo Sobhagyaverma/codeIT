@@ -169,6 +169,9 @@ export function buildPracticeCatalog(
     problemsByModule.get(moduleIdFor(problem.topics))!.push(problem);
   }
 
+  // Stable lesson order for The Proving Grounds (IDs 121–140).
+  problemsByModule.get("proving-grounds")?.sort((a, b) => a.id - b.id);
+
   const solved = practiceProblems.filter(
     (problem) => problem.status === "SOLVED"
   ).length;

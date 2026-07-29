@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { getLearnSection } from "../content/sections";
+import { lessonProblemIds } from "../types";
 import { useLessonProgress } from "../hooks/useLessonProgress";
 import { usePracticeCatalog } from "../../practice/hooks/usePracticeCatalog";
 import LessonTopicPanel from "./LessonTopicPanel";
@@ -57,7 +58,11 @@ export default function LessonSideRail({
 
   const resolvedSlug =
     currentSlug ??
-    lessons.find((l) => l.linkedProblemId === activeProblemId)?.slug ??
+    lessons.find((l) =>
+      activeProblemId != null
+        ? lessonProblemIds(l).includes(activeProblemId)
+        : false
+    )?.slug ??
     "";
 
   useEffect(() => {

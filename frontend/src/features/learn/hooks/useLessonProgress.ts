@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Lesson } from "../types";
+import { lessonProblemIds } from "../types";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -58,14 +59,13 @@ export function useLessonProgress(
     (slug: string) => {
       if (readSlugs.has(slug)) return true;
       const lesson = lessons.find((l) => l.slug === slug);
-      if (
-        lesson?.kind === "read+problem" &&
-        lesson.linkedProblemId != null &&
-        solvedProblemIds?.has(lesson.linkedProblemId)
-      ) {
-        return true;
+      if (!lesson) return false;
+      if (lesson.kind !== "read+problem" && lesson.kind !== "solve") {
+        return false;
       }
-      return false;
+      const ids = lessonProblemIds(lesson);
+      if (ids.length === 0 || !solvedProblemIds) return false;
+      return ids.every((id) => solvedProblemIds.has(id));
     },
     [lessons, readSlugs, solvedProblemIds]
   );

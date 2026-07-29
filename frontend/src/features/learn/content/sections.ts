@@ -1,21 +1,31 @@
 import type { LessonSection } from "../types";
 import { CONTROL_FLOW_SECTION } from "./controlFlow";
+import { OPERATORS_SECTION } from "./operators";
 import { PATTERN_BASICS_SECTION } from "./patternBasics";
+import { PROVING_GROUNDS_SECTION } from "./provingGrounds";
 import { START_HERE_SECTION } from "./startHere";
 
 /**
  * Registry of learn sections. Add new sections here and to LEARN_SECTION_ORDER
  * only when they should appear as stacked LearnSectionCards on /dsa-sheet.
  * Pattern Basics is registered for routes/progress but shown inside Pattern Problems.
+ * Proving Grounds is registered for lesson/progress helpers but rendered as a
+ * PRACTICE_ROADMAP ModuleAccordion (Foundations-style), not a LearnSectionCard.
  */
 export const LEARN_SECTIONS: Record<string, LessonSection> = {
   [START_HERE_SECTION.id]: START_HERE_SECTION,
   [CONTROL_FLOW_SECTION.id]: CONTROL_FLOW_SECTION,
+  [OPERATORS_SECTION.id]: OPERATORS_SECTION,
   [PATTERN_BASICS_SECTION.id]: PATTERN_BASICS_SECTION,
+  [PROVING_GROUNDS_SECTION.id]: PROVING_GROUNDS_SECTION,
 };
 
 /** Explicit sheet order for stacked LearnSectionCards on /dsa-sheet. */
-export const LEARN_SECTION_ORDER = ["start-here", "control-flow"] as const;
+export const LEARN_SECTION_ORDER = [
+  "start-here",
+  "control-flow",
+  "operators",
+] as const;
 
 export function getLearnSection(sectionId: string): LessonSection | undefined {
   return LEARN_SECTIONS[sectionId];
@@ -47,9 +57,14 @@ export function getFirstLesson(sectionId: string) {
   return [...lessons].sort((a, b) => a.order - b.order)[0];
 }
 
-/** Topic titles used to exclude learn problems from roadmap bucketing. */
+/**
+ * Topic titles used to exclude learn problems from roadmap bucketing.
+ * Proving Grounds is intentionally omitted — it owns a PRACTICE_ROADMAP module.
+ */
 export function learnSectionTopicTitles(): string[] {
-  return Object.values(LEARN_SECTIONS).map((s) => s.title);
+  return Object.values(LEARN_SECTIONS)
+    .filter((s) => s.id !== "proving-grounds")
+    .map((s) => s.title);
 }
 
 /**

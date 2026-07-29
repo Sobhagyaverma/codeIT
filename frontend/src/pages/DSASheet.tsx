@@ -89,9 +89,31 @@ export default function DSASheet() {
       Boolean(filters.topic) ||
       filters.favorites ||
       filters.revision;
-    if (!hasActive) return data.modules;
-    return filteredModules.filter((m) => m.total > 0);
+    // Proving Grounds is rendered above Pattern Problems, not in this list.
+    const modules = (hasActive ? filteredModules.filter((m) => m.total > 0) : data.modules).filter(
+      (m) => m.id !== "proving-grounds"
+    );
+    return modules;
   }, [data, filteredModules, filters]);
+
+  const provingGroundsModule = useMemo(() => {
+    if (!data) return null;
+    const base = data.modules.find((m) => m.id === "proving-grounds");
+    if (!base) return null;
+    return filteredModules.find((m) => m.id === "proving-grounds") ?? base;
+  }, [data, filteredModules]);
+
+  const showProvingGrounds = useMemo(() => {
+    if (!provingGroundsModule) return false;
+    const hasActive =
+      Boolean(filters.q) ||
+      filters.difficulty !== "ALL" ||
+      filters.status !== "ALL" ||
+      Boolean(filters.topic) ||
+      filters.favorites ||
+      filters.revision;
+    return provingGroundsModule.total > 0 || !hasActive;
+  }, [provingGroundsModule, filters]);
 
   const solvedProblemIds = useMemo(() => {
     const set = new Set<number>();
@@ -238,13 +260,29 @@ export default function DSASheet() {
                   />
                 );
               })}
+              {showProvingGrounds && provingGroundsModule && (
+                  <ModuleAccordion
+                    module={provingGroundsModule}
+                    open={openModules["proving-grounds"] ?? false}
+                    onToggle={() =>
+                      setOpenModules((prev) => ({
+                        ...prev,
+                        "proving-grounds": !prev["proving-grounds"],
+                      }))
+                    }
+                    canFavorite={Boolean(user)}
+                    onToggleFavorite={toggleBookmark}
+                  />
+                )}
               <PatternProblemsSection
                 problems={data?.problems ?? []}
                 solvedProblemIds={solvedProblemIds}
                 canFavorite={Boolean(user)}
                 onToggleFavorite={toggleBookmark}
               />
-              {data && visibleModules.length === 0 ? (
+              {data &&
+              visibleModules.length === 0 &&
+              !showProvingGrounds ? (
                 <EmptyPractice
                   title="No modules match"
                   description="Try clearing search or filters to see the full roadmap."

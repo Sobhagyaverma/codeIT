@@ -2,6 +2,13 @@ import type { RoadmapModuleDef } from "../types";
 
 export const PRACTICE_ROADMAP: readonly RoadmapModuleDef[] = [
   {
+    id: "proving-grounds",
+    title: "The Proving Grounds",
+    description:
+      "20 classic problems every programmer solves once — sharpen the fundamentals before moving on.",
+    topicAliases: ["The Proving Grounds"],
+  },
+  {
     id: "foundations",
     title: "Foundations",
     description: "Build fluency with core programming and problem-solving tools.",

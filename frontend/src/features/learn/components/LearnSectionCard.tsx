@@ -45,6 +45,7 @@ export default function LearnSectionCard({
   const readStats = useMemo(() => {
     const readLessons = lessons.filter((l) => l.kind === "read");
     const solveLessons = lessons.filter((l) => l.kind === "read+problem");
+    const mixedLessons = lessons.filter((l) => l.kind === "solve");
     return {
       read: {
         solved: readLessons.filter((l) => isRead(l.slug)).length,
@@ -53,6 +54,10 @@ export default function LearnSectionCard({
       solve: {
         solved: solveLessons.filter((l) => isRead(l.slug)).length,
         total: solveLessons.length,
+      },
+      mixed: {
+        solved: mixedLessons.filter((l) => isRead(l.slug)).length,
+        total: mixedLessons.length,
       },
     };
   }, [isRead, lessons]);
@@ -85,12 +90,21 @@ export default function LearnSectionCard({
           </div>
           <p className="mt-1 text-xs text-[var(--text-dim)]">{section.subtitle}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-            <span className="text-[var(--ok)]">
-              Read {readStats.read.solved}/{readStats.read.total}
-            </span>
-            <span className="text-[var(--accent)]">
-              Solve {readStats.solve.solved}/{readStats.solve.total}
-            </span>
+            {readStats.read.total > 0 && (
+              <span className="text-[var(--ok)]">
+                Read {readStats.read.solved}/{readStats.read.total}
+              </span>
+            )}
+            {readStats.solve.total > 0 && (
+              <span className="text-[var(--accent)]">
+                Solve {readStats.solve.solved}/{readStats.solve.total}
+              </span>
+            )}
+            {readStats.mixed.total > 0 && (
+              <span className="text-[var(--info)]">
+                Mixed {readStats.mixed.solved}/{readStats.mixed.total}
+              </span>
+            )}
           </div>
           <ProgressBar value={percent} className="mt-3" />
         </div>
@@ -118,14 +132,28 @@ export default function LearnSectionCard({
                 onChange={setLanguage}
               />
             </div>
-            {lessons.map((lesson) => (
-              <LessonCard
-                key={lesson.slug}
-                sectionId={section.id}
-                lesson={lesson}
-                complete={isRead(lesson.slug)}
-              />
-            ))}
+            {lessons.map((lesson, index) => {
+              const showMixedDivider =
+                section.id === "operators" &&
+                lesson.kind === "solve" &&
+                (index === 0 || lessons[index - 1]?.kind !== "solve");
+              return (
+                <div key={lesson.slug}>
+                  {showMixedDivider && (
+                    <div className="border-t border-[var(--line)] bg-[var(--bg-inset)]/40 px-4 py-2">
+                      <p className="verdict-strip text-[10px] text-[var(--text-dim)]">
+                        Mixed Operator Practice
+                      </p>
+                    </div>
+                  )}
+                  <LessonCard
+                    sectionId={section.id}
+                    lesson={lesson}
+                    complete={isRead(lesson.slug)}
+                  />
+                </div>
+              );
+            })}
             <div className="border-t border-[var(--line)] px-4 py-2 text-[11px] text-[var(--text-dim)]">
               <ExternalLink className="mr-1 inline h-3 w-3" aria-hidden />
               Open any row to jump into the lesson.
