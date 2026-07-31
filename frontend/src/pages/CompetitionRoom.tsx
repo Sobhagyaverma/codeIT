@@ -45,6 +45,12 @@ import { FileText, ListChecks, TriangleAlert } from "lucide-react";
 import DifficultyBadge from "../components/DifficultyBadge";
 import VerdictPanel from "../components/VerdictPanel";
 import RunResultsPanel from "../components/RunResultsPanel";
+import {
+  loadContestCodeDraft,
+  pickPreferredLanguage,
+  saveContestCodeDraft,
+  setPreferredLanguage,
+} from "../lib/editorPrefs";
 
 const MONACO_LANG: Record<string, string> = {
   c: "c",
@@ -178,8 +184,7 @@ export default function CompetitionRoom() {
       setLeaderboard(board);
       setLanguages(langs);
 
-      const preferred =
-        langs.find((l) => l.slug === "python") || langs[0] || null;
+      const preferred = pickPreferredLanguage(langs);
       setLanguage((prev) => prev || preferred);
 
       if (ids.length > 0) {
@@ -245,17 +250,55 @@ export default function CompetitionRoom() {
     };
   }, [selectedProblem, problemMeta]);
 
-  // Seed starter code per problem when language is known.
+  // Seed / restore code when problem or language changes.
+  const codeByProblemRef = useRef(codeByProblem);
+  codeByProblemRef.current = codeByProblem;
+  const selectionRef = useRef<{ problem: number | null; lang: string | null }>({
+    problem: null,
+    lang: null,
+  });
+
   useEffect(() => {
-    if (!selectedProblem || !language) return;
-    setCodeByProblem((prev) => {
-      if (prev[selectedProblem]) return prev;
-      return {
-        ...prev,
-        [selectedProblem]: STARTER[language.slug] || "",
-      };
-    });
-  }, [selectedProblem, language]);
+    if (!language) return;
+
+    const prev = selectionRef.current;
+    if (prev.problem != null && prev.lang) {
+      const prevCode = codeByProblemRef.current[prev.problem] ?? "";
+      saveContestCodeDraft(competitionId, prev.problem, prev.lang, prevCode);
+    }
+
+    if (selectedProblem != null) {
+      const draft = loadContestCodeDraft(
+        competitionId,
+        selectedProblem,
+        language.slug
+      );
+      setCodeByProblem((prevMap) => ({
+        ...prevMap,
+        [selectedProblem]: draft ?? STARTER[language.slug] ?? "",
+      }));
+    }
+
+    selectionRef.current = {
+      problem: selectedProblem,
+      lang: language.slug,
+    };
+  }, [selectedProblem, language, competitionId]);
+
+  useEffect(() => {
+    if (!selectedProblem || !language || loading) return;
+    const source = codeByProblem[selectedProblem];
+    if (source === undefined) return;
+    const t = window.setTimeout(() => {
+      saveContestCodeDraft(
+        competitionId,
+        selectedProblem,
+        language.slug,
+        source
+      );
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [codeByProblem, selectedProblem, language, competitionId, loading]);
 
   useEffect(() => {
     if (tickRef.current) window.clearInterval(tickRef.current);
@@ -503,15 +546,7 @@ export default function CompetitionRoom() {
   const handleLanguageChange = (slug: string) => {
     const lang = languages.find((l) => l.slug === slug) || null;
     setLanguage(lang);
-    if (!lang || !selectedProblem) return;
-    setCodeByProblem((prev) => {
-      const current = prev[selectedProblem];
-      const isStarter =
-        !current ||
-        Object.values(STARTER).some((s) => s.trim() === current.trim());
-      if (!isStarter) return prev;
-      return { ...prev, [selectedProblem]: STARTER[lang.slug] || "" };
-    });
+    if (lang) setPreferredLanguage(lang.slug);
   };
 
   const code = selectedProblem ? codeByProblem[selectedProblem] || "" : "";

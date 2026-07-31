@@ -13,6 +13,10 @@ import {
 import type { Room, RoomSummary } from "../features/collaboration/types";
 import { getLanguages } from "../lib/api";
 import type { LanguageDTO } from "../lib/types";
+import {
+  pickPreferredLanguage,
+  setPreferredLanguage,
+} from "../lib/editorPrefs";
 
 const FEATURES = [
   { icon: Code2, label: "Shared editor" },
@@ -58,8 +62,8 @@ export default function CodeRoomHub() {
   useEffect(() => {
     void getLanguages().then((langs) => {
       setLanguages(langs);
-      const py = langs.find((l) => l.slug === "python") || langs[0];
-      if (py) setLanguage(py.slug);
+      const preferred = pickPreferredLanguage(langs);
+      if (preferred) setLanguage(preferred.slug);
     });
   }, []);
 
@@ -155,7 +159,10 @@ export default function CodeRoomHub() {
               Language
               <select
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                onChange={(e) => {
+                  setLanguage(e.target.value);
+                  setPreferredLanguage(e.target.value);
+                }}
                 className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm text-[var(--text)]"
               >
                 {languages.map((l) => (

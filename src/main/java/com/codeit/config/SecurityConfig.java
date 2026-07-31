@@ -45,7 +45,9 @@ public class SecurityConfig {
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "http://localhost:5174",
-                "http://127.0.0.1:5174"));
+                "http://127.0.0.1:5174",
+                "http://localhost:5175",
+                "http://127.0.0.1:5175"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
@@ -76,6 +78,12 @@ public class SecurityConfig {
                                         paths.matcher("/ws"),
                                         paths.matcher("/ws/**"))
                                 .permitAll()
+                        .requestMatchers(paths.matcher(HttpMethod.GET, "/api/problems"))
+                        .permitAll()
+                        .requestMatchers(paths.matcher(HttpMethod.GET, "/api/problems/**"))
+                        .permitAll()
+                        .requestMatchers(paths.matcher(HttpMethod.GET, "/api/submissions/languages"))
+                        .permitAll()
                         .requestMatchers(
                                 paths.matcher("/api/profile/me"),
                                 paths.matcher("/api/profile/me/**"))

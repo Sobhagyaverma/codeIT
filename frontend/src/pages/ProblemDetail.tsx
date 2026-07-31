@@ -37,6 +37,12 @@ import LearningCoachPanel from "../features/ai-coach/components/LearningCoachPan
 import InviteButton from "../features/collaboration/components/InviteButton";
 import LessonSideRail from "../features/learn/components/LessonSideRail";
 import { findLearnSectionByTopics } from "../features/learn/content/sections";
+import {
+  loadCodeDraft,
+  pickPreferredLanguage,
+  saveCodeDraft,
+  setPreferredLanguage,
+} from "../lib/editorPrefs";
 
 const MONACO_LANG: Record<string, string> = {
   c: "c",
@@ -144,9 +150,14 @@ export default function ProblemDetail() {
         setProblem(p);
         setLanguages(langs);
 
-        const py = langs.find((l) => l.slug === "python") || langs[0];
-        setLanguage(py);
-        setCode(STARTER[py?.slug] || "");
+        const preferred = pickPreferredLanguage(langs);
+        setLanguage(preferred);
+        if (preferred) {
+          const draft = loadCodeDraft(problemId, preferred.slug);
+          setCode(draft ?? STARTER[preferred.slug] ?? "");
+        } else {
+          setCode("");
+        }
 
         const exs = parseExamples(p.examples);
         const stdins = exs.map((ex) => exampleInputToStdin(ex.input));
@@ -270,13 +281,26 @@ export default function ProblemDetail() {
     [learnSection, problemId]
   );
 
+  useEffect(() => {
+    if (!language || !Number.isFinite(problemId) || loading) return;
+    const t = window.setTimeout(() => {
+      saveCodeDraft(problemId, language.slug, code);
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [code, language, problemId, loading]);
+
   const handleLanguageChange = (slug: string) => {
+    if (language) {
+      saveCodeDraft(problemId, language.slug, code);
+    }
+
     const lang = languages.find((l) => l.slug === slug) || null;
     setLanguage(lang);
+    if (!lang) return;
 
-    if (lang && STARTER[lang.slug]) {
-      setCode(STARTER[lang.slug]);
-    }
+    setPreferredLanguage(lang.slug);
+    const draft = loadCodeDraft(problemId, lang.slug);
+    setCode(draft ?? STARTER[lang.slug] ?? "");
   };
 
   const handleRun = async () => {
