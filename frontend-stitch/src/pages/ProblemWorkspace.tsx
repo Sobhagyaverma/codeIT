@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import AppNav from "../components/AppNav";
 import { IoPre } from "../components/IoPre";
 import { useAuth } from "../context/AuthContext";
+import { createRoom } from "../features/collaboration/api";
+import { roomCodeOf } from "../features/collaboration/roomLinks";
 import {
   ApiError,
   getLanguages,
@@ -143,6 +145,8 @@ export default function ProblemWorkspace() {
   const { id } = useParams();
   const problemId = Number(id);
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [inviting, setInviting] = useState(false);
 
   const [problem, setProblem] = useState<ProblemPublicDTO | null>(null);
   const [languages, setLanguages] = useState<LanguageDTO[]>([]);
@@ -431,12 +435,37 @@ export default function ProblemWorkspace() {
           user ? (
             <button
               type="button"
-              className="font-label-md text-label-md flex items-center gap-2 rounded border border-primary/30 px-4 py-2 text-primary transition-all hover:bg-primary/10"
-              onClick={() => setActionError("Invite / CodeRoom is coming soon.")}
-              title="Coming soon"
+              disabled={inviting}
+              className="font-label-md text-label-md flex items-center gap-2 rounded border border-primary/30 px-4 py-2 text-primary transition-all hover:bg-primary/10 disabled:opacity-50"
+              onClick={() => {
+                void (async () => {
+                  setInviting(true);
+                  setActionError(null);
+                  try {
+                    const room = await createRoom({
+                      type: "PROBLEM_COLLAB",
+                      problemId,
+                      language: language?.slug || "python",
+                    });
+                    navigate(
+                      `/problems/${problemId}/room/${room.id}?code=${encodeURIComponent(roomCodeOf(room))}`
+                    );
+                  } catch (err) {
+                    setActionError(
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to start collab room."
+                    );
+                  } finally {
+                    setInviting(false);
+                  }
+                })();
+              }}
             >
-              <span className="material-symbols-outlined text-sm">person_add</span>
-              Invite
+              <span className="material-symbols-outlined text-sm">
+                person_add
+              </span>
+              {inviting ? "Starting…" : "Invite"}
             </button>
           ) : null
         }

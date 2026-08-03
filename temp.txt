@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Privacy Policy - CodeIT</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&amp;family=Outfit:wght@400;500;600;700&amp;family=Sora:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#362d3e",
+                        "surface-tint": "#ddb7ff",
+                        "tertiary-fixed": "#eddcff",
+                        "surface-container-low": "#211828",
+                        "on-surface": "#edddf4",
+                        "on-primary-fixed": "#2c0051",
+                        "primary-fixed": "#f0dbff",
+                        "primary-container": "#b76dff",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-fixed": "#2d0050",
+                        "tertiary": "#d2bfe8",
+                        "surface-container-highest": "#3b3142",
+                        "tertiary-container": "#9b8ab0",
+                        "outline": "#988d9f",
+                        "primary": "#ddb7ff",
+                        "on-primary": "#490080",
+                        "surface-variant": "#3b3142",
+                        "secondary-container": "#603389",
+                        "on-tertiary": "#382a4a",
+                        "surface-container-high": "#302637",
+                        "on-surface-variant": "#cfc2d6",
+                        "error-container": "#93000a",
+                        "on-secondary-container": "#d4a5ff",
+                        "on-background": "#edddf4",
+                        "on-primary-container": "#400071",
+                        "surface-bright": "#403547",
+                        "on-error": "#690005",
+                        "surface-dim": "#18101f",
+                        "outline-variant": "#4d4354",
+                        "inverse-primary": "#842bd2",
+                        "surface-container-lowest": "#130b1a",
+                        "on-primary-fixed-variant": "#6900b3",
+                        "on-tertiary-fixed": "#221534",
+                        "on-secondary": "#45166e",
+                        "background": "#18101f",
+                        "tertiary-fixed-dim": "#d2bfe8",
+                        "error": "#ffb4ab",
+                        "surface": "#18101f",
+                        "secondary-fixed-dim": "#deb7ff",
+                        "secondary": "#deb7ff",
+                        "secondary-fixed": "#f1dbff",
+                        "on-tertiary-fixed-variant": "#4f4062",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "surface-container": "#251c2c",
+                        "on-secondary-fixed-variant": "#5d3186",
+                        "on-tertiary-container": "#312343",
+                        "inverse-surface": "#edddf4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1440px",
+                        "margin-desktop": "48px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Outfit"],
+                        "headline-lg-mobile": ["Sora"],
+                        "body-lg": ["Outfit"],
+                        "body-md": ["Outfit"],
+                        "headline-xl": ["Sora"],
+                        "code-sm": ["JetBrains Mono"],
+                        "headline-lg": ["Sora"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "code-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+            font-family: 'Outfit', sans-serif;
+            background-image: 
+                linear-gradient(to bottom, rgba(24, 16, 31, 0.95), rgba(24, 16, 31, 0.95)),
+                radial-gradient(circle at top right, rgba(183, 109, 255, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at bottom left, rgba(96, 51, 137, 0.15) 0%, transparent 40%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .glass-panel {
+            background: rgba(22, 11, 34, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(183, 109, 255, 0.2);
+            box-shadow: 0 0 30px rgba(183, 109, 255, 0.05);
+        }
+
+        .glow-border-active {
+            border-left: 2px solid theme('colors.primary');
+            box-shadow: -10px 0 20px -10px rgba(183, 109, 255, 0.5);
+        }
+
+        .grid-bg {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(183, 109, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(183, 109, 255, 0.05) 1px, transparent 1px);
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-primary-container selection:text-on-primary-container relative">
+<div class="grid-bg"></div>
+<!-- TopNavBar -->
+<!-- Note: Semantic check fails for this task flow (Legal Pages are usually non-core or utility). 
+         However, the prompt explicitly states: "Shared navbar and footer." 
+         Active tab logic: None of the main nav links match "Privacy" directly. Leaving all inactive as it's a utility page. -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile md:px-margin-desktop py-4 bg-surface-dim/80 backdrop-blur-xl dark:bg-surface-dim/80 border-b border-outline-variant/30 shadow-[0_0_15px_rgba(183,109,255,0.1)]">
+<div class="flex items-center gap-8">
+<a class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold text-primary tracking-tight" href="#">CodeIT</a>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">DSA Sheet</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">Problems</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">CodeRoom</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">Competitions</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">About</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">Contact</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden md:block font-label-md text-label-md text-primary hover:text-primary-fixed-dim transition-colors duration-200">Sign In</button>
+<button class="font-label-md text-label-md bg-primary text-on-primary px-4 py-2 rounded font-medium hover:bg-primary-fixed-dim transition-colors duration-200 shadow-[0_0_10px_rgba(221,183,255,0.4)]">Join Now</button>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-[100px] pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full flex flex-col md:flex-row gap-8 lg:gap-16">
+<!-- Side Nav for Legal / Help context -->
+<aside class="md:w-64 flex-shrink-0">
+<div class="sticky top-[120px]">
+<h3 class="font-label-md text-label-md text-primary uppercase tracking-widest mb-6 px-4">Legal &amp; Support</h3>
+<nav class="flex flex-col gap-2">
+<a class="px-4 py-3 rounded-r-lg glow-border-active bg-primary-container/10 text-primary font-label-md text-label-md flex items-center justify-between group transition-all" href="/privacy">
+<span>Privacy</span>
+<span class="material-symbols-outlined text-[18px] opacity-100 transition-opacity">chevron_right</span>
+</a>
+<a class="px-4 py-3 rounded-r-lg border-l-2 border-transparent text-on-surface-variant hover:bg-surface-variant/50 hover:text-on-surface font-label-md text-label-md flex items-center justify-between group transition-all" href="/terms">
+<span>Terms</span>
+<span class="material-symbols-outlined text-[18px] opacity-0 group-hover:opacity-50 transition-opacity">chevron_right</span>
+</a>
+<a class="px-4 py-3 rounded-r-lg border-l-2 border-transparent text-on-surface-variant hover:bg-surface-variant/50 hover:text-on-surface font-label-md text-label-md flex items-center justify-between group transition-all" href="/help">
+<span>Help</span>
+<span class="material-symbols-outlined text-[18px] opacity-0 group-hover:opacity-50 transition-opacity">chevron_right</span>
+</a>
+</nav>
+</div>
+</aside>
+<!-- Content Canvas -->
+<div class="flex-grow max-w-4xl">
+<div class="mb-12">
+<div class="font-code-sm text-code-sm text-tertiary mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">folder_open</span>
+<span>/legal</span>
+<span class="text-outline">-&gt;</span>
+<span class="text-primary">privacy</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-background mb-6">Privacy Policy</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Last updated: <span class="font-code-sm text-code-sm">2024-05-20</span>. This policy outlines how CodeIT manages your data within our highly secure technical environment.</p>
+</div>
+<div class="glass-panel rounded-xl p-6 md:p-10 space-y-12">
+<!-- Section 1 -->
+<section>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined">database</span>
+                        1. Data Storage
+                    </h2>
+<div class="space-y-4 font-body-md text-body-md text-on-surface-variant">
+<p>CodeIT stores necessary registration account details to maintain secure access and operational integrity. This minimal dataset includes:</p>
+<ul class="list-none space-y-3 pl-2">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-[20px] mt-1">check_circle</span>
+<div><strong class="text-on-surface">Name:</strong> For internal identification and leaderboard displays (configurable).</div>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-[20px] mt-1">check_circle</span>
+<div><strong class="text-on-surface">Unique User ID:</strong> An immutable technical identifier tying your activity to your account.</div>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-[20px] mt-1">check_circle</span>
+<div><strong class="text-on-surface">Email Address:</strong> Used strictly for account recovery, critical security alerts, and essential service communications.</div>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-[20px] mt-1">check_circle</span>
+<div><strong class="text-on-surface">Authentication Tokens:</strong> Securely hashed tokens required to maintain active sessions across the platform.</div>
+</li>
+</ul>
+</div>
+</section>
+<hr class="border-outline-variant/30"/>
+<!-- Section 2 -->
+<section>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined">monitoring</span>
+                        2. Usage &amp; Telemetry
+                    </h2>
+<div class="space-y-4 font-body-md text-body-md text-on-surface-variant">
+<p>To provide core functionalities like real-time compilation, competitive ranking, and detailed analytics, we process specific platform interactions:</p>
+<div class="bg-surface-container-low p-4 rounded-lg border border-outline-variant/20 font-code-sm text-code-sm text-tertiary-fixed-dim">
+<span class="text-primary-fixed-dim">const</span> processed_metrics = [<span class="text-secondary-fixed-dim">"submission_code"</span>, <span class="text-secondary-fixed-dim">"contest_activity"</span>, <span class="text-secondary-fixed-dim">"judge_results"</span>];
+                        </div>
+<p>This data is utilized solely to enhance your experience, compute algorithm efficiency scores, and maintain the integrity of competitions.</p>
+<div class="flex items-center gap-3 mt-4 bg-primary-container/10 p-4 rounded-lg border border-primary-container/30">
+<span class="material-symbols-outlined text-primary">gpp_good</span>
+<p class="font-label-md text-label-md text-on-surface"><strong>Zero-Sale Protocol:</strong> We categorically do not sell, rent, or lease personal data to third-party brokers or advertisers.</p>
+</div>
+</div>
+</section>
+<hr class="border-outline-variant/30"/>
+<!-- Section 3 -->
+<section>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-6 flex items-center gap-3">
+<span class="material-symbols-outlined">web</span>
+                        3. Browser Data &amp; Control
+                    </h2>
+<div class="space-y-4 font-body-md text-body-md text-on-surface-variant">
+<p>Session management relies on local browser storage to ensure seamless navigation across the command center.</p>
+<ul class="list-disc pl-6 space-y-2">
+<li>Authentication tokens are securely stored within your browser's local environment.</li>
+<li>You have absolute control over these tokens. Initiating a standard "Log Out" procedure immediately purges these tokens from your local machine and invalidates the session server-side.</li>
+</ul>
+<div class="mt-6 p-5 border border-outline-variant/30 rounded-lg bg-surface-container/50">
+<h4 class="font-label-md text-label-md text-on-surface mb-2">Account Deletion Request</h4>
+<p class="text-sm mb-4">To initiate a complete purge of your account and associated historical data from our systems, you must submit a formal request.</p>
+<button class="font-label-md text-label-md bg-surface-variant text-on-surface px-4 py-2 rounded hover:bg-surface-bright border border-outline-variant/50 transition-colors duration-200 flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">delete_forever</span>
+                                Contact Support for Removal
+                            </button>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-8 px-margin-desktop flex flex-col md:flex-row justify-between items-center gap-gutter bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant/20 mt-auto">
+<div class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary opacity-80 hover:opacity-100 transition-opacity">
+            CodeIT
+        </div>
+<div class="font-body-md text-body-md text-on-surface-variant">
+            © 2024 CodeIT. Engineering Excellence.
+        </div>
+<div class="flex items-center gap-6">
+<a class="font-bold text-primary font-label-md text-label-md opacity-80 hover:opacity-100 hover:text-tertiary-fixed transition-colors" href="/privacy">Privacy</a>
+<a class="text-on-surface-variant font-label-md text-label-md opacity-80 hover:opacity-100 hover:text-tertiary-fixed transition-colors" href="/terms">Terms</a>
+<a class="text-on-surface-variant font-label-md text-label-md opacity-80 hover:opacity-100 hover:text-tertiary-fixed transition-colors" href="/help">Help</a>
+</div>
+</footer>
+</body></html>
+
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeIT - Terms of Service</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500&amp;family=Sora:wght@600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "inverse-on-surface": "#362d3e",
+                        "surface-tint": "#ddb7ff",
+                        "tertiary-fixed": "#eddcff",
+                        "surface-container-low": "#211828",
+                        "on-surface": "#edddf4",
+                        "on-primary-fixed": "#2c0051",
+                        "primary-fixed": "#f0dbff",
+                        "primary-container": "#b76dff",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-fixed": "#2d0050",
+                        "tertiary": "#d2bfe8",
+                        "surface-container-highest": "#3b3142",
+                        "tertiary-container": "#9b8ab0",
+                        "outline": "#988d9f",
+                        "primary": "#ddb7ff",
+                        "on-primary": "#490080",
+                        "surface-variant": "#3b3142",
+                        "secondary-container": "#603389",
+                        "on-tertiary": "#382a4a",
+                        "surface-container-high": "#302637",
+                        "on-surface-variant": "#cfc2d6",
+                        "error-container": "#93000a",
+                        "on-secondary-container": "#d4a5ff",
+                        "on-background": "#edddf4",
+                        "on-primary-container": "#400071",
+                        "surface-bright": "#403547",
+                        "on-error": "#690005",
+                        "surface-dim": "#18101f",
+                        "outline-variant": "#4d4354",
+                        "inverse-primary": "#842bd2",
+                        "surface-container-lowest": "#130b1a",
+                        "on-primary-fixed-variant": "#6900b3",
+                        "on-tertiary-fixed": "#221534",
+                        "on-secondary": "#45166e",
+                        "background": "#18101f",
+                        "tertiary-fixed-dim": "#d2bfe8",
+                        "error": "#ffb4ab",
+                        "surface": "#18101f",
+                        "secondary-fixed-dim": "#deb7ff",
+                        "secondary": "#deb7ff",
+                        "secondary-fixed": "#f1dbff",
+                        "on-tertiary-fixed-variant": "#4f4062",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "surface-container": "#251c2c",
+                        "on-secondary-fixed-variant": "#5d3186",
+                        "on-tertiary-container": "#312343",
+                        "inverse-surface": "#edddf4"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "container-max": "1440px",
+                        "margin-desktop": "48px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "unit": "4px"
+                    },
+                    fontFamily: {
+                        "label-md": ["Outfit"],
+                        "headline-lg-mobile": ["Sora"],
+                        "body-lg": ["Outfit"],
+                        "body-md": ["Outfit"],
+                        "headline-xl": ["Sora"],
+                        "code-sm": ["JetBrains Mono"],
+                        "headline-lg": ["Sora"]
+                    },
+                    fontSize: {
+                        "label-md": ["14px", { lineHeight: "20px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+                        "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+                        "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "headline-xl": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "code-sm": ["13px", { lineHeight: "18px", fontWeight: "400" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #09040D; /* Deep obsidian layer from styling guide */
+            color: #edddf4;
+        }
+        .bg-glass {
+            background-color: rgba(22, 11, 34, 0.8); /* Tier 2 Surface tint */
+            backdrop-filter: blur(12px);
+        }
+        .border-glow {
+            border: 1px solid rgba(183, 109, 255, 0.3);
+            box-shadow: 0 0 15px rgba(183, 109, 255, 0.1);
+        }
+        .nav-glow:hover {
+            text-shadow: 0 0 8px rgba(221, 183, 255, 0.6);
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #09040D; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b3142; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #b76dff; 
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-body-md antialiased overflow-x-hidden relative">
+<!-- TopNavBar (Shared Component) -->
+<!-- Content logic: About/Contact are the closest to legal, but this is a specific legal route. We'll leave them inactive. -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop py-4 bg-surface-dim/80 backdrop-blur-xl dark:bg-surface-dim/80 border-b border-outline-variant/30 shadow-[0_0_15px_rgba(183,109,255,0.1)] h-20 transition-all duration-300">
+<div class="flex items-center gap-8">
+<a class="font-headline-lg text-headline-lg font-bold text-primary tracking-tight" href="/">CodeIT</a>
+<div class="hidden md:flex items-center gap-6">
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200 nav-glow" href="/dsa">DSA Sheet</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200 nav-glow" href="/problems">Problems</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200 nav-glow" href="/coderoom">CodeRoom</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200 nav-glow" href="/competitions">Competitions</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200 nav-glow" href="/about">About</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200 nav-glow" href="/contact">Contact</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden md:block text-on-surface-variant font-label-md text-label-md hover:text-primary transition-colors">Sign In</button>
+<button class="bg-primary-container text-on-primary-container font-label-md text-label-md px-6 py-2 rounded hover:bg-primary-fixed hover:shadow-[0_0_15px_rgba(183,109,255,0.4)] transition-all duration-300 active:scale-95">Join Now</button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-32 pb-24 px-margin-mobile md:px-margin-desktop relative z-10 flex justify-center w-full max-w-[1440px] mx-auto">
+<!-- Abstract background elements -->
+<div class="fixed top-1/4 left-0 w-full h-[500px] bg-primary-container/5 blur-[150px] -z-10 pointer-events-none rounded-full"></div>
+<div class="fixed bottom-0 right-0 w-1/2 h-[400px] bg-secondary-container/10 blur-[120px] -z-10 pointer-events-none"></div>
+<div class="w-full flex flex-col md:flex-row gap-12 max-w-6xl">
+<!-- Side Nav (Legal Pages) -->
+<aside class="w-full md:w-64 flex-shrink-0">
+<div class="sticky top-32">
+<h3 class="font-label-md text-label-md text-outline uppercase tracking-wider mb-6 ml-4">Legal Documents</h3>
+<nav class="flex flex-col gap-2">
+<a class="px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors flex items-center justify-between group" href="/privacy">
+<span class="font-body-md text-body-md">Privacy Policy</span>
+<span class="material-symbols-outlined text-[18px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</a>
+<!-- Active State for Terms -->
+<a class="px-4 py-3 rounded-lg bg-surface-container-highest text-primary border-l-2 border-primary flex items-center justify-between" href="/terms">
+<span class="font-body-md text-body-md font-medium">Terms of Service</span>
+<span class="material-symbols-outlined text-[18px] text-primary">arrow_forward</span>
+</a>
+<a class="px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors flex items-center justify-between group" href="/help">
+<span class="font-body-md text-body-md">Help &amp; Support</span>
+<span class="material-symbols-outlined text-[18px] opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</a>
+</nav>
+</div>
+</aside>
+<!-- Document Content Panel -->
+<article class="flex-grow bg-glass border-glow rounded-xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
+<!-- Decorative top line -->
+<div class="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-50"></div>
+<header class="mb-12 border-b border-outline-variant/30 pb-8">
+<div class="flex items-center gap-2 mb-4 font-code-sm text-code-sm text-tertiary-container">
+<span class="material-symbols-outlined text-[16px]">folder_open</span>
+<span>/legal</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary-fixed-dim">terms</span>
+</div>
+<h1 class="font-headline-xl text-headline-lg-mobile md:text-headline-xl text-primary-fixed">Terms of Service</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-4">Last updated: <span class="text-on-surface">October 24, 2024</span></p>
+</header>
+<div class="space-y-12 text-on-surface font-body-md text-body-md leading-relaxed">
+<section class="space-y-4 group">
+<h2 class="font-headline-lg text-headline-lg text-secondary-fixed flex items-center gap-3">
+<span class="w-8 h-8 rounded bg-surface-container-high border border-outline-variant/50 flex items-center justify-center font-code-sm text-primary group-hover:border-primary/50 transition-colors">01</span>
+                            Usage
+                        </h2>
+<div class="pl-11 space-y-4">
+<p>By accessing or using the CodeIT platform, you agree to be bound by these Terms of Service. Use CodeIT exclusively for learning, improving your coding skills, and participating in fair competition.</p>
+<p>You strictly agree <strong class="text-primary">not to</strong>:</p>
+<ul class="list-none space-y-2 mt-2">
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-error text-[20px] mt-1 shrink-0">close</span>
+<span>Abuse the automated judging system by intentionally submitting malicious code or attempting to breach sandboxed environments.</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-error text-[20px] mt-1 shrink-0">close</span>
+<span>Disrupt scheduled contests through coordinated attacks or exploiting platform vulnerabilities.</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-error text-[20px] mt-1 shrink-0">close</span>
+<span>Access, attempt to access, or tamper with other users' accounts, private submissions, or personal data.</span>
+</li>
+</ul>
+</div>
+</section>
+<div class="w-full h-px bg-outline-variant/20"></div>
+<section class="space-y-4 group">
+<h2 class="font-headline-lg text-headline-lg text-secondary-fixed flex items-center gap-3">
+<span class="w-8 h-8 rounded bg-surface-container-high border border-outline-variant/50 flex items-center justify-center font-code-sm text-primary group-hover:border-primary/50 transition-colors">02</span>
+                            Conduct
+                        </h2>
+<div class="pl-11 space-y-4">
+<p>Academic integrity is paramount on CodeIT. Contest submissions <strong class="text-on-surface">must be your own original work</strong> unless a specific contest explicitly states that collaboration or team participation is allowed.</p>
+<div class="bg-surface-container-high border-l-4 border-error-container p-4 rounded-r-md mt-4">
+<p class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-[16px] text-error">warning</span>
+                                    Strictly Prohibited Activities
+                                </p>
+<p class="text-sm">Automated scraping of problem descriptions, test cases, or user data is prohibited. Denial of Service (DoS) attacks or intentionally flooding the judge with resource-heavy infinite loops will result in immediate permanent bans.</p>
+</div>
+</div>
+</section>
+<div class="w-full h-px bg-outline-variant/20"></div>
+<section class="space-y-4 group">
+<h2 class="font-headline-lg text-headline-lg text-secondary-fixed flex items-center gap-3">
+<span class="w-8 h-8 rounded bg-surface-container-high border border-outline-variant/50 flex items-center justify-center font-code-sm text-primary group-hover:border-primary/50 transition-colors">03</span>
+                            Updates
+                        </h2>
+<div class="pl-11 space-y-4">
+<p>CodeIT is an evolving platform. Features, judging environments, and supported languages may change without prior notice.</p>
+<p>We reserve the right to modify these Terms of Service at any time. Significant changes will be communicated via platform announcements. Your continued use of the platform after updates indicates your acknowledgment and acceptance of the revised terms.</p>
+</div>
+</section>
+</div>
+<!-- Bottom decorative glow -->
+<div class="absolute -bottom-10 -right-10 w-40 h-40 bg-primary/10 blur-[50px] rounded-full pointer-events-none"></div>
+</article>
+</div>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full py-8 px-margin-desktop flex flex-col md:flex-row justify-between items-center gap-gutter bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant/20 relative z-20 mt-auto">
+<div class="font-headline-lg text-headline-lg text-primary opacity-80 hover:opacity-100 transition-opacity">
+            CodeIT
+        </div>
+<div class="text-secondary dark:text-secondary font-body-md text-body-md">
+            © 2024 CodeIT. Engineering Excellence.
+        </div>
+<div class="flex gap-6">
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-tertiary-fixed transition-colors" href="/privacy">Privacy</a>
+<a class="text-primary font-bold font-label-md text-label-md hover:text-tertiary-fixed transition-colors" href="/terms">Terms</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-tertiary-fixed transition-colors" href="/help">Help</a>
+</div>
+</footer>
+</body></html>
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeIT - Help Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500&amp;family=Sora:wght@600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#362d3e",
+                        "surface-tint": "#ddb7ff",
+                        "tertiary-fixed": "#eddcff",
+                        "surface-container-low": "#211828",
+                        "on-surface": "#edddf4",
+                        "on-primary-fixed": "#2c0051",
+                        "primary-fixed": "#f0dbff",
+                        "primary-container": "#b76dff",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-fixed": "#2d0050",
+                        "tertiary": "#d2bfe8",
+                        "surface-container-highest": "#3b3142",
+                        "tertiary-container": "#9b8ab0",
+                        "outline": "#988d9f",
+                        "primary": "#ddb7ff",
+                        "on-primary": "#490080",
+                        "surface-variant": "#3b3142",
+                        "secondary-container": "#603389",
+                        "on-tertiary": "#382a4a",
+                        "surface-container-high": "#302637",
+                        "on-surface-variant": "#cfc2d6",
+                        "error-container": "#93000a",
+                        "on-secondary-container": "#d4a5ff",
+                        "on-background": "#edddf4",
+                        "on-primary-container": "#400071",
+                        "surface-bright": "#403547",
+                        "on-error": "#690005",
+                        "surface-dim": "#18101f",
+                        "outline-variant": "#4d4354",
+                        "inverse-primary": "#842bd2",
+                        "surface-container-lowest": "#130b1a",
+                        "on-primary-fixed-variant": "#6900b3",
+                        "on-tertiary-fixed": "#221534",
+                        "on-secondary": "#45166e",
+                        "background": "#18101f",
+                        "tertiary-fixed-dim": "#d2bfe8",
+                        "error": "#ffb4ab",
+                        "surface": "#18101f",
+                        "secondary-fixed-dim": "#deb7ff",
+                        "secondary": "#deb7ff",
+                        "secondary-fixed": "#f1dbff",
+                        "on-tertiary-fixed-variant": "#4f4062",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "surface-container": "#251c2c",
+                        "on-secondary-fixed-variant": "#5d3186",
+                        "on-tertiary-container": "#312343",
+                        "inverse-surface": "#edddf4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-max": "1440px",
+                        "margin-desktop": "48px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Outfit"],
+                        "headline-lg-mobile": ["Sora"],
+                        "body-lg": ["Outfit"],
+                        "body-md": ["Outfit"],
+                        "headline-xl": ["Sora"],
+                        "code-sm": ["JetBrains Mono"],
+                        "headline-lg": ["Sora"]
+                    },
+                    "fontSize": {
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "code-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #09040D;
+            background-image: 
+                linear-gradient(rgba(183, 109, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(183, 109, 255, 0.05) 1px, transparent 1px);
+            background-size: 32px 32px;
+            background-position: center center;
+            background-attachment: fixed;
+            color: #edddf4;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .glass-panel {
+            background: rgba(22, 11, 34, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            box-shadow: 0 0 20px rgba(183, 109, 255, 0.1);
+        }
+
+        .nav-active {
+            border-left: 3px solid #b76dff;
+            background: rgba(183, 109, 255, 0.1);
+            color: #ddb7ff;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 10px rgba(183, 109, 255, 0.5);
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md antialiased overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop py-4 bg-surface-dim/80 backdrop-blur-xl dark:bg-surface-dim/80 border-b border-outline-variant/30 shadow-[0_0_15px_rgba(183,109,255,0.1)]">
+<div class="font-headline-lg text-headline-lg font-bold text-primary tracking-tight">CodeIT</div>
+<div class="hidden md:flex items-center space-x-8">
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">DSA Sheet</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">Problems</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">CodeRoom</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">Competitions</a>
+<a class="text-primary border-b-2 border-primary pb-1 hover:text-primary-fixed-dim transition-colors duration-200 scale-95 transition-transform duration-150" href="#">About</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors duration-200" href="#">Contact</a>
+</div>
+<div class="flex items-center space-x-4">
+<button class="font-label-md text-label-md text-on-surface-variant hover:text-primary transition-colors">Sign In</button>
+<button class="bg-primary-container text-on-primary-container font-label-md text-label-md px-6 py-2 rounded-full hover:bg-primary hover:shadow-[0_0_15px_rgba(183,109,255,0.4)] transition-all duration-300">Join Now</button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-[104px] pb-16 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full flex flex-col md:flex-row gap-8">
+<!-- Side Navigation (Tabs) -->
+<aside class="w-full md:w-64 flex-shrink-0">
+<div class="glass-panel rounded-xl p-4 sticky top-[120px]">
+<nav class="flex flex-col space-y-2">
+<a class="font-label-md text-label-md px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/50 transition-colors" href="#">Privacy Policy</a>
+<a class="font-label-md text-label-md px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/50 transition-colors" href="#">Terms of Service</a>
+<a class="font-label-md text-label-md px-4 py-3 rounded-lg nav-active flex items-center justify-between" href="#">
+                        Help Center
+                        <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</a>
+</nav>
+</div>
+</aside>
+<!-- Main Content Area -->
+<article class="flex-grow glass-panel rounded-2xl p-8 md:p-12 relative overflow-hidden">
+<!-- Decorative atmospheric light -->
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none transform translate-x-1/3 -translate-y-1/3"></div>
+<div class="relative z-10 max-w-3xl">
+<!-- Eyebrow -->
+<div class="font-code-sm text-code-sm text-primary/70 mb-4 flex items-center gap-2">
+<span>/support</span>
+<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+<span class="text-primary glow-text">help</span>
+</div>
+<!-- Title -->
+<h1 class="font-headline-xl text-headline-xl md:text-headline-xl text-on-surface mb-12 border-b border-outline-variant/30 pb-6">Help Center</h1>
+<!-- Content Sections -->
+<div class="space-y-12">
+<!-- Section 1 -->
+<section>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">login</span>
+                            Login Issues
+                        </h2>
+<div class="bg-surface-container-low/50 rounded-xl p-6 border border-outline-variant/20">
+<p class="text-on-surface-variant mb-4 leading-relaxed">
+                                Ensure you are using either your registered email address or your unique user ID along with your password.
+                            </p>
+<ul class="space-y-2 font-code-sm text-code-sm text-on-surface-variant ml-4 border-l-2 border-primary/30 pl-4">
+<li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> Passwords are strictly case-sensitive.</li>
+<li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> Minimum requirement: 6 characters.</li>
+</ul>
+</div>
+</section>
+<!-- Section 2 -->
+<section>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">terminal</span>
+                            Running Code
+                        </h2>
+<div class="bg-surface-container-low/50 rounded-xl p-6 border border-outline-variant/20">
+<p class="text-on-surface-variant mb-4 leading-relaxed">
+                                CodeIT's execution engine expects your program to read input from standard input (<code>stdin</code>) and output results to standard output (<code>stdout</code>).
+                            </p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+<div class="bg-surface-dim p-4 rounded-lg border border-outline-variant/30 flex flex-col gap-2">
+<span class="font-label-md text-label-md text-primary uppercase tracking-wider">Run Action</span>
+<p class="text-sm text-on-surface-variant">Executes your code against the visible sample test cases provided in the problem description.</p>
+</div>
+<div class="bg-surface-dim p-4 rounded-lg border border-outline-variant/30 flex flex-col gap-2">
+<span class="font-label-md text-label-md text-primary uppercase tracking-wider">Submit Action</span>
+<p class="text-sm text-on-surface-variant">Evaluates your solution against the full suite of hidden system tests. This determines final status.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3 -->
+<section>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">trophy</span>
+                            Contests
+                        </h2>
+<div class="bg-surface-container-low/50 rounded-xl p-6 border border-outline-variant/20 relative overflow-hidden">
+<!-- Subtle grid pattern inside section -->
+<div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEgMWgyMHYyMEgxVjF6IiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMTgzLCAxMDksIDI1NSwgMC4wNSkiIHN0cm9rZS13aWR0aD0iMSIvPjwvc3ZnPg==')] opacity-30 pointer-events-none"></div>
+<div class="relative z-10">
+<div class="flex flex-col md:flex-row items-start md:items-center gap-4 mb-6">
+<div class="flex items-center gap-2 bg-surface-dim px-3 py-1.5 rounded-full border border-primary/20">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-code-sm text-code-sm text-on-surface">Live Leaderboard</span>
+</div>
+</div>
+<ol class="list-decimal list-inside space-y-3 text-on-surface-variant leading-relaxed ml-2 font-body-md text-body-md">
+<li>Click <span class="text-primary font-medium">Join</span> on an active contest page.</li>
+<li>Your personal competition timer starts immediately upon joining.</li>
+<li>Submit your solutions within the designated Competition Room interface.</li>
+<li><strong class="text-on-surface font-medium">Note:</strong> Only <span class="text-primary-container bg-primary-container/10 px-2 py-0.5 rounded text-sm">Accepted</span> submissions will positively update your standing on the live leaderboard.</li>
+</ol>
+</div>
+</div>
+</section>
+<!-- Section 4 (Contact) -->
+<section class="mt-16 pt-8 border-t border-outline-variant/20 text-center">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-3">Still stuck?</h3>
+<p class="text-on-surface-variant mb-6">Our support team is ready to assist you with complex technical issues.</p>
+<a class="inline-flex items-center justify-center gap-2 bg-transparent border border-primary text-primary hover:bg-primary/10 font-label-md text-label-md px-8 py-3 rounded-lg transition-all duration-300 hover:shadow-[0_0_15px_rgba(183,109,255,0.2)]" href="/contact">
+<span class="material-symbols-outlined text-[20px]">support_agent</span>
+                            Contact Support
+                        </a>
+</section>
+</div>
+</div>
+</article>
+</main>
+<!-- Footer -->
+<footer class="w-full py-8 px-margin-desktop flex flex-col md:flex-row justify-between items-center gap-gutter bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant/20">
+<div class="font-headline-lg text-headline-lg text-primary opacity-80 hover:opacity-100 transition-opacity">
+            CodeIT
+        </div>
+<div class="font-body-md text-body-md text-secondary dark:text-secondary opacity-80 hover:opacity-100 transition-opacity">
+            © 2024 CodeIT. Engineering Excellence.
+        </div>
+<div class="flex gap-6">
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-tertiary-fixed transition-colors opacity-80 hover:opacity-100" href="#">Privacy</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:text-tertiary-fixed transition-colors opacity-80 hover:opacity-100" href="#">Terms</a>
+<a class="font-label-md text-label-md text-primary font-bold hover:text-tertiary-fixed transition-colors opacity-80 hover:opacity-100" href="#">Help</a>
+</div>
+</footer>
+</body></html>

@@ -30,6 +30,18 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
         location.pathname.startsWith("/problems/")
       );
     }
+    if (to === "/competitions") {
+      return (
+        location.pathname === "/competitions" ||
+        location.pathname.startsWith("/competitions/")
+      );
+    }
+    if (to === "/coderoom") {
+      return (
+        location.pathname === "/coderoom" ||
+        location.pathname.startsWith("/coderoom/")
+      );
+    }
     return location.pathname === to;
   };
 
@@ -66,9 +78,9 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
           <>
             <Link
               to="/profile"
-              className="font-label-md text-label-md flex items-center gap-2 rounded-DEFAULT border border-outline-variant/40 px-3 py-1.5 text-on-surface transition-colors hover:border-primary/40"
+              className="flex cursor-pointer items-center gap-3 rounded-full border border-outline-variant bg-surface-container-low px-2 py-1 transition-colors hover:bg-white/5"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-bold text-primary">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 font-label-md text-sm font-bold text-primary">
                 {user.name
                   .split(" ")
                   .map((p: string) => p[0])
@@ -76,7 +88,9 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
                   .slice(0, 2)
                   .toUpperCase()}
               </span>
-              <span className="hidden sm:inline">@{user.uniqueUserId}</span>
+              <span className="mono mr-2 hidden text-xs text-white sm:inline">
+                @{user.uniqueUserId}
+              </span>
             </Link>
             <button
               type="button"

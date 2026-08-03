@@ -4,6 +4,14 @@ function draftKey(problemId: number, languageSlug: string): string {
   return `codeit.stitch.draft:${problemId}:${languageSlug}`;
 }
 
+function contestDraftKey(
+  competitionId: number,
+  problemId: number,
+  languageSlug: string
+): string {
+  return `codeit.stitch.contest-draft:${competitionId}:${problemId}:${languageSlug}`;
+}
+
 export function getPreferredLanguage(): string | null {
   try {
     return localStorage.getItem(PREFERRED_LANG_KEY);
@@ -38,6 +46,36 @@ export function saveCodeDraft(
 ): void {
   try {
     localStorage.setItem(draftKey(problemId, languageSlug), code);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadContestCodeDraft(
+  competitionId: number,
+  problemId: number,
+  languageSlug: string
+): string | null {
+  try {
+    return localStorage.getItem(
+      contestDraftKey(competitionId, problemId, languageSlug)
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function saveContestCodeDraft(
+  competitionId: number,
+  problemId: number,
+  languageSlug: string,
+  code: string
+): void {
+  try {
+    localStorage.setItem(
+      contestDraftKey(competitionId, problemId, languageSlug),
+      code
+    );
   } catch {
     /* ignore */
   }
