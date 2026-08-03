@@ -19,6 +19,16 @@ export const joinRoom = (inviteToken: string) =>
     method: "POST",
   });
 
+export const endRoom = (roomId: string) =>
+  request<Room>(`/api/rooms/${roomId}/end`, {
+    method: "POST",
+  });
+
+export const leaveRoom = (roomId: string) =>
+  request<Room>(`/api/rooms/${roomId}/leave`, {
+    method: "POST",
+  });
+
 export const getMyRooms = (opts?: {
   type?: RoomType;
   status?: string;

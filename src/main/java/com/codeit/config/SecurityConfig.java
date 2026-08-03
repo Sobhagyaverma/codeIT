@@ -23,14 +23,32 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.codeit.security.ratelimit.AdminWriteRateLimitFilter;
+import com.codeit.security.ratelimit.LoginRateLimitFilter;
+import com.codeit.security.ratelimit.ProblemsReadRateLimitFilter;
+import com.codeit.security.ratelimit.RegisterRateLimitFilter;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
         private final JwtAuthFilter jwtAuthFilter;
+        private final LoginRateLimitFilter loginRateLimitFilter;
+        private final RegisterRateLimitFilter registerRateLimitFilter;
+        private final ProblemsReadRateLimitFilter problemsReadRateLimitFilter;
+        private final AdminWriteRateLimitFilter adminWriteRateLimitFilter;
 
-        public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+        public SecurityConfig(
+                        JwtAuthFilter jwtAuthFilter,
+                        LoginRateLimitFilter loginRateLimitFilter,
+                        RegisterRateLimitFilter registerRateLimitFilter,
+                        ProblemsReadRateLimitFilter problemsReadRateLimitFilter,
+                        AdminWriteRateLimitFilter adminWriteRateLimitFilter) {
                 this.jwtAuthFilter = jwtAuthFilter;
+                this.loginRateLimitFilter = loginRateLimitFilter;
+                this.registerRateLimitFilter = registerRateLimitFilter;
+                this.problemsReadRateLimitFilter = problemsReadRateLimitFilter;
+                this.adminWriteRateLimitFilter = adminWriteRateLimitFilter;
         }
 
         @Bean
@@ -50,6 +68,10 @@ public class SecurityConfig {
                                 "http://127.0.0.1:5175"));
                 config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                 config.setAllowedHeaders(List.of("*"));
+                config.setExposedHeaders(List.of(
+                                "Retry-After",
+                                "X-RateLimit-Limit",
+                                "X-RateLimit-Remaining"));
                 config.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -106,7 +128,12 @@ public class SecurityConfig {
                                 .exceptionHandling(ex -> ex
                                                 .authenticationEntryPoint(authenticationEntryPoint())
                                                 .accessDeniedHandler(accessDeniedHandler()))
-                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                                // Auth + public read limits before JWT; admin write after JWT (needs user id)
+                                .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(registerRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(problemsReadRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(adminWriteRateLimitFilter, JwtAuthFilter.class);
 
                 return http.build();
         }

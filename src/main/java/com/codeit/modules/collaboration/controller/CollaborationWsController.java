@@ -10,6 +10,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
+import com.codeit.config.CollaborationLimitsProperties;
 import com.codeit.modules.auth.AuthUserPrincipal;
 import com.codeit.modules.collaboration.dto.PresenceEvent;
 import com.codeit.modules.collaboration.events.CollaborationEventPublisher;
@@ -25,20 +26,24 @@ public class CollaborationWsController {
     private final RoomPresenceTracker presenceTracker;
     private final CollaborationEventPublisher eventPublisher;
     private final UserRepository userRepository;
+    private final CollaborationLimitsProperties limits;
 
     public CollaborationWsController(
             RoomMemberRepository roomMemberRepository,
             RoomPresenceTracker presenceTracker,
             CollaborationEventPublisher eventPublisher,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            CollaborationLimitsProperties limits) {
         this.roomMemberRepository = roomMemberRepository;
         this.presenceTracker = presenceTracker;
         this.eventPublisher = eventPublisher;
         this.userRepository = userRepository;
+        this.limits = limits;
     }
 
     /**
      * Client sends to: /app/rooms/{roomId}/presence/join
+     * Caps concurrent tabs per user; displaces the oldest session if over limit.
      */
     @MessageMapping("/rooms/{roomId}/presence/join")
     public void joinPresence(
@@ -52,7 +57,21 @@ public class CollaborationWsController {
         }
 
         String sessionId = accessor.getSessionId();
-        presenceTracker.join(sessionId, roomId, user.getUserId());
+        var displaced = presenceTracker.join(
+                sessionId,
+                roomId,
+                user.getUserId(),
+                limits.getMaxStompSessionsPerUserPerRoom());
+
+        displaced.ifPresent(oldSession -> {
+            PresenceEvent replaced = new PresenceEvent();
+            replaced.setType("SESSION_REPLACED");
+            replaced.setRoomId(roomId.toString());
+            replaced.setUserId(user.getUserId());
+            replaced.setUsername(resolveUsername(user.getUserId()));
+            replaced.setOnlineUserIds(new ArrayList<>(presenceTracker.getOnlineUserIds(roomId)));
+            eventPublisher.publishPresence(roomId, replaced);
+        });
 
         PresenceEvent event = new PresenceEvent();
         event.setType("JOINED");

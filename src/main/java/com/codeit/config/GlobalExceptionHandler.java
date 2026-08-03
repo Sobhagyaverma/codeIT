@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,8 +15,25 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.codeit.security.ratelimit.RateLimitExceededException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimit(RateLimitExceededException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", "RATE_LIMIT_EXCEEDED");
+        body.put("message", ex.getMessage());
+        body.put("retryAfter", ex.getRetryAfterSeconds());
+        body.put("policy", ex.getPolicy());
+        body.put("timestamp", Instant.now().toString());
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
+                .body(body);
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {

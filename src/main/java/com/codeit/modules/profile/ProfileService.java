@@ -41,6 +41,8 @@ import com.codeit.modules.profile.dto.UpdateProfileRequest;
 import com.codeit.modules.user.User;
 import com.codeit.modules.user.UserRepository;
 import com.codeit.modules.user.UserService;
+import com.codeit.security.ratelimit.RateLimitProperties;
+import com.codeit.security.ratelimit.RateLimitService;
 
 @Service
 public class ProfileService {
@@ -59,6 +61,12 @@ public class ProfileService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RateLimitService rateLimitService;
+
+    @Autowired
+    private RateLimitProperties rateLimitProperties;
 
     public ProfileResponseDTO getMyProfile(Integer userId) {
         User user = userService.getUserById(userId);
@@ -101,6 +109,15 @@ public class ProfileService {
     }
 
     public void changePassword(Integer userId, ChangePasswordRequest request) {
+        var limit = rateLimitProperties.getChangePassword();
+        // Authenticated endpoint → key by user id (not IP)
+        rateLimitService.checkOrThrow(
+                "change-password",
+                "user",
+                String.valueOf(userId),
+                limit.getLimit(),
+                limit.getWindowSeconds());
+
         User existing = userService.getUserById(userId);
 
         boolean currentOk = passwordEncoder.matches(

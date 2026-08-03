@@ -7,6 +7,8 @@ import {
   getRoom,
   getRoomMessages,
   joinRoom,
+  endRoom,
+  leaveRoom,
   runRoomCode,
   sendRoomMessage,
   updateWorkspace,
@@ -104,11 +106,19 @@ function SharedWhiteboard({
   strokes,
   onStroke,
   onClear,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: {
   readOnly: boolean;
   strokes: CanvasStroke[];
   onStroke: (stroke: Omit<CanvasStroke, "id">) => void;
   onClear: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
@@ -188,6 +198,22 @@ function SharedWhiteboard({
         </button>
         <button
           type="button"
+          disabled={readOnly || !canUndo}
+          onClick={onUndo}
+          className="rounded px-3 py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-primary disabled:opacity-40"
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          disabled={readOnly || !canRedo}
+          onClick={onRedo}
+          className="rounded px-3 py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-primary disabled:opacity-40"
+        >
+          Redo
+        </button>
+        <button
+          type="button"
           disabled={readOnly}
           onClick={onClear}
           className="rounded px-3 py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-primary"
@@ -242,7 +268,7 @@ function SharedWhiteboard({
             pointsRef.current = [];
             if (pts.length >= 2) {
               onStroke({
-                points: pts,
+                points: pts.length > 400 ? pts.slice(0, 400) : pts,
                 width: tool === "erase" ? 20 : 2,
                 color: "#ddb7ff",
                 erase: tool === "erase",
@@ -625,6 +651,10 @@ export default function CodeRoomWorkspace() {
               strokes={board.strokes}
               onStroke={board.addStroke}
               onClear={board.clear}
+              onUndo={board.undo}
+              onRedo={board.redo}
+              canUndo={board.canUndo}
+              canRedo={board.canRedo}
             />
           ) : (
             <div ref={splitRef} className="flex min-h-0 flex-1 flex-col">
@@ -825,13 +855,26 @@ export default function CodeRoomWorkspace() {
             </Link>
             <button
               type="button"
-              onClick={() => navigate("/coderoom")}
+              onClick={() => {
+                void (async () => {
+                  try {
+                    if (isHost) {
+                      await endRoom(roomId);
+                    } else {
+                      await leaveRoom(roomId);
+                    }
+                  } catch {
+                    // still navigate away even if API fails (e.g. already left)
+                  }
+                  navigate("/coderoom");
+                })();
+              }}
               className="flex w-full items-center gap-3 rounded px-3 py-2 text-left font-label-md text-label-md text-error transition-colors hover:bg-error/10"
             >
               <span className="material-symbols-outlined text-[20px]">
                 logout
               </span>{" "}
-              Leave Room
+              {isHost ? "End Room" : "Leave Room"}
             </button>
           </div>
         </aside>

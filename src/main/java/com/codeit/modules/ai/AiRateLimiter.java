@@ -1,38 +1,29 @@
 package com.codeit.modules.ai;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 
+import com.codeit.security.ratelimit.RateLimitProperties;
+import com.codeit.security.ratelimit.RateLimitService;
+
+/**
+ * Very strict 3-tier AI rate limit (burst + sustained + daily).
+ * Replaces the old in-memory "20 per minute" counter.
+ * Uses Redis when enabled; otherwise the shared in-memory fallback.
+ */
 @Component
 public class AiRateLimiter {
 
-    private final int limitPerMinute;
-    private final Map<Integer, Window> windows = new ConcurrentHashMap<>();
+    public static final String POLICY = "ai";
 
-    public AiRateLimiter(@Value("${codeit.ai.rate-limit-per-minute:20}") int limitPerMinute) {
-        this.limitPerMinute = limitPerMinute;
+    private final RateLimitService rateLimitService;
+    private final RateLimitProperties properties;
+
+    public AiRateLimiter(RateLimitService rateLimitService, RateLimitProperties properties) {
+        this.rateLimitService = rateLimitService;
+        this.properties = properties;
     }
 
     public void check(Integer userId) {
-        long minute = System.currentTimeMillis() / 60_000L;
-        Window window = windows.compute(userId, (id, existing) -> {
-            if (existing == null || existing.minute != minute) {
-                return new Window(minute, new AtomicInteger(0));
-            }
-            return existing;
-        });
-        int count = window.count.incrementAndGet();
-        if (count > limitPerMinute) {
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "AI rate limit exceeded");
-        }
-    }
-
-    private record Window(long minute, AtomicInteger count) {
+        rateLimitService.checkTieredOrThrow(POLICY, String.valueOf(userId), properties.getAi());
     }
 }

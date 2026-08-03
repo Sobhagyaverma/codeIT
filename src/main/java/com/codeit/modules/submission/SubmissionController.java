@@ -19,6 +19,7 @@ import com.codeit.modules.submission.dto.Judge0Request;
 import com.codeit.modules.submission.dto.Judge0Result;
 import com.codeit.modules.submission.dto.JudgeVerdictDTO;
 import com.codeit.modules.submission.dto.LanguageOption;
+import com.codeit.security.ratelimit.JudgeExecRateLimiter;
 
 @RestController
 @RequestMapping("/api/submissions")
@@ -30,6 +31,9 @@ public class SubmissionController {
     @Autowired
     private Judge0Service judge0Service;
 
+    @Autowired
+    private JudgeExecRateLimiter judgeExecRateLimiter;
+
     @GetMapping("/languages")
     public List<LanguageOption> getLanguages() {
         return Arrays.stream(SupportedLanguage.values())
@@ -40,6 +44,7 @@ public class SubmissionController {
 
     @PostMapping("/run")
     public Judge0Result runCode(@RequestBody Judge0Request request) {
+        judgeExecRateLimiter.checkRun(SecurityUtils.currentUserId());
         if (request.getLanguageId() == null) {
             throw new IllegalArgumentException("languageId is required");
         }

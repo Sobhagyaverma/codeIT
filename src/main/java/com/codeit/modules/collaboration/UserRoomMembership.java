@@ -15,7 +15,13 @@ public class UserRoomMembership {
     private String activeWorkspace;
     private String inviteToken;
     private Timestamp updatedAt;
+    private Timestamp createdAt;
     private String role;
     private Timestamp joinedAt;
     private Timestamp lastSeenAt;
+    private Integer hostUserId;
+    private String hostName;
+    private String hostUsername;
+    private String hostNote;
+    private int memberCount;
 }

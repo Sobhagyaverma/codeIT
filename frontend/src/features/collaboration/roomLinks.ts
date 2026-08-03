@@ -34,3 +34,18 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   }
 }
+
+export function formatRelativeTime(iso?: string): string {
+  if (!iso) return "—";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "—";
+  const diff = Date.now() - t;
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}

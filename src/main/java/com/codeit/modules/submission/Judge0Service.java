@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,18 +31,21 @@ public class Judge0Service {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final JudgeExecutionLimits limits;
     private final long pollIntervalMs;
     private final long pollTimeoutMs;
 
     public Judge0Service(
             RestTemplate restTemplate,
             ObjectMapper objectMapper,
+            JudgeExecutionLimits limits,
             @Value("${judge0.api.url:http://localhost:2358}") String judge0BaseUrl,
             @Value("${codeit.judge.poll-interval-ms:200}") long pollIntervalMs,
             @Value("${codeit.judge.poll-timeout-ms:60000}") long pollTimeoutMs) {
 
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.limits = limits;
         this.pollIntervalMs = pollIntervalMs;
         this.pollTimeoutMs = pollTimeoutMs;
 
@@ -68,6 +72,7 @@ public class Judge0Service {
 
     /*
      * Keep wait=true for single Run requests.
+     * Judge0 sandbox enforces cpu/wall/memory; runaway processes are killed by the sandbox.
      */
     public Judge0Result executeCode(
             String sourceCode,
@@ -89,7 +94,9 @@ public class Judge0Service {
                         "Judge0 returned an empty response");
             }
 
-            return result;
+            return sanitizeResult(result);
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(
                     "Judge0 request failed", e);
@@ -107,6 +114,10 @@ public class Judge0Service {
             body.put("additional_files", additionalFilesBase64);
             body.put("cpu_time_limit", cpuTimeLimit);
             body.put("wall_time_limit", wallTimeLimit);
+            body.put("memory_limit", limits.getMemoryLimitKb());
+            body.put("max_file_size", limits.getMaxFileSizeKb());
+            body.put("max_processes_and_or_threads", limits.getMaxProcesses());
+            body.put("enable_network", false);
 
             ResponseEntity<Judge0Result> response = restTemplate.postForEntity(
                     waitSubmissionUrl,
@@ -117,7 +128,9 @@ public class Judge0Service {
             if (result == null) {
                 throw new RuntimeException("Judge0 returned an empty multi-file response");
             }
-            return result;
+            return sanitizeResult(result);
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Judge0 multi-file request failed", e);
         }
@@ -181,6 +194,8 @@ public class Judge0Service {
             }
 
             return tokens;
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException(
                     "Failed to create Judge0 batch", e);
@@ -232,7 +247,11 @@ public class Judge0Service {
                     new TypeReference<List<Judge0Result>>() {
                     });
 
-            return orderResultsByToken(tokens, results);
+            List<Judge0Result> ordered = orderResultsByToken(tokens, results);
+            for (int i = 0; i < ordered.size(); i++) {
+                ordered.set(i, sanitizeResult(ordered.get(i)));
+            }
+            return ordered;
         } catch (Exception e) {
             throw new RuntimeException(
                     "Failed to fetch Judge0 batch", e);
@@ -284,13 +303,33 @@ public class Judge0Service {
             Integer languageId,
             String stdin) {
 
+        String safeStdin = stdin != null ? stdin : "";
+        limits.validateSourceAndStdin(sourceCode, safeStdin);
+
         Map<String, Object> body = new LinkedHashMap<>();
 
-        body.put("source_code", sourceCode);
+        body.put("source_code", sourceCode != null ? sourceCode : "");
         body.put("language_id", languageId);
-        body.put("stdin", stdin != null ? stdin : "");
+        body.put("stdin", safeStdin);
+        // Sandbox caps — Judge0 kills the process when these are exceeded
+        body.put("cpu_time_limit", limits.getCpuTimeLimitSeconds());
+        body.put("wall_time_limit", limits.getWallTimeLimitSeconds());
+        body.put("memory_limit", limits.getMemoryLimitKb());
+        body.put("max_file_size", limits.getMaxFileSizeKb());
+        body.put("max_processes_and_or_threads", limits.getMaxProcesses());
+        body.put("enable_network", false);
 
         return body;
+    }
+
+    private Judge0Result sanitizeResult(Judge0Result result) {
+        if (result == null) {
+            return null;
+        }
+        result.setStdout(limits.truncateOutput(result.getStdout()));
+        result.setStderr(limits.truncateOutput(result.getStderr()));
+        result.setCompileOutput(limits.truncateOutput(result.getCompileOutput()));
+        return result;
     }
 
     private HttpEntity<String> createJsonEntity(

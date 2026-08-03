@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import com.codeit.modules.collaboration.RoomStatus;
 import com.codeit.modules.collaboration.dto.PresenceEvent;
 import com.codeit.modules.collaboration.dto.RoomMessageResponse;
 
@@ -40,6 +41,14 @@ public class CollaborationEventPublisher {
         messagingTemplate.convertAndSend(submitTopic(roomId), (Object) payload);
     }
 
+    public void publishRoomEnded(UUID roomId, Integer endedByUserId) {
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("roomId", roomId.toString());
+        payload.put("status", RoomStatus.ARCHIVED.name());
+        payload.put("endedByUserId", endedByUserId);
+        messagingTemplate.convertAndSend(lifecycleTopic(roomId), (Object) payload);
+    }
+
     public static String chatTopic(UUID roomId) {
         return "/topic/rooms/" + roomId + "/chat";
     }
@@ -58,5 +67,9 @@ public class CollaborationEventPublisher {
 
     public static String submitTopic(UUID roomId) {
         return "/topic/rooms/" + roomId + "/submit";
+    }
+
+    public static String lifecycleTopic(UUID roomId) {
+        return "/topic/rooms/" + roomId + "/lifecycle";
     }
 }

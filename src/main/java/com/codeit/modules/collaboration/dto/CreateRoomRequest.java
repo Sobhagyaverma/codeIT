@@ -10,4 +10,6 @@ public class CreateRoomRequest {
     private Integer problemId;
     /** Optional; defaults to java in the service later */
     private String language;
+    /** Optional short note from the host (max 280 chars). */
+    private String hostNote;
 }

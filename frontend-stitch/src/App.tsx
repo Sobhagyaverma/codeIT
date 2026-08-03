@@ -52,6 +52,11 @@ export default function App() {
           <Route path="/users/:username" element={<Profile />} />
           <Route path="/settings/profile" element={<ProfileSettings />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/competitions" element={<AdminDashboard />} />
+          <Route
+            path="/admin/competitions/create"
+            element={<AdminDashboard />}
+          />
           <Route path="/contact" element={<Contact />} />
           <Route path="/about" element={<About />} />
           <Route path="/submissions" element={<SubmissionHistory />} />

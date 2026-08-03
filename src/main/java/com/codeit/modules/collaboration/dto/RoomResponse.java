@@ -16,7 +16,11 @@ public class RoomResponse {
     private String activeWorkspace;
     private String language;
     private String status;
+    private String hostNote;
     private Timestamp createdAt;
     private Timestamp updatedAt;
     private List<RoomMemberResponse> members;
+    private String hostName;
+    private String hostUsername;
+    private int memberCount;
 }

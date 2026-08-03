@@ -23,6 +23,7 @@ import com.codeit.modules.collaboration.dto.RoomSummaryResponse;
 import com.codeit.modules.collaboration.dto.SendMessageRequest;
 import com.codeit.modules.collaboration.dto.SyncTokenResponse;
 import com.codeit.modules.collaboration.dto.TransferHostRequest;
+import com.codeit.modules.collaboration.dto.UpdateHostNoteRequest;
 import com.codeit.modules.collaboration.dto.UpdateMemberRequest;
 import com.codeit.modules.collaboration.dto.UpdateWorkspaceRequest;
 import com.codeit.modules.collaboration.service.CollaborationService;
@@ -49,6 +50,18 @@ public class CollaborationController {
     public RoomResponse joinRoom(@PathVariable String inviteToken) {
         Integer userId = SecurityUtils.currentUserId();
         return collaborationService.joinByInviteToken(userId, inviteToken);
+    }
+
+    @PostMapping("/{roomId}/end")
+    public RoomResponse endRoom(@PathVariable UUID roomId) {
+        Integer userId = SecurityUtils.currentUserId();
+        return collaborationService.endRoom(userId, roomId);
+    }
+
+    @PostMapping("/{roomId}/leave")
+    public RoomResponse leaveRoom(@PathVariable UUID roomId) {
+        Integer userId = SecurityUtils.currentUserId();
+        return collaborationService.leaveRoom(userId, roomId);
     }
 
     @GetMapping("/mine")
@@ -95,6 +108,14 @@ public class CollaborationController {
             @PathVariable UUID roomId, @RequestBody UpdateWorkspaceRequest request) {
         Integer userId = SecurityUtils.currentUserId();
         return collaborationService.updateWorkspace(userId, roomId, request.getWorkspace());
+    }
+
+    @PatchMapping("/{roomId}/note")
+    public RoomResponse updateHostNote(
+            @PathVariable UUID roomId, @RequestBody UpdateHostNoteRequest request) {
+        Integer userId = SecurityUtils.currentUserId();
+        return collaborationService.updateHostNote(
+                userId, roomId, request != null ? request.getHostNote() : null);
     }
 
     @GetMapping("/{roomId}/messages")

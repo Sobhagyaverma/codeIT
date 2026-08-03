@@ -20,8 +20,20 @@ type Options = {
   userId?: number;
 };
 
+const MAX_STROKES = 500;
+const MAX_POINTS = 400;
+const MAX_UNDO = 50;
+
 function strokeId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function clampStroke(stroke: CanvasStroke): CanvasStroke {
+  const points =
+    stroke.points.length > MAX_POINTS
+      ? stroke.points.slice(0, MAX_POINTS)
+      : stroke.points;
+  return { ...stroke, points };
 }
 
 export function useYjsCanvasBoard({
@@ -36,22 +48,56 @@ export function useYjsCanvasBoard({
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionState>("connecting");
   const [strokes, setStrokes] = useState<CanvasStroke[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const ydocRef = useRef<Y.Doc | null>(null);
   const providerRef = useRef<WebsocketProvider | null>(null);
   const yarrRef = useRef<Y.Array<CanvasStroke> | null>(null);
   const hydratedRef = useRef(false);
+  const undoStackRef = useRef<CanvasStroke[][]>([]);
+  const redoStackRef = useRef<CanvasStroke[][]>([]);
+  const applyingHistoryRef = useRef(false);
   const userColor = avatarColorFor(userId ?? 0);
+
+  const syncHistoryFlags = useCallback(() => {
+    setCanUndo(undoStackRef.current.length > 0);
+    setCanRedo(redoStackRef.current.length > 0);
+  }, []);
+
+  const pushUndoSnapshot = useCallback(
+    (snapshot: CanvasStroke[]) => {
+      if (applyingHistoryRef.current) return;
+      undoStackRef.current = [
+        ...undoStackRef.current.slice(-(MAX_UNDO - 1)),
+        snapshot,
+      ];
+      redoStackRef.current = [];
+      syncHistoryFlags();
+    },
+    [syncHistoryFlags]
+  );
 
   const readStrokes = useCallback((): CanvasStroke[] => {
     const yarr = yarrRef.current;
     if (!yarr) return [];
-    return yarr.toArray().filter(
-      (s): s is CanvasStroke =>
-        !!s &&
-        typeof s === "object" &&
-        Array.isArray((s as CanvasStroke).points)
-    );
+    return yarr
+      .toArray()
+      .filter(
+        (s): s is CanvasStroke =>
+          !!s &&
+          typeof s === "object" &&
+          Array.isArray((s as CanvasStroke).points)
+      )
+      .slice(-MAX_STROKES);
+  }, []);
+
+  const replaceAllStrokes = useCallback((next: CanvasStroke[]) => {
+    const yarr = yarrRef.current;
+    if (!yarr) return;
+    const capped = next.slice(-MAX_STROKES).map(clampStroke);
+    yarr.delete(0, yarr.length);
+    if (capped.length) yarr.push(capped);
   }, []);
 
   useEffect(() => {
@@ -64,6 +110,9 @@ export function useYjsCanvasBoard({
     const yarr = ydoc.getArray<CanvasStroke>("canvasStrokes");
     yarrRef.current = yarr;
     hydratedRef.current = false;
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    syncHistoryFlags();
 
     const onChange = () => {
       const next = readStrokes();
@@ -100,7 +149,7 @@ export function useYjsCanvasBoard({
           const local = loadLocalStrokes(roomId);
           if (local && local.length > 0) {
             ydoc.transact(() => {
-              yarr.push(local);
+              yarr.push(local.slice(-MAX_STROKES).map(clampStroke));
             });
           }
           hydratedRef.current = true;
@@ -145,31 +194,65 @@ export function useYjsCanvasBoard({
       setReady(false);
       setConnectionStatus("disconnected");
     };
-  }, [roomId, enabled, userName, userColor, readStrokes]);
+  }, [roomId, enabled, userName, userColor, readStrokes, syncHistoryFlags]);
 
   const addStroke = useCallback(
     (stroke: Omit<CanvasStroke, "id"> & { id?: string }) => {
       if (readOnly) return;
       const yarr = yarrRef.current;
       if (!yarr) return;
-      const full: CanvasStroke = {
+      pushUndoSnapshot(readStrokes());
+      const full = clampStroke({
         id: stroke.id || strokeId(),
         points: stroke.points,
         width: stroke.width,
         color: stroke.color,
         erase: stroke.erase,
-      };
+      });
       yarr.push([full]);
+      // Cap total strokes on the shared array
+      if (yarr.length > MAX_STROKES) {
+        yarr.delete(0, yarr.length - MAX_STROKES);
+      }
     },
-    [readOnly]
+    [readOnly, pushUndoSnapshot, readStrokes]
   );
+
+  const undo = useCallback(() => {
+    if (readOnly || undoStackRef.current.length === 0) return;
+    const previous = undoStackRef.current[undoStackRef.current.length - 1]!;
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    redoStackRef.current = [
+      ...redoStackRef.current.slice(-(MAX_UNDO - 1)),
+      readStrokes(),
+    ];
+    applyingHistoryRef.current = true;
+    replaceAllStrokes(previous);
+    applyingHistoryRef.current = false;
+    syncHistoryFlags();
+  }, [readOnly, readStrokes, replaceAllStrokes, syncHistoryFlags]);
+
+  const redo = useCallback(() => {
+    if (readOnly || redoStackRef.current.length === 0) return;
+    const next = redoStackRef.current[redoStackRef.current.length - 1]!;
+    redoStackRef.current = redoStackRef.current.slice(0, -1);
+    undoStackRef.current = [
+      ...undoStackRef.current.slice(-(MAX_UNDO - 1)),
+      readStrokes(),
+    ];
+    applyingHistoryRef.current = true;
+    replaceAllStrokes(next);
+    applyingHistoryRef.current = false;
+    syncHistoryFlags();
+  }, [readOnly, readStrokes, replaceAllStrokes, syncHistoryFlags]);
 
   const clear = useCallback(() => {
     if (readOnly) return;
     const yarr = yarrRef.current;
     if (!yarr) return;
+    pushUndoSnapshot(readStrokes());
     yarr.delete(0, yarr.length);
-  }, [readOnly]);
+  }, [readOnly, pushUndoSnapshot, readStrokes]);
 
   return {
     ready,
@@ -178,6 +261,10 @@ export function useYjsCanvasBoard({
     strokes,
     addStroke,
     clear,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     userColor,
   };
 }

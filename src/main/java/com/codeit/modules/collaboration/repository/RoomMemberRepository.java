@@ -83,6 +83,17 @@ public class RoomMemberRepository {
         return count != null && count > 0;
     }
 
+    public int countByRoomId(UUID roomId) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*) FROM room_members
+                WHERE room_id = ?
+                """,
+                Integer.class,
+                roomId);
+        return count == null ? 0 : count;
+    }
+
     public int updateRole(UUID roomId, Integer userId, String role) {
         return jdbcTemplate.update(
                 """
@@ -117,15 +128,79 @@ public class RoomMemberRepository {
                 userId);
     }
 
+    public List<UserRoomMembership> findActiveMembershipsByUserId(Integer userId) {
+        return jdbcTemplate.query(
+                """
+                SELECT r.id, r.type, r.language, r.status, r.active_workspace,
+                       r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
+                       m.role, m.joined_at, m.last_seen_at,
+                       u.name AS host_name,
+                       u.uniqueuserid AS host_username,
+                       (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) AS member_count
+                FROM room_members m
+                JOIN rooms r ON r.id = m.room_id
+                LEFT JOIN users u ON u.id = r.host_user_id
+                WHERE m.user_id = ?
+                  AND r.status = 'ACTIVE'
+                ORDER BY m.last_seen_at DESC
+                """,
+                (rs, rowNum) -> mapUserRoomMembership(rs),
+                userId);
+    }
+
+    /**
+     * Leave every ACTIVE room membership except {@code keepRoomId}.
+     * Hosts are never removed this way — caller must end/transfer first.
+     */
+    public int deleteNonHostActiveMembershipsExcept(Integer userId, UUID keepRoomId) {
+        if (keepRoomId == null) {
+            return jdbcTemplate.update(
+                    """
+                    DELETE FROM room_members m
+                    USING rooms r
+                    WHERE m.room_id = r.id
+                      AND m.user_id = ?
+                      AND r.status = 'ACTIVE'
+                      AND m.role <> 'HOST'
+                    """,
+                    userId);
+        }
+        return jdbcTemplate.update(
+                """
+                DELETE FROM room_members m
+                USING rooms r
+                WHERE m.room_id = r.id
+                  AND m.user_id = ?
+                  AND r.status = 'ACTIVE'
+                  AND m.role <> 'HOST'
+                  AND m.room_id <> ?
+                """,
+                userId,
+                keepRoomId);
+    }
+
+    public int deleteAllMembers(UUID roomId) {
+        return jdbcTemplate.update(
+                """
+                DELETE FROM room_members
+                WHERE room_id = ?
+                """,
+                roomId);
+    }
+
     public List<UserRoomMembership> findMembershipsByUserId(
             Integer userId, String status, String type, int limit) {
         return jdbcTemplate.query(
                 """
                 SELECT r.id, r.type, r.language, r.status, r.active_workspace,
-                       r.invite_token, r.updated_at,
-                       m.role, m.joined_at, m.last_seen_at
+                       r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
+                       m.role, m.joined_at, m.last_seen_at,
+                       u.name AS host_name,
+                       u.uniqueuserid AS host_username,
+                       (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) AS member_count
                 FROM room_members m
                 JOIN rooms r ON r.id = m.room_id
+                LEFT JOIN users u ON u.id = r.host_user_id
                 WHERE m.user_id = ?
                   AND r.status = ?
                   AND (? IS NULL OR r.type = ?)
@@ -149,9 +224,16 @@ public class RoomMemberRepository {
         row.setActiveWorkspace(rs.getString("active_workspace"));
         row.setInviteToken(rs.getString("invite_token"));
         row.setUpdatedAt(rs.getTimestamp("updated_at"));
+        row.setCreatedAt(rs.getTimestamp("created_at"));
         row.setRole(rs.getString("role"));
         row.setJoinedAt(rs.getTimestamp("joined_at"));
         row.setLastSeenAt(rs.getTimestamp("last_seen_at"));
+        Object hostId = rs.getObject("host_user_id");
+        row.setHostUserId(hostId != null ? rs.getInt("host_user_id") : null);
+        row.setHostName(rs.getString("host_name"));
+        row.setHostUsername(rs.getString("host_username"));
+        row.setHostNote(rs.getString("host_note"));
+        row.setMemberCount(rs.getInt("member_count"));
         return row;
     }
 

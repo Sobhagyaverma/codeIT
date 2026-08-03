@@ -15,7 +15,9 @@ import RoomChat from "../features/collaboration/components/RoomChat";
 import SessionHeader from "../features/collaboration/components/SessionHeader";
 import SharedWhiteboard from "../features/collaboration/components/SharedWhiteboard";
 import {
+  endRoom,
   joinRoom,
+  leaveRoom,
   runRoomCode,
   updateWorkspace,
 } from "../features/collaboration/api";
@@ -281,6 +283,26 @@ export default function CodeRoomWorkspace() {
             >
               ← CodeRoom
             </Link>
+            <button
+              type="button"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    if (isHost) {
+                      await endRoom(roomId);
+                    } else {
+                      await leaveRoom(roomId);
+                    }
+                  } catch {
+                    // navigate anyway
+                  }
+                  navigate("/coderoom");
+                })();
+              }}
+              className="shrink-0 rounded border border-[var(--line)] px-2 py-1 text-xs text-[var(--text-dim)] hover:border-red-400/50 hover:text-red-300"
+            >
+              {isHost ? "End room" : "Leave"}
+            </button>
             <h1 className="display truncate text-sm font-semibold sm:text-base">
               Live workspace
             </h1>

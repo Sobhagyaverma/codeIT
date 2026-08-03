@@ -16,6 +16,12 @@ import com.codeit.modules.collaboration.Room;
 @Repository
 public class RoomRepository {
 
+    private static final String ROOM_COLUMNS =
+            """
+            id, type, problem_id, host_user_id, invite_token,
+            active_workspace, language, status, host_note, created_at, updated_at
+            """;
+
     private final JdbcTemplate jdbcTemplate;
 
     public RoomRepository(JdbcTemplate jdbcTemplate) {
@@ -35,8 +41,8 @@ public class RoomRepository {
                 """
                 INSERT INTO rooms (
                     id, type, problem_id, host_user_id, invite_token,
-                    active_workspace, language, status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    active_workspace, language, status, host_note, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 room.getId(),
                 room.getType(),
@@ -46,6 +52,7 @@ public class RoomRepository {
                 room.getActiveWorkspace(),
                 room.getLanguage(),
                 room.getStatus(),
+                room.getHostNote(),
                 room.getCreatedAt(),
                 room.getUpdatedAt());
 
@@ -54,12 +61,7 @@ public class RoomRepository {
 
     public Optional<Room> findById(UUID id) {
         List<Room> rooms = jdbcTemplate.query(
-                """
-                SELECT id, type, problem_id, host_user_id, invite_token,
-                       active_workspace, language, status, created_at, updated_at
-                FROM rooms
-                WHERE id = ?
-                """,
+                "SELECT " + ROOM_COLUMNS + " FROM rooms WHERE id = ?",
                 (rs, rowNum) -> mapRoom(rs),
                 id);
         return rooms.stream().findFirst();
@@ -67,14 +69,24 @@ public class RoomRepository {
 
     public Optional<Room> findByInviteToken(String inviteToken) {
         List<Room> rooms = jdbcTemplate.query(
-                """
-                SELECT id, type, problem_id, host_user_id, invite_token,
-                       active_workspace, language, status, created_at, updated_at
-                FROM rooms
-                WHERE invite_token = ?
-                """,
+                "SELECT " + ROOM_COLUMNS + " FROM rooms WHERE invite_token = ?",
                 (rs, rowNum) -> mapRoom(rs),
                 inviteToken);
+        return rooms.stream().findFirst();
+    }
+
+    public Optional<Room> findActiveByHostUserId(Integer hostUserId) {
+        List<Room> rooms = jdbcTemplate.query(
+                """
+                SELECT %s
+                FROM rooms
+                WHERE host_user_id = ?
+                  AND status = 'ACTIVE'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """.formatted(ROOM_COLUMNS),
+                (rs, rowNum) -> mapRoom(rs),
+                hostUserId);
         return rooms.stream().findFirst();
     }
 
@@ -98,6 +110,18 @@ public class RoomRepository {
                 WHERE id = ?
                 """,
                 newHostUserId,
+                Timestamp.from(Instant.now()),
+                roomId);
+    }
+
+    public int updateHostNote(UUID roomId, String hostNote) {
+        return jdbcTemplate.update(
+                """
+                UPDATE rooms
+                SET host_note = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                hostNote,
                 Timestamp.from(Instant.now()),
                 roomId);
     }
@@ -127,6 +151,7 @@ public class RoomRepository {
         room.setActiveWorkspace(rs.getString("active_workspace"));
         room.setLanguage(rs.getString("language"));
         room.setStatus(rs.getString("status"));
+        room.setHostNote(rs.getString("host_note"));
         room.setCreatedAt(rs.getTimestamp("created_at"));
         room.setUpdatedAt(rs.getTimestamp("updated_at"));
         return room;

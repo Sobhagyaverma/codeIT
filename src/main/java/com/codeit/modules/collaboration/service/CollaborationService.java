@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.codeit.config.CollaborationLimitsProperties;
 import com.codeit.modules.collaboration.Room;
 import com.codeit.modules.collaboration.RoomMember;
 import com.codeit.modules.collaboration.RoomMessage;
@@ -28,6 +29,7 @@ import com.codeit.modules.collaboration.dto.RoomSubmitRequest;
 import com.codeit.modules.collaboration.dto.RoomSummaryResponse;
 import com.codeit.modules.collaboration.dto.SyncTokenResponse;
 import com.codeit.modules.collaboration.events.CollaborationEventPublisher;
+import com.codeit.modules.collaboration.events.RoomPresenceTracker;
 import com.codeit.modules.collaboration.repository.RoomMemberRepository;
 import com.codeit.modules.collaboration.repository.RoomMessageRepository;
 import com.codeit.modules.collaboration.repository.RoomRepository;
@@ -40,6 +42,8 @@ import com.codeit.modules.submission.dto.Judge0Result;
 import com.codeit.modules.submission.dto.JudgeVerdictDTO;
 import com.codeit.modules.user.User;
 import com.codeit.modules.user.UserRepository;
+import com.codeit.security.ratelimit.JudgeExecRateLimiter;
+import com.codeit.security.ratelimit.RoomRestRateLimiter;
 
 @Service
 public class CollaborationService {
@@ -55,6 +59,11 @@ public class CollaborationService {
     private final JwtService jwtService;
     private final Judge0Service judge0Service;
     private final SubmissionService submissionService;
+    private final JudgeExecRateLimiter judgeExecRateLimiter;
+    private final RoomRestRateLimiter roomRestRateLimiter;
+    private final CollaborationLimitsProperties collaborationLimits;
+    private final RoomPresenceTracker presenceTracker;
+    private final RoomExecutionGate roomExecutionGate;
 
     public CollaborationService(
             RoomRepository roomRepository,
@@ -65,7 +74,12 @@ public class CollaborationService {
             CollaborationEventPublisher eventPublisher,
             JwtService jwtService,
             Judge0Service judge0Service,
-            SubmissionService submissionService) {
+            SubmissionService submissionService,
+            JudgeExecRateLimiter judgeExecRateLimiter,
+            RoomRestRateLimiter roomRestRateLimiter,
+            CollaborationLimitsProperties collaborationLimits,
+            RoomPresenceTracker presenceTracker,
+            RoomExecutionGate roomExecutionGate) {
         this.roomRepository = roomRepository;
         this.roomMemberRepository = roomMemberRepository;
         this.roomMessageRepository = roomMessageRepository;
@@ -75,13 +89,31 @@ public class CollaborationService {
         this.jwtService = jwtService;
         this.judge0Service = judge0Service;
         this.submissionService = submissionService;
+        this.judgeExecRateLimiter = judgeExecRateLimiter;
+        this.roomRestRateLimiter = roomRestRateLimiter;
+        this.collaborationLimits = collaborationLimits;
+        this.presenceTracker = presenceTracker;
+        this.roomExecutionGate = roomExecutionGate;
     }
 
     @Transactional
     public RoomResponse createRoom(Integer hostUserId, CreateRoomRequest request) {
+        roomRestRateLimiter.checkInvite(hostUserId);
         if (request == null || request.getType() == null || request.getType().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type is required");
         }
+
+        // Host may only have one ACTIVE room
+        roomRepository
+                .findActiveByHostUserId(hostUserId)
+                .ifPresent(existing -> {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "End your active room before creating another");
+                });
+
+        // User may only belong to one ACTIVE room — leave others as non-host
+        ensureSingleActiveMembership(hostUserId, null);
 
         RoomType type;
         try {
@@ -110,6 +142,8 @@ public class CollaborationService {
             language = "java";
         }
 
+        String hostNote = normalizeHostNote(request.getHostNote());
+
         Room room = new Room();
         room.setId(UUID.randomUUID());
         room.setType(type.name());
@@ -119,6 +153,7 @@ public class CollaborationService {
         room.setActiveWorkspace(WorkspaceType.CODE.name());
         room.setLanguage(language.trim());
         room.setStatus(RoomStatus.ACTIVE.name());
+        room.setHostNote(hostNote);
 
         roomRepository.insert(room);
 
@@ -145,15 +180,79 @@ public class CollaborationService {
             throw new ResponseStatusException(HttpStatus.GONE, "Room is archived");
         }
 
-        if (!roomMemberRepository.exists(room.getId(), userId)) {
-            RoomMember member = new RoomMember();
-            member.setRoomId(room.getId());
-            member.setUserId(userId);
-            member.setRole(RoomRole.EDITOR.name());
-            roomMemberRepository.insert(member);
+        // Leave+rejoin spam (same room): 10 / min
+        roomRestRateLimiter.checkJoin(userId, room.getId());
+
+        // Already a member of this room — just refresh presence timestamp
+        if (roomMemberRepository.exists(room.getId(), userId)) {
+            roomMemberRepository.updateLastSeen(room.getId(), userId);
+            return toRoomResponse(room);
         }
 
+        // Cannot join another room while hosting an active one
+        roomRepository
+                .findActiveByHostUserId(userId)
+                .filter(hosted -> !hosted.getId().equals(room.getId()))
+                .ifPresent(hosted -> {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "End your active room before joining another");
+                });
+
+        // One room at a time — leave other ACTIVE memberships (non-host)
+        ensureSingleActiveMembership(userId, room.getId());
+
+        int members = roomMemberRepository.countByRoomId(room.getId());
+        if (members >= collaborationLimits.getMaxMembersPerRoom()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Room is full (max " + collaborationLimits.getMaxMembersPerRoom() + " participants)");
+        }
+
+        RoomMember member = new RoomMember();
+        member.setRoomId(room.getId());
+        member.setUserId(userId);
+        member.setRole(RoomRole.EDITOR.name());
+        roomMemberRepository.insert(member);
+
         roomMemberRepository.updateLastSeen(room.getId(), userId);
+        return toRoomResponse(room);
+    }
+
+    /**
+     * Host ends (archives) the room. Members are cleared; sync tokens stop working
+     * because createSyncToken requires ACTIVE status.
+     */
+    @Transactional
+    public RoomResponse endRoom(Integer actorUserId, UUID roomId) {
+        requireHost(roomId, actorUserId);
+        Room room = requireActiveRoom(roomId);
+
+        roomRepository.updateStatus(roomId, RoomStatus.ARCHIVED.name());
+        roomMemberRepository.deleteAllMembers(roomId);
+        room.setStatus(RoomStatus.ARCHIVED.name());
+
+        eventPublisher.publishRoomEnded(roomId, actorUserId);
+        return toRoomResponse(room);
+    }
+
+    /**
+     * Non-host leaves the room. Hosts must end or transfer first.
+     */
+    @Transactional
+    public RoomResponse leaveRoom(Integer userId, UUID roomId) {
+        Room room = requireActiveRoom(roomId);
+        RoomMember member = roomMemberRepository
+                .findByRoomIdAndUserId(roomId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a room member"));
+
+        if (RoomRole.HOST.name().equals(member.getRole())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Host cannot leave — end the room or transfer host first");
+        }
+
+        roomMemberRepository.delete(roomId, userId);
         return toRoomResponse(room);
     }
 
@@ -240,6 +339,7 @@ public class CollaborationService {
 
     @Transactional
     public RoomResponse transferHost(Integer actorUserId, UUID roomId, Integer newHostUserId) {
+        roomRestRateLimiter.checkTransferHost(actorUserId);
         requireHost(roomId, actorUserId);
         requireMember(roomId, newHostUserId);
 
@@ -254,6 +354,18 @@ public class CollaborationService {
         roomRepository.updateHost(roomId, newHostUserId);
 
         room.setHostUserId(newHostUserId);
+        return toRoomResponse(room);
+    }
+
+    @Transactional
+    public RoomResponse updateHostNote(Integer actorUserId, UUID roomId, String hostNote) {
+        roomRestRateLimiter.checkRename(actorUserId);
+        requireHost(roomId, actorUserId);
+        Room room = requireActiveRoom(roomId);
+        String normalized = normalizeHostNote(hostNote);
+        roomRepository.updateHostNote(roomId, normalized);
+        room.setHostNote(normalized);
+        room.setUpdatedAt(new java.sql.Timestamp(System.currentTimeMillis()));
         return toRoomResponse(room);
     }
 
@@ -291,13 +403,17 @@ public class CollaborationService {
 
     @Transactional
     public RoomMessageResponse sendMessage(Integer userId, UUID roomId, String content) {
+        roomRestRateLimiter.checkChat(userId);
         requireMember(roomId, userId);
 
         if (content == null || content.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content is required");
         }
-        if (content.length() > 4000) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "content too long");
+        int maxChars = collaborationLimits.getMaxChatMessageChars();
+        if (content.length() > maxChars) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "content too long (max " + maxChars + " characters)");
         }
 
         RoomMessage saved = roomMessageRepository.insert(roomId, userId, content.trim());
@@ -307,8 +423,9 @@ public class CollaborationService {
     }
 
     public SyncTokenResponse createSyncToken(Integer userId, UUID roomId) {
+        roomRestRateLimiter.checkSyncToken(userId);
+        requireActiveRoom(roomId);
         requireMember(roomId, userId);
-        requireRoom(roomId);
 
         String email = userRepository
                 .getUserById(userId)
@@ -337,26 +454,30 @@ public class CollaborationService {
         if (!canEdit(userId, roomId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Viewers cannot run code");
         }
+        judgeExecRateLimiter.checkRun(userId);
         if (request == null || request.getLanguageId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "languageId is required");
         }
-        eventPublisher.publishRun(roomId, java.util.Map.of(
-                "status", "STARTED",
-                "userId", userId,
-                "roomId", roomId.toString()));
 
-        Judge0Result result = judge0Service.executeCode(
-                request.getSourceCode(),
-                request.getLanguageId(),
-                request.getStdin());
+        try (RoomExecutionGate.Handle ignored = roomExecutionGate.acquire(roomId)) {
+            eventPublisher.publishRun(roomId, java.util.Map.of(
+                    "status", "STARTED",
+                    "userId", userId,
+                    "roomId", roomId.toString()));
 
-        java.util.Map<String, Object> payload = new java.util.HashMap<>();
-        payload.put("status", "COMPLETED");
-        payload.put("userId", userId);
-        payload.put("roomId", roomId.toString());
-        payload.put("result", result);
-        eventPublisher.publishRun(roomId, payload);
-        return result;
+            Judge0Result result = judge0Service.executeCode(
+                    request.getSourceCode(),
+                    request.getLanguageId(),
+                    request.getStdin());
+
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("status", "COMPLETED");
+            payload.put("userId", userId);
+            payload.put("roomId", roomId.toString());
+            payload.put("result", result);
+            eventPublisher.publishRun(roomId, payload);
+            return result;
+        }
     }
 
     public JudgeVerdictDTO submitShared(Integer userId, UUID roomId, RoomSubmitRequest request) {
@@ -373,29 +494,58 @@ public class CollaborationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "languageId is required");
         }
 
-        eventPublisher.publishSubmit(roomId, java.util.Map.of(
-                "status", "STARTED",
-                "userId", userId,
-                "roomId", roomId.toString()));
+        try (RoomExecutionGate.Handle ignored = roomExecutionGate.acquire(roomId)) {
+            eventPublisher.publishSubmit(roomId, java.util.Map.of(
+                    "status", "STARTED",
+                    "userId", userId,
+                    "roomId", roomId.toString()));
 
-        Submission submission = new Submission();
-        submission.setUserId(userId);
-        submission.setProblemId(room.getProblemId());
-        submission.setCode(request.getCode());
-        submission.setLanguageId(request.getLanguageId());
+            Submission submission = new Submission();
+            submission.setUserId(userId);
+            submission.setProblemId(room.getProblemId());
+            submission.setCode(request.getCode());
+            submission.setLanguageId(request.getLanguageId());
 
-        JudgeVerdictDTO verdict = submissionService.submit(submission);
+            JudgeVerdictDTO verdict = submissionService.submit(submission);
 
-        java.util.Map<String, Object> payload = new java.util.HashMap<>();
-        payload.put("status", "COMPLETED");
-        payload.put("userId", userId);
-        payload.put("roomId", roomId.toString());
-        payload.put("verdict", verdict);
-        eventPublisher.publishSubmit(roomId, payload);
-        return verdict;
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("status", "COMPLETED");
+            payload.put("userId", userId);
+            payload.put("roomId", roomId.toString());
+            payload.put("verdict", verdict);
+            eventPublisher.publishSubmit(roomId, payload);
+            return verdict;
+        }
     }
 
     // --- helpers ---
+
+    /**
+     * Enforce one ACTIVE membership at a time.
+     * If the user is HOST of a different ACTIVE room, reject.
+     * Otherwise leave non-host memberships (optionally keeping {@code keepRoomId}).
+     */
+    private void ensureSingleActiveMembership(Integer userId, UUID keepRoomId) {
+        for (UserRoomMembership membership : roomMemberRepository.findActiveMembershipsByUserId(userId)) {
+            if (keepRoomId != null && keepRoomId.equals(membership.getId())) {
+                continue;
+            }
+            if (RoomRole.HOST.name().equals(membership.getRole())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "End your active room before joining or creating another");
+            }
+        }
+        roomMemberRepository.deleteNonHostActiveMembershipsExcept(userId, keepRoomId);
+    }
+
+    private Room requireActiveRoom(UUID roomId) {
+        Room room = requireRoom(roomId);
+        if (!RoomStatus.ACTIVE.name().equals(room.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.GONE, "Room is archived");
+        }
+        return room;
+    }
 
     private Room requireRoom(UUID roomId) {
         return roomRepository
@@ -441,6 +591,7 @@ public class CollaborationService {
         response.setActiveWorkspace(room.getActiveWorkspace());
         response.setLanguage(room.getLanguage());
         response.setStatus(room.getStatus());
+        response.setHostNote(room.getHostNote());
         response.setCreatedAt(room.getCreatedAt());
         response.setUpdatedAt(room.getUpdatedAt());
 
@@ -448,6 +599,9 @@ public class CollaborationService {
                 .map(this::toMemberResponse)
                 .toList();
         response.setMembers(members);
+        response.setMemberCount(members.size());
+        response.setHostUsername(resolveUsername(room.getHostUserId()));
+        response.setHostName(resolveHostDisplayName(room.getHostUserId()));
         return response;
     }
 
@@ -463,7 +617,45 @@ public class CollaborationService {
         response.setJoinedAt(row.getJoinedAt());
         response.setLastSeenAt(row.getLastSeenAt());
         response.setUpdatedAt(row.getUpdatedAt());
+        response.setCreatedAt(row.getCreatedAt());
+        response.setHostUserId(row.getHostUserId());
+        response.setHostUsername(row.getHostUsername());
+        String display = row.getHostName();
+        if (display == null || display.isBlank()) {
+            display = row.getHostUsername();
+        }
+        response.setHostName(display);
+        response.setHostNote(row.getHostNote());
+        response.setMemberCount(row.getMemberCount());
+        response.setOnlineCount(presenceTracker.getOnlineUserIds(row.getId()).size());
         return response;
+    }
+
+    private String normalizeHostNote(String hostNote) {
+        if (hostNote == null) {
+            return null;
+        }
+        String trimmed = hostNote.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() > 280) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "hostNote must be at most 280 characters");
+        }
+        return trimmed;
+    }
+
+    private String resolveHostDisplayName(Integer userId) {
+        return userRepository
+                .getUserById(userId)
+                .map(u -> {
+                    if (u.getName() != null && !u.getName().isBlank()) {
+                        return u.getName().trim();
+                    }
+                    return u.getUniqueUserId();
+                })
+                .orElse("user-" + userId);
     }
 
     private RoomMemberResponse toMemberResponse(RoomMember member) {

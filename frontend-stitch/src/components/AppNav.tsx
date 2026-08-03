@@ -76,6 +76,24 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
         {workspaceActions}
         {user ? (
           <>
+            {user.role === "ADMIN" && (
+              <Link
+                to="/admin"
+                title="Admin Panel"
+                aria-label="Admin Panel"
+                className={`inline-flex items-center gap-1.5 rounded-DEFAULT border px-2.5 py-2 font-label-md text-label-md transition-colors sm:px-3 ${
+                  location.pathname === "/admin" ||
+                  location.pathname.startsWith("/admin/")
+                    ? "border-primary/50 bg-primary/10 text-primary"
+                    : "border-outline-variant/40 text-on-surface-variant hover:border-primary/40 hover:text-primary"
+                }`}
+              >
+                <span className="material-symbols-outlined text-lg">
+                  admin_panel_settings
+                </span>
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
             <Link
               to="/profile"
               className="flex cursor-pointer items-center gap-3 rounded-full border border-outline-variant bg-surface-container-low px-2 py-1 transition-colors hover:bg-white/5"
@@ -99,6 +117,18 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
             >
               Log out
             </button>
+            <Link
+              to="/settings/profile"
+              title="Edit profile"
+              aria-label="Edit profile"
+              className={`inline-flex items-center justify-center rounded-DEFAULT border p-2 font-label-md text-label-md transition-colors ${
+                location.pathname.startsWith("/settings")
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-outline-variant/40 text-on-surface-variant hover:border-primary/40 hover:text-primary"
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg">settings</span>
+            </Link>
           </>
         ) : (
           <>

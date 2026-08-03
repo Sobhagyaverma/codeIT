@@ -19,6 +19,10 @@ export type Room = {
   activeWorkspace: WorkspaceType;
   language: string;
   status: RoomStatus;
+  hostNote?: string | null;
+  hostName?: string | null;
+  hostUsername?: string | null;
+  memberCount?: number;
   createdAt?: string;
   updatedAt?: string;
   members: RoomMember[];
@@ -51,6 +55,7 @@ export type CreateRoomPayload = {
   type: RoomType;
   problemId?: number | null;
   language?: string;
+  hostNote?: string | null;
 };
 
 export type RoomSummary = {
@@ -64,4 +69,11 @@ export type RoomSummary = {
   joinedAt?: string;
   lastSeenAt?: string;
   updatedAt?: string;
+  createdAt?: string;
+  hostUserId?: number;
+  hostName?: string | null;
+  hostUsername?: string | null;
+  hostNote?: string | null;
+  memberCount?: number;
+  onlineCount?: number;
 };

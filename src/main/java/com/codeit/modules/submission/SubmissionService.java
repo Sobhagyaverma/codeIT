@@ -6,6 +6,7 @@ import com.codeit.modules.problems.Problem;
 import com.codeit.modules.problems.ProblemService;
 import com.codeit.modules.submission.dto.JudgeVerdictDTO;
 import com.codeit.modules.submission.dto.TestCaseDTO;
+import com.codeit.security.ratelimit.JudgeExecRateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +28,11 @@ public class SubmissionService {
     @Autowired
     private SubmissionDiagnosticRepository diagnosticRepository;
 
+    @Autowired
+    private JudgeExecRateLimiter judgeExecRateLimiter;
+
     public JudgeVerdictDTO submit(Submission submission) {
+        judgeExecRateLimiter.checkSubmit(submission.getUserId());
         validateSubmission(submission);
 
         Problem problem = problemService.getProblemForJudge(submission.getProblemId());

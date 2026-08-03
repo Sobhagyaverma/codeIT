@@ -252,10 +252,33 @@ export function useYjsWhiteboard({
       const ydoc = ydocRef.current;
       if (!ymap || !ydoc) return;
 
-      const sig = sceneSignature(elements);
+      // Cap element count — drop oldest deleted-first, then oldest by version
+      const MAX_ELEMENTS = 2000;
+      let nextElements = elements;
+      if (elements.length > MAX_ELEMENTS) {
+        const active = elements.filter((e) => !e.isDeleted);
+        const deleted = elements.filter((e) => e.isDeleted);
+        nextElements = [
+          ...deleted.slice(-(Math.max(0, MAX_ELEMENTS - active.length))),
+          ...active.slice(-MAX_ELEMENTS),
+        ].slice(-MAX_ELEMENTS);
+      }
+
+      // Cap binary files payload (~2 MB JSON-ish)
+      let nextFiles = files || {};
+      try {
+        const filesJson = JSON.stringify(nextFiles);
+        if (filesJson.length > 2_000_000) {
+          nextFiles = {};
+        }
+      } catch {
+        nextFiles = {};
+      }
+
+      const sig = sceneSignature(nextElements);
       if (sig === lastPublishedSigRef.current) return;
 
-      pendingSceneRef.current = { elements, files };
+      pendingSceneRef.current = { elements: nextElements, files: nextFiles };
 
       // Debounce high-frequency Excalidraw onChange while dragging
       if (publishTimerRef.current) window.clearTimeout(publishTimerRef.current);

@@ -7,6 +7,7 @@ import { createRoom, getMyRooms, joinRoom } from "../features/collaboration/api"
 import InviteModal from "../features/collaboration/components/InviteModal";
 import {
   codeRoomShareUrl,
+  formatRelativeTime,
   roomCodeFromSearchParams,
   roomCodeOf,
 } from "../features/collaboration/roomLinks";
@@ -24,17 +25,13 @@ const FEATURES = [
   { icon: PenTool, label: "Whiteboard" },
 ] as const;
 
-function shortRoomCode(token: string): string {
-  if (token.length <= 8) return token;
-  return `${token.slice(0, 8)}…`;
-}
-
 export default function CodeRoomHub() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [languages, setLanguages] = useState<LanguageDTO[]>([]);
   const [language, setLanguage] = useState("python");
+  const [hostNote, setHostNote] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,9 +82,14 @@ export default function CodeRoomHub() {
     setBusy(true);
     setError(null);
     try {
-      const room = await createRoom({ type: "CODEROOM", language });
+      const room = await createRoom({
+        type: "CODEROOM",
+        language,
+        hostNote: hostNote.trim() || undefined,
+      });
       setCreatedRoom(room);
       setModalOpen(true);
+      setHostNote("");
       void refreshMyRooms();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create room");
@@ -172,6 +174,16 @@ export default function CodeRoomHub() {
                 ))}
               </select>
             </label>
+            <label className="mt-3 block text-xs text-[var(--text-dim)]">
+              Note from host (optional)
+              <input
+                value={hostNote}
+                onChange={(e) => setHostNote(e.target.value.slice(0, 280))}
+                maxLength={280}
+                placeholder="e.g. Working on graphs — join if free"
+                className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm text-[var(--text)]"
+              />
+            </label>
             <button
               type="submit"
               disabled={busy}
@@ -228,28 +240,53 @@ export default function CodeRoomHub() {
               </p>
             ) : (
               <ul className="mt-3 divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]/80">
-                {myRooms.map((room) => (
-                  <li
-                    key={room.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-mono text-sm text-[var(--text)]">
-                        {shortRoomCode(room.inviteToken)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-[var(--text-dim)]">
-                        {room.language}
-                        {room.role ? ` · ${room.role}` : ""}
-                      </p>
-                    </div>
-                    <Link
-                      to={`/coderoom/${room.id}?code=${encodeURIComponent(room.inviteToken)}`}
-                      className="shrink-0 rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-medium text-[var(--text)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
+                {myRooms.map((room) => {
+                  const isHost =
+                    room.role === "HOST" ||
+                    (user != null && room.hostUserId === user.id);
+                  const hostLabel = isHost
+                    ? "You"
+                    : room.hostName ||
+                      room.hostUsername ||
+                      (room.hostUserId != null
+                        ? `User ${room.hostUserId}`
+                        : "Host");
+                  const participants =
+                    typeof room.onlineCount === "number" && room.onlineCount > 0
+                      ? room.onlineCount
+                      : (room.memberCount ?? 0);
+                  return (
+                    <li
+                      key={room.id}
+                      className="flex items-center justify-between gap-3 px-4 py-3"
                     >
-                      Open
-                    </Link>
-                  </li>
-                ))}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-[var(--text)]">
+                          Hosted by {hostLabel}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[var(--text-dim)]">
+                          {room.language} · {participants}{" "}
+                          {participants === 1 ? "participant" : "participants"} ·{" "}
+                          {formatRelativeTime(
+                            room.createdAt || room.updatedAt || room.lastSeenAt
+                          )}
+                          {room.role ? ` · ${room.role}` : ""}
+                        </p>
+                        {room.hostNote ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-[var(--text)]/80">
+                            {room.hostNote}
+                          </p>
+                        ) : null}
+                      </div>
+                      <Link
+                        to={`/coderoom/${room.id}?code=${encodeURIComponent(room.inviteToken)}`}
+                        className="shrink-0 rounded-lg border border-[var(--line)] px-3 py-1.5 text-xs font-medium text-[var(--text)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
+                      >
+                        Open
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

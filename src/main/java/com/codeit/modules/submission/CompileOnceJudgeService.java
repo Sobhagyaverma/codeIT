@@ -24,6 +24,7 @@ public class CompileOnceJudgeService {
 
     private final Judge0Service judge0Service;
     private final OutputComparator outputComparator;
+    private final JudgeExecutionLimits executionLimits;
     private final int caseTimeoutSeconds;
     private final double cpuTimeLimit;
     private final double wallTimeLimit;
@@ -31,11 +32,13 @@ public class CompileOnceJudgeService {
     public CompileOnceJudgeService(
             Judge0Service judge0Service,
             OutputComparator outputComparator,
+            JudgeExecutionLimits executionLimits,
             @Value("${codeit.judge.case-timeout-seconds:3}") int caseTimeoutSeconds,
             @Value("${codeit.judge.compile-once-cpu-time-limit:30}") double cpuTimeLimit,
             @Value("${codeit.judge.compile-once-wall-time-limit:45}") double wallTimeLimit) {
         this.judge0Service = judge0Service;
         this.outputComparator = outputComparator;
+        this.executionLimits = executionLimits;
         this.caseTimeoutSeconds = Math.max(1, caseTimeoutSeconds);
         this.cpuTimeLimit = cpuTimeLimit;
         this.wallTimeLimit = wallTimeLimit;
@@ -46,6 +49,7 @@ public class CompileOnceJudgeService {
             Integer languageId,
             List<TestCaseDTO> testCases) {
 
+        executionLimits.validateSourceAndStdin(userCode, "");
         LanguageProfile profile = profileFor(languageId);
         String archive = buildArchive(userCode, testCases, profile);
         Judge0Result execution = judge0Service.executeMultiFileProgram(
