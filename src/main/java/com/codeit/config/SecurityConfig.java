@@ -131,7 +131,8 @@ public class SecurityConfig {
                                 // Auth + public read limits before JWT; admin write after JWT (needs user id)
                                 .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                                 .addFilterBefore(registerRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                                .addFilterBefore(problemsReadRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(problemsReadRateLimitFilter,
+                                                UsernamePasswordAuthenticationFilter.class)
                                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                                 .addFilterAfter(adminWriteRateLimitFilter, JwtAuthFilter.class);
 

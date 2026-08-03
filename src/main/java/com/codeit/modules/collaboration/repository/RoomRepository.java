@@ -16,8 +16,7 @@ import com.codeit.modules.collaboration.Room;
 @Repository
 public class RoomRepository {
 
-    private static final String ROOM_COLUMNS =
-            """
+    private static final String ROOM_COLUMNS = """
             id, type, problem_id, host_user_id, invite_token,
             active_workspace, language, status, host_note, created_at, updated_at
             """;
@@ -39,11 +38,11 @@ public class RoomRepository {
 
         jdbcTemplate.update(
                 """
-                INSERT INTO rooms (
-                    id, type, problem_id, host_user_id, invite_token,
-                    active_workspace, language, status, host_note, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+                        INSERT INTO rooms (
+                            id, type, problem_id, host_user_id, invite_token,
+                            active_workspace, language, status, host_note, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
                 room.getId(),
                 room.getType(),
                 room.getProblemId(),
@@ -78,13 +77,13 @@ public class RoomRepository {
     public Optional<Room> findActiveByHostUserId(Integer hostUserId) {
         List<Room> rooms = jdbcTemplate.query(
                 """
-                SELECT %s
-                FROM rooms
-                WHERE host_user_id = ?
-                  AND status = 'ACTIVE'
-                ORDER BY created_at DESC
-                LIMIT 1
-                """.formatted(ROOM_COLUMNS),
+                        SELECT %s
+                        FROM rooms
+                        WHERE host_user_id = ?
+                          AND status = 'ACTIVE'
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                        """.formatted(ROOM_COLUMNS),
                 (rs, rowNum) -> mapRoom(rs),
                 hostUserId);
         return rooms.stream().findFirst();
@@ -93,10 +92,10 @@ public class RoomRepository {
     public int updateWorkspace(UUID roomId, String workspace) {
         return jdbcTemplate.update(
                 """
-                UPDATE rooms
-                SET active_workspace = ?, updated_at = ?
-                WHERE id = ?
-                """,
+                        UPDATE rooms
+                        SET active_workspace = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
                 workspace,
                 Timestamp.from(Instant.now()),
                 roomId);
@@ -105,10 +104,10 @@ public class RoomRepository {
     public int updateHost(UUID roomId, Integer newHostUserId) {
         return jdbcTemplate.update(
                 """
-                UPDATE rooms
-                SET host_user_id = ?, updated_at = ?
-                WHERE id = ?
-                """,
+                        UPDATE rooms
+                        SET host_user_id = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
                 newHostUserId,
                 Timestamp.from(Instant.now()),
                 roomId);
@@ -117,10 +116,10 @@ public class RoomRepository {
     public int updateHostNote(UUID roomId, String hostNote) {
         return jdbcTemplate.update(
                 """
-                UPDATE rooms
-                SET host_note = ?, updated_at = ?
-                WHERE id = ?
-                """,
+                        UPDATE rooms
+                        SET host_note = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
                 hostNote,
                 Timestamp.from(Instant.now()),
                 roomId);
@@ -129,10 +128,10 @@ public class RoomRepository {
     public int updateStatus(UUID roomId, String status) {
         return jdbcTemplate.update(
                 """
-                UPDATE rooms
-                SET status = ?, updated_at = ?
-                WHERE id = ?
-                """,
+                        UPDATE rooms
+                        SET status = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
                 status,
                 Timestamp.from(Instant.now()),
                 roomId);

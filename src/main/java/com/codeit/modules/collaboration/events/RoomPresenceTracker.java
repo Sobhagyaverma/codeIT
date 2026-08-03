@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Tracks which users are currently connected to a room over STOMP.
- * Keyed by sessionId; enforces a max number of tabs (sessions) per user per room.
+ * Keyed by sessionId; enforces a max number of tabs (sessions) per user per
+ * room.
  */
 @Component
 public class RoomPresenceTracker {
@@ -26,11 +27,11 @@ public class RoomPresenceTracker {
     /** roomId -> set of userIds online (derived from sessions) */
     private final Map<UUID, Set<Integer>> roomUsers = new ConcurrentHashMap<>();
     /** roomId -> userId -> ordered sessionIds (oldest first) */
-    private final Map<UUID, Map<Integer, LinkedHashSet<String>>> roomUserSessions =
-            new ConcurrentHashMap<>();
+    private final Map<UUID, Map<Integer, LinkedHashSet<String>>> roomUserSessions = new ConcurrentHashMap<>();
 
     /**
-     * Register presence. If the user already has {@code maxSessions} tabs in this room,
+     * Register presence. If the user already has {@code maxSessions} tabs in this
+     * room,
      * the oldest session is displaced (caller should broadcast LEFT for it).
      *
      * @return displaced sessionId, if any

@@ -2,9 +2,9 @@
 
 CodeIT is a full-stack competitive programming platform for solving problems, running and submitting code, joining timed contests with live leaderboards, collaborating in shared rooms, and getting AI-assisted mentoring.
 
-Stack: React + TypeScript frontend, Spring Boot API, PostgreSQL, optional Redis, Judge0, JWT auth, STOMP WebSockets, and a Yjs sync server for real-time editor/whiteboard sync.
+Stack: React + TypeScript frontends, Spring Boot API, PostgreSQL, optional Redis, Judge0, JWT auth, STOMP WebSockets, and a Yjs sync server for real-time editor/whiteboard sync.
 
-> **Project status:** Core coding, judging, submissions, competitions, profile, AI learning coach (Groq), and collaboration (CodeRoom + Problem Collab) are implemented.
+> **Project status:** Core coding, judging, submissions, competitions, profile, AI learning coach (Groq), collaboration (CodeRoom + Problem Collab), and an ADMIN Command Center (problem + competition studios) are implemented. The Stitch UI (`frontend-stitch/`) is the polished app under active migration; the original `frontend/` remains available.
 
 ## Highlights
 
@@ -14,13 +14,15 @@ Stack: React + TypeScript frontend, Spring Boot API, PostgreSQL, optional Redis,
 - Timed competitions with personal sessions and live leaderboards
 - Collaborative CodeRooms and problem rooms (presence, chat, shared editor, whiteboard)
 - AI learning coach: explain, hints, analyze, review (Groq-backed)
+- ADMIN Command Center: problem repository/studio, competition repository/studio
+- Rate limiting on auth, judge run/submit, AI, rooms, and admin writes
 - Redis cache-aside when enabled (optional; off by default)
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Browser[React + TypeScript] -->|REST + JWT| API[Spring Boot API]
+    Browser[React frontends] -->|REST + JWT| API[Spring Boot API]
     Browser <-->|STOMP / SockJS + JWT| WS[WebSocket Broker]
     Browser <-->|Yjs WebSocket| Sync[sync-server]
     API --> PostgreSQL[(PostgreSQL)]
@@ -31,6 +33,15 @@ flowchart LR
     Sync -.->|validates JWT| API
 ```
 
+### Frontends
+
+| App | Path | Dev URL | Role |
+| --- | --- | --- | --- |
+| **Stitch UI** | `frontend-stitch/` | http://localhost:5175 | Primary polished UI (Stitch screens + admin) |
+| Legacy UI | `frontend/` | http://localhost:5173 | Original production frontend |
+
+Both talk to the same API (`9091`) and sync-server (`1234`). Auth storage keys differ (`codeit.stitch.*` vs production keys) so sessions do not clash.
+
 ### Main application flow
 
 1. Register or log in and receive a JWT.
@@ -39,12 +50,13 @@ flowchart LR
 4. **Submit** judges hidden tests and stores the verdict.
 5. Competition submissions update the leaderboard over STOMP.
 6. Collaboration rooms use Spring for room membership/chat/run, and the sync-server for Yjs docs (`room:{id}:code`, `room:{id}:whiteboard`).
+7. Admins use `/admin` (Stitch) for problem and competition authoring.
 
 ## Tech Stack
 
 | Layer | Technologies |
 | --- | --- |
-| Frontend | React 19, TypeScript, Vite, Tailwind 4, Monaco, Excalidraw, Yjs, STOMP/SockJS |
+| Frontend | React 19, TypeScript, Vite, Tailwind 4, Monaco, Excalidraw (legacy), Yjs, STOMP/SockJS |
 | Backend | Java 21, Spring Boot 4, Security, JDBC, Flyway, WebSocket, JJWT, HttpClient 5 |
 | Data / infra | PostgreSQL, optional Redis, Judge0, Groq, Node sync-server |
 
@@ -56,6 +68,7 @@ flowchart LR
 - Login with email or unique user ID
 - BCrypt passwords, stateless JWT, `USER` / `ADMIN` roles
 - Public registration always creates `USER`
+- Profile settings (`/settings/profile`) for all logged-in users
 
 ### Problems and coding workspace
 
@@ -78,11 +91,29 @@ flowchart LR
 - Invite codes, presence, chat, DSA whiteboard library
 - Details: [`docs/COLLABORATION_ARCHITECTURE.md`](docs/COLLABORATION_ARCHITECTURE.md)
 
+### Admin Command Center (Stitch)
+
+ADMIN-only UI at `/admin` (also `/admin/competitions`, `/admin/competitions/create`):
+
+| Area | What it does | Backend used |
+| --- | --- | --- |
+| Dashboard | KPIs, recent problems/competitions, quick actions | List APIs |
+| Problem Repository | Search/filter/paginate problems | `GET /api/problems` |
+| Problem Studio | Author statement, examples, hidden tests, Monaco starters | `POST /api/problems` |
+| Competition Repository | List/filter contests | `GET /api/competitions/getAllCompetitions` |
+| Competition Studio | Create contest + ordered problem set | `POST …/create` + `addProblemsTo` |
+
+Draft autosave in studios is **localStorage** only (no draft API). Fields not on the DTO (slug, rules toggles, judge sliders, scoring model) stay UI-only.
+
 ### AI learning coach
 
 - Groq-backed mentor for explain, constraints, hints, analyze, failure review, editorial
 - Rate-limited; gated hint progression
 - Requires `GROQ_API_KEY` (never commit the key)
+
+### Rate limiting
+
+Enabled by default (`codeit.ratelimit.enabled=true`). Covers login/register, run/submit (burst + sustained + daily), AI, room actions, problems read, and admin writes. See `application.properties` for limits.
 
 ### Caching
 
@@ -187,6 +218,7 @@ Flyway runs automatically on API startup for incremental migrations:
 
 - `V1__ai_coach_tables.sql`
 - `V2__collaboration_rooms.sql`
+- `V3__room_host_note.sql`
 
 For older databases that predate the consolidated `schema.sql`, apply the legacy one-shots under `schema/` if needed (`users_name_uniqueuserid.sql`, `competition_session.sql`, `profile.sql`).
 
@@ -240,6 +272,23 @@ Or: `docker compose up sync-server --build` (port `1234`).
 
 ### 8. Frontend
 
+**Recommended — Stitch UI:**
+
+```bash
+cd frontend-stitch
+npm ci
+npm run dev
+```
+
+Opens at **http://localhost:5175**. Dev proxies `/api` → `http://localhost:9091`. Optional:
+
+```properties
+VITE_API_URL=http://localhost:9091
+VITE_SYNC_WS_URL=ws://localhost:1234
+```
+
+**Legacy UI** (still supported):
+
 ```bash
 cd frontend
 cp .env.example .env.local
@@ -247,18 +296,21 @@ npm ci
 npm run dev
 ```
 
+Frontend: **http://localhost:5173**
+
 ```properties
 VITE_API_URL=http://localhost:9091
 VITE_SYNC_WS_URL=ws://localhost:1234
 ```
 
-Frontend: `http://localhost:5173`
+Promote a user to admin (SQL), then open `/admin` in the Stitch app.
 
 ## Default Ports
 
 | Service | Port |
 | --- | ---: |
-| React frontend | 5173 |
+| Stitch frontend (`frontend-stitch`) | 5175 |
+| Legacy frontend (`frontend`) | 5173 |
 | Spring Boot API | 9091 |
 | Yjs sync-server | 1234 |
 | PostgreSQL | 5432 |
@@ -273,6 +325,7 @@ Frontend: `http://localhost:5173`
 | `judge0.api.url` | `https://judge0.ktatva.com` | Judge0 base URL |
 | `codeit.redis.enabled` | `false` | Enable Redis caching |
 | `codeit.jwt.expiration-ms` | `86400000` | JWT lifetime |
+| `codeit.ratelimit.enabled` | `true` | HTTP / judge / AI / room limits |
 | `codeit.ai.enabled` | `true` | AI coach |
 | `codeit.ai.groq.api-key` | `${GROQ_API_KEY:}` | Groq API key |
 | `codeit.cache.*` | see `application.properties` | Cache TTLs when Redis is on |
@@ -443,6 +496,8 @@ Hidden tests in `problems.test_cases` (JSONB):
 ]
 ```
 
+Admin Problem Studio may send examples / topics / constraints / test cases as JSON strings matching the `Problem` entity string fields.
+
 ## Testing and Quality Checks
 
 ```bash
@@ -452,6 +507,7 @@ RUN_JUDGE0_INTEGRATION=true ./mvnw -Dtest=CompileOnceJudgeServiceIntegrationTest
 ```
 
 ```bash
+cd frontend-stitch && npm ci && npm run lint && npm run build
 cd frontend && npm ci && npm run lint && npm run build
 ```
 
@@ -459,7 +515,13 @@ cd frontend && npm ci && npm run lint && npm run build
 
 ```text
 CodeIT/
-├── frontend/                 # React app
+├── frontend-stitch/          # Stitch UI (primary, port 5175)
+│   └── src/
+│       ├── components/       # AppNav, SoftPageFade, …
+│       ├── features/
+│       ├── lib/
+│       └── pages/            # product + Admin* studios
+├── frontend/                 # Legacy React app (port 5173)
 │   └── src/
 │       ├── components/
 │       ├── features/collaboration/
@@ -471,6 +533,7 @@ CodeIT/
 ├── docker-compose.yml        # sync-server only
 ├── src/main/java/com/codeit/
 │   ├── config/
+│   ├── security/ratelimit/   # HTTP / judge / AI / room limits
 │   └── modules/
 │       ├── ai/
 │       ├── auth/
@@ -483,32 +546,35 @@ CodeIT/
 ├── src/main/resources/
 │   ├── application.properties
 │   ├── ai/prompts/
-│   └── db/migration/         # Flyway V1+ (AI, rooms)
+│   └── db/migration/         # Flyway V1–V3
 └── pom.xml
 ```
 
 ## Known Limitations
 
-- Frontend has no automated E2E suite yet.
+- No automated E2E suite yet.
 - Backend tests focus mainly on the judging pipeline.
 - Judge0 is external and not version-pinned by this repo.
 - Base schema is still bootstrapped via `schema/schema.sql`; Flyway covers incremental AI/collab tables.
 - CORS is tuned for local frontend origins.
 - `docker-compose.yml` runs only the sync-server, not the full stack.
+- Competition draft/publish/edit and rich dashboard fields are not on the API yet (studios use create + local draft).
+- Stitch vs legacy frontend: dual apps until Stitch fully replaces `frontend/`.
 - Practice dashboard and some competition-dashboard fields remain backlog (see `docs/PRACTICE_API_REQUIREMENTS.md`, `docs/COMPETITIONS_DASHBOARD_API.md`).
 
 ## Roadmap
 
+- Cut over fully to `frontend-stitch` and retire legacy `frontend/`
 - Full-stack Docker Compose (Postgres, Redis, Judge0, API, sync-server, frontend)
 - Broader backend/frontend automated tests
-- Rate limiting for Run / Submit
-- Richer competition dashboard APIs
+- Competition draft / update / publish APIs
 - Observability (structured logs, metrics)
 
 ## Docs
 
 | Doc | Topic |
 | --- | --- |
+| [`frontend-stitch/README.md`](frontend-stitch/README.md) | Stitch UI runbook + screen map |
 | [`docs/COLLABORATION_ARCHITECTURE.md`](docs/COLLABORATION_ARCHITECTURE.md) | Rooms, Yjs, roles |
 | [`docs/JUDGE0_HOMELAB_DEPLOY.md`](docs/JUDGE0_HOMELAB_DEPLOY.md) | Judge0 on homelab |
 | [`docs/JUDGE0_DIGITALOCEAN_DEPLOY.md`](docs/JUDGE0_DIGITALOCEAN_DEPLOY.md) | Judge0 on DO |

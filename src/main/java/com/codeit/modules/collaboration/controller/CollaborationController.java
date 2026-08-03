@@ -152,4 +152,4 @@ public class CollaborationController {
         Integer userId = SecurityUtils.currentUserId();
         return collaborationService.submitShared(userId, roomId, request);
     }
-}                                                                                            
+}

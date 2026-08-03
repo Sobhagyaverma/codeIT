@@ -167,8 +167,7 @@ public class ProfileService {
             int requestedLimit,
             Integer cursor) {
         int limit = Math.max(1, Math.min(requestedLimit, 100));
-        List<ProfileResponseDTO.SubmissionRowDTO> rows =
-                profileRepository.getSubmissionPage(userId, limit + 1, cursor);
+        List<ProfileResponseDTO.SubmissionRowDTO> rows = profileRepository.getSubmissionPage(userId, limit + 1, cursor);
 
         boolean hasMore = rows.size() > limit;
         if (hasMore) {

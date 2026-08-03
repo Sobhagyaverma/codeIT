@@ -34,9 +34,9 @@ public class RoomMemberRepository {
 
         jdbcTemplate.update(
                 """
-                INSERT INTO room_members (room_id, user_id, role, joined_at, last_seen_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
+                        INSERT INTO room_members (room_id, user_id, role, joined_at, last_seen_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
                 member.getRoomId(),
                 member.getUserId(),
                 member.getRole(),
@@ -49,11 +49,11 @@ public class RoomMemberRepository {
     public List<RoomMember> findByRoomId(UUID roomId) {
         return jdbcTemplate.query(
                 """
-                SELECT room_id, user_id, role, joined_at, last_seen_at
-                FROM room_members
-                WHERE room_id = ?
-                ORDER BY joined_at ASC
-                """,
+                        SELECT room_id, user_id, role, joined_at, last_seen_at
+                        FROM room_members
+                        WHERE room_id = ?
+                        ORDER BY joined_at ASC
+                        """,
                 (rs, rowNum) -> mapMember(rs),
                 roomId);
     }
@@ -61,10 +61,10 @@ public class RoomMemberRepository {
     public Optional<RoomMember> findByRoomIdAndUserId(UUID roomId, Integer userId) {
         List<RoomMember> members = jdbcTemplate.query(
                 """
-                SELECT room_id, user_id, role, joined_at, last_seen_at
-                FROM room_members
-                WHERE room_id = ? AND user_id = ?
-                """,
+                        SELECT room_id, user_id, role, joined_at, last_seen_at
+                        FROM room_members
+                        WHERE room_id = ? AND user_id = ?
+                        """,
                 (rs, rowNum) -> mapMember(rs),
                 roomId,
                 userId);
@@ -74,9 +74,9 @@ public class RoomMemberRepository {
     public boolean exists(UUID roomId, Integer userId) {
         Integer count = jdbcTemplate.queryForObject(
                 """
-                SELECT COUNT(*) FROM room_members
-                WHERE room_id = ? AND user_id = ?
-                """,
+                        SELECT COUNT(*) FROM room_members
+                        WHERE room_id = ? AND user_id = ?
+                        """,
                 Integer.class,
                 roomId,
                 userId);
@@ -86,9 +86,9 @@ public class RoomMemberRepository {
     public int countByRoomId(UUID roomId) {
         Integer count = jdbcTemplate.queryForObject(
                 """
-                SELECT COUNT(*) FROM room_members
-                WHERE room_id = ?
-                """,
+                        SELECT COUNT(*) FROM room_members
+                        WHERE room_id = ?
+                        """,
                 Integer.class,
                 roomId);
         return count == null ? 0 : count;
@@ -97,10 +97,10 @@ public class RoomMemberRepository {
     public int updateRole(UUID roomId, Integer userId, String role) {
         return jdbcTemplate.update(
                 """
-                UPDATE room_members
-                SET role = ?
-                WHERE room_id = ? AND user_id = ?
-                """,
+                        UPDATE room_members
+                        SET role = ?
+                        WHERE room_id = ? AND user_id = ?
+                        """,
                 role,
                 roomId,
                 userId);
@@ -109,9 +109,9 @@ public class RoomMemberRepository {
     public int delete(UUID roomId, Integer userId) {
         return jdbcTemplate.update(
                 """
-                DELETE FROM room_members
-                WHERE room_id = ? AND user_id = ?
-                """,
+                        DELETE FROM room_members
+                        WHERE room_id = ? AND user_id = ?
+                        """,
                 roomId,
                 userId);
     }
@@ -119,10 +119,10 @@ public class RoomMemberRepository {
     public int updateLastSeen(UUID roomId, Integer userId) {
         return jdbcTemplate.update(
                 """
-                UPDATE room_members
-                SET last_seen_at = ?
-                WHERE room_id = ? AND user_id = ?
-                """,
+                        UPDATE room_members
+                        SET last_seen_at = ?
+                        WHERE room_id = ? AND user_id = ?
+                        """,
                 Timestamp.from(Instant.now()),
                 roomId,
                 userId);
@@ -131,19 +131,19 @@ public class RoomMemberRepository {
     public List<UserRoomMembership> findActiveMembershipsByUserId(Integer userId) {
         return jdbcTemplate.query(
                 """
-                SELECT r.id, r.type, r.language, r.status, r.active_workspace,
-                       r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
-                       m.role, m.joined_at, m.last_seen_at,
-                       u.name AS host_name,
-                       u.uniqueuserid AS host_username,
-                       (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) AS member_count
-                FROM room_members m
-                JOIN rooms r ON r.id = m.room_id
-                LEFT JOIN users u ON u.id = r.host_user_id
-                WHERE m.user_id = ?
-                  AND r.status = 'ACTIVE'
-                ORDER BY m.last_seen_at DESC
-                """,
+                        SELECT r.id, r.type, r.language, r.status, r.active_workspace,
+                               r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
+                               m.role, m.joined_at, m.last_seen_at,
+                               u.name AS host_name,
+                               u.uniqueuserid AS host_username,
+                               (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) AS member_count
+                        FROM room_members m
+                        JOIN rooms r ON r.id = m.room_id
+                        LEFT JOIN users u ON u.id = r.host_user_id
+                        WHERE m.user_id = ?
+                          AND r.status = 'ACTIVE'
+                        ORDER BY m.last_seen_at DESC
+                        """,
                 (rs, rowNum) -> mapUserRoomMembership(rs),
                 userId);
     }
@@ -156,25 +156,25 @@ public class RoomMemberRepository {
         if (keepRoomId == null) {
             return jdbcTemplate.update(
                     """
-                    DELETE FROM room_members m
-                    USING rooms r
-                    WHERE m.room_id = r.id
-                      AND m.user_id = ?
-                      AND r.status = 'ACTIVE'
-                      AND m.role <> 'HOST'
-                    """,
+                            DELETE FROM room_members m
+                            USING rooms r
+                            WHERE m.room_id = r.id
+                              AND m.user_id = ?
+                              AND r.status = 'ACTIVE'
+                              AND m.role <> 'HOST'
+                            """,
                     userId);
         }
         return jdbcTemplate.update(
                 """
-                DELETE FROM room_members m
-                USING rooms r
-                WHERE m.room_id = r.id
-                  AND m.user_id = ?
-                  AND r.status = 'ACTIVE'
-                  AND m.role <> 'HOST'
-                  AND m.room_id <> ?
-                """,
+                        DELETE FROM room_members m
+                        USING rooms r
+                        WHERE m.room_id = r.id
+                          AND m.user_id = ?
+                          AND r.status = 'ACTIVE'
+                          AND m.role <> 'HOST'
+                          AND m.room_id <> ?
+                        """,
                 userId,
                 keepRoomId);
     }
@@ -182,9 +182,9 @@ public class RoomMemberRepository {
     public int deleteAllMembers(UUID roomId) {
         return jdbcTemplate.update(
                 """
-                DELETE FROM room_members
-                WHERE room_id = ?
-                """,
+                        DELETE FROM room_members
+                        WHERE room_id = ?
+                        """,
                 roomId);
     }
 
@@ -192,21 +192,21 @@ public class RoomMemberRepository {
             Integer userId, String status, String type, int limit) {
         return jdbcTemplate.query(
                 """
-                SELECT r.id, r.type, r.language, r.status, r.active_workspace,
-                       r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
-                       m.role, m.joined_at, m.last_seen_at,
-                       u.name AS host_name,
-                       u.uniqueuserid AS host_username,
-                       (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) AS member_count
-                FROM room_members m
-                JOIN rooms r ON r.id = m.room_id
-                LEFT JOIN users u ON u.id = r.host_user_id
-                WHERE m.user_id = ?
-                  AND r.status = ?
-                  AND (? IS NULL OR r.type = ?)
-                ORDER BY m.last_seen_at DESC
-                LIMIT ?
-                """,
+                        SELECT r.id, r.type, r.language, r.status, r.active_workspace,
+                               r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
+                               m.role, m.joined_at, m.last_seen_at,
+                               u.name AS host_name,
+                               u.uniqueuserid AS host_username,
+                               (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) AS member_count
+                        FROM room_members m
+                        JOIN rooms r ON r.id = m.room_id
+                        LEFT JOIN users u ON u.id = r.host_user_id
+                        WHERE m.user_id = ?
+                          AND r.status = ?
+                          AND (? IS NULL OR r.type = ?)
+                        ORDER BY m.last_seen_at DESC
+                        LIMIT ?
+                        """,
                 (rs, rowNum) -> mapUserRoomMembership(rs),
                 userId,
                 status,

@@ -97,4 +97,7 @@ public class CollaborationWsController {
                 .map(User::getUniqueUserId)
                 .orElse("user-" + userId);
     }
+
 }
+
+    
