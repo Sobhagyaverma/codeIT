@@ -87,16 +87,16 @@ public class CompetitionService {
         if (getCompetitionById(competitionId) == null) {
             return "Competition not found";
         }
-
-        for (Integer problemId : problemIds) {
-            if (!problemRepository.existsById(problemId)) {
-                return "Problem not found: " + problemId;
-            }
+        if (problemIds == null || problemIds.isEmpty()) {
+            return "Problems added successfully";
         }
 
-        for (Integer problemId : problemIds) {
-            competitionRepository.addProblemsToCompetitions(competitionId, problemId);
+        List<Integer> missing = problemRepository.findMissingIds(problemIds);
+        if (!missing.isEmpty()) {
+            return "Problem not found: " + missing.get(0);
         }
+
+        competitionRepository.addProblemsToCompetitionBatch(competitionId, problemIds);
         competitionCacheService.invalidate(competitionId);
         return "Problems added successfully";
     }

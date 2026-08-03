@@ -87,25 +87,44 @@ export interface LoginResponse {
   expiresIn: number;
 }
 
-export const login = (login: string, password: string) =>
-  request<LoginResponse>("/api/auth/login", {
+export const login = async (loginId: string, password: string) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  const body = encrypted
+    ? {
+        login: await encryptRsaOaep(loginId),
+        password: await encryptRsaOaep(password),
+        encrypted: true,
+      }
+    : { login: loginId, password, encrypted: false };
+  return request<LoginResponse>("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({
-      login,
-      password,
-    }),
+    body: JSON.stringify(body),
   });
+};
 
-export const register = (data: {
+export const register = async (data: {
   name: string;
   uniqueUserId: string;
   email: string;
   password: string;
-}) =>
-  request<string>("/api/user/register", {
+}) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  const body = {
+    name: data.name,
+    uniqueUserId: data.uniqueUserId,
+    email: data.email,
+    password: encrypted
+      ? await encryptRsaOaep(data.password)
+      : data.password,
+    encrypted,
+  };
+  return request<string>("/api/user/register", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
+};
 
 export const getUsers = () =>
   request<User[]>("/api/user/getUsers");
@@ -239,14 +258,24 @@ export const updateMyProfile = (data: {
     body: JSON.stringify(data),
   });
 
-export const changeMyPassword = (data: {
+export const changeMyPassword = async (data: {
   currentPassword: string;
   newPassword: string;
-}) =>
-  request<string>("/api/profile/me/password", {
+}) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  const body = encrypted
+    ? {
+        currentPassword: await encryptRsaOaep(data.currentPassword),
+        newPassword: await encryptRsaOaep(data.newPassword),
+        encrypted: true,
+      }
+    : { ...data, encrypted: false };
+  return request<string>("/api/profile/me/password", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
+};
 
 export const getMyBookmarks = () =>
   request<ProfileProblemSummary[]>("/api/profile/me/bookmarks");

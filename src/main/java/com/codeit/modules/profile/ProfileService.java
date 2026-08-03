@@ -41,6 +41,7 @@ import com.codeit.modules.profile.dto.UpdateProfileRequest;
 import com.codeit.modules.user.User;
 import com.codeit.modules.user.UserRepository;
 import com.codeit.modules.user.UserService;
+import com.codeit.security.crypto.SensitiveFieldDecryptor;
 import com.codeit.security.ratelimit.RateLimitProperties;
 import com.codeit.security.ratelimit.RateLimitService;
 
@@ -67,6 +68,9 @@ public class ProfileService {
 
     @Autowired
     private RateLimitProperties rateLimitProperties;
+
+    @Autowired
+    private SensitiveFieldDecryptor sensitiveFieldDecryptor;
 
     public ProfileResponseDTO getMyProfile(Integer userId) {
         User user = userService.getUserById(userId);
@@ -118,10 +122,19 @@ public class ProfileService {
                 limit.getLimit(),
                 limit.getWindowSeconds());
 
+        String currentPassword = sensitiveFieldDecryptor.resolve(
+                request.getCurrentPassword(), request.isEncrypted(), "currentPassword");
+        String newPassword = sensitiveFieldDecryptor.resolve(
+                request.getNewPassword(), request.isEncrypted(), "newPassword");
+        if (newPassword.length() < 6) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Password must be at least 6 characters");
+        }
+
         User existing = userService.getUserById(userId);
 
         boolean currentOk = passwordEncoder.matches(
-                request.getCurrentPassword(),
+                currentPassword,
                 existing.getPassword());
 
         if (!currentOk) {
@@ -130,7 +143,7 @@ public class ProfileService {
                     "Current password is incorrect");
         }
 
-        String newHash = passwordEncoder.encode(request.getNewPassword());
+        String newHash = passwordEncoder.encode(newPassword);
         int updated = userRepository.updatePassword(userId, newHash);
 
         if (updated <= 0) {
@@ -189,7 +202,8 @@ public class ProfileService {
 
         ProfileResponseDTO response = new ProfileResponseDTO();
         response.setIdentity(toIdentity(user, includePrivate));
-        response.setStats(buildStats(userId));
+        List<ContestHistoryDTO> contests = buildContestHistory(userId);
+        response.setStats(buildStats(userId, contests));
         response.setTopics(buildTopics(userId));
         response.setLanguages(buildLanguages(userId));
         response.setHeatmap(profileRepository.getHeatmap(userId));
@@ -197,7 +211,7 @@ public class ProfileService {
         response.setMonthlyActivity(buildMonthlyActivity(response.getHeatmap()));
         response.setRecentSubmissions(profileRepository.getRecentSubmissionRows(userId, 20));
         response.setRecentSolved(profileRepository.getRecentSolved(userId, 10));
-        response.setContestHistory(buildContestHistory(userId));
+        response.setContestHistory(contests);
         response.setAchievements(List.of());
         response.setPersonalBests(buildPersonalBests(userId));
         response.setActiveContest(buildActiveContest(userId));
@@ -231,7 +245,7 @@ public class ProfileService {
         return identity;
     }
 
-    private StatsDTO buildStats(Integer userId) {
+    private StatsDTO buildStats(Integer userId, List<ContestHistoryDTO> contests) {
         int totalSubmissions = profileRepository.countSubmissions(userId);
         int accepted = profileRepository.countAcceptedSubmissions(userId);
         int totalSolved = profileRepository.countDistinctSolved(userId);
@@ -253,7 +267,6 @@ public class ProfileService {
 
         int[] streaks = computeStreaks(profileRepository.getSubmissionDaysUtc(userId));
 
-        List<ContestHistoryDTO> contests = buildContestHistory(userId);
         Integer bestRank = contests.stream()
                 .map(ContestHistoryDTO::getRank)
                 .filter(r -> r != null)
@@ -395,12 +408,7 @@ public class ProfileService {
     }
 
     private List<ContestHistoryDTO> buildContestHistory(Integer userId) {
-        List<ContestHistoryDTO> history = profileRepository.getContestHistory(userId);
-        for (ContestHistoryDTO row : history) {
-            Integer rank = profileRepository.findLeaderboardRank(row.getCompetitionId(), userId);
-            row.setRank(rank);
-        }
-        return history;
+        return profileRepository.getContestHistory(userId);
     }
 
     private PersonalBestsDTO buildPersonalBests(Integer userId) {

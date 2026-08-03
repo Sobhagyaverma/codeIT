@@ -65,22 +65,44 @@ export type LoginResponse = {
   expiresIn: number;
 };
 
-export const login = (loginId: string, password: string) =>
-  request<LoginResponse>("/api/auth/login", {
+export const login = async (loginId: string, password: string) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  const body = encrypted
+    ? {
+        login: await encryptRsaOaep(loginId),
+        password: await encryptRsaOaep(password),
+        encrypted: true,
+      }
+    : { login: loginId, password, encrypted: false };
+  return request<LoginResponse>("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ login: loginId, password }),
+    body: JSON.stringify(body),
   });
+};
 
-export const register = (data: {
+export const register = async (data: {
   name: string;
   uniqueUserId: string;
   email: string;
   password: string;
-}) =>
-  request<string>("/api/user/register", {
+}) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  const body = {
+    name: data.name,
+    uniqueUserId: data.uniqueUserId,
+    email: data.email,
+    password: encrypted
+      ? await encryptRsaOaep(data.password)
+      : data.password,
+    encrypted,
+  };
+  return request<string>("/api/user/register", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
+};
 
 export const getProblems = () => request<ProblemPublicDTO[]>("/api/problems");
 
@@ -261,14 +283,24 @@ export const updateMyProfile = (data: {
     body: JSON.stringify(data),
   });
 
-export const changeMyPassword = (data: {
+export const changeMyPassword = async (data: {
   currentPassword: string;
   newPassword: string;
-}) =>
-  request<string>("/api/profile/me/password", {
+}) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  const body = encrypted
+    ? {
+        currentPassword: await encryptRsaOaep(data.currentPassword),
+        newPassword: await encryptRsaOaep(data.newPassword),
+        encrypted: true,
+      }
+    : { ...data, encrypted: false };
+  return request<string>("/api/profile/me/password", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   });
+};
 
 export const getMyProfileSubmissions = (limit = 20, cursor?: number) => {
   const params = new URLSearchParams({ limit: String(limit) });
@@ -386,5 +418,90 @@ export const submitToCompetition = (id: number, data: SubmitRequest) =>
 
 export const getLeaderboard = (id: number) =>
   request<LeaderboardEntry[]>(`/api/competitions/${id}/leaderboard`);
+
+/* ---------------- AI Coach (practice only) ---------------- */
+
+export type AiAction =
+  | "EXPLAIN_PROBLEM"
+  | "EXPLAIN_CONSTRAINTS"
+  | "ASK_AI"
+  | "REQUEST_HINT"
+  | "ANALYZE_CODE"
+  | "ANALYZE_FAILURE"
+  | "REVIEW_ACCEPTED"
+  | "EXPLAIN_EDITORIAL";
+
+export type AiCoachRequest = {
+  problemId: number;
+  language?: string;
+  languageId?: number;
+  code?: string;
+  action?: AiAction;
+  hintLevel?: number;
+  question?: string;
+  submissionId?: number | null;
+};
+
+export type AiCoachResponse = {
+  action: AiAction;
+  content: string;
+  hintLevel?: number | null;
+  unlockedHintLevel?: number | null;
+};
+
+export const aiExplain = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/explain", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiConstraints = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/constraints", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiChat = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/chat", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiHints = (
+  data: Omit<AiCoachRequest, "action"> & { hintLevel: number }
+) =>
+  request<AiCoachResponse>("/api/ai/hints", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiAnalyze = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/analyze", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiAnalyzeFailure = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/analyze-failure", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiReview = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/review", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const aiEditorial = (data: Omit<AiCoachRequest, "action">) =>
+  request<AiCoachResponse>("/api/ai/editorial", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getAiHintProgress = (problemId: number) =>
+  request<{ problemId: number; unlockedHintLevel: number }>(
+    `/api/ai/hints/progress?problemId=${problemId}`
+  );
 
 export type { User, ProblemPublicDTO, Submission };

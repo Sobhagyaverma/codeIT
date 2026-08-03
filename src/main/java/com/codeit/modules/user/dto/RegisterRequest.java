@@ -1,7 +1,6 @@
 package com.codeit.modules.user.dto;
 
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
@@ -17,6 +16,8 @@ public class RegisterRequest {
     private String email;
 
     @NotEmpty(message = "Password cant be empty")
-    @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
+
+    /** When true, password is an RSA-OAEP Base64 ciphertext. */
+    private boolean encrypted;
 }

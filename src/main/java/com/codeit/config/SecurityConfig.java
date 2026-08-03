@@ -96,6 +96,7 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 paths.matcher("/api/auth/login"),
                                                                 paths.matcher("/api/user/register"),
+                                                                paths.matcher("/api/crypto/public-key"),
                                                                 paths.matcher("/api/health"),
                                                                 paths.matcher("/api/health/**"),
                                                                 paths.matcher("/ws"),

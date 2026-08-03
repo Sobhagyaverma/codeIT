@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import AppNav from "../components/AppNav";
 import { IoPre } from "../components/IoPre";
 import { useAuth } from "../context/AuthContext";
+import LearningCoachPanel from "../features/ai-coach/components/LearningCoachPanel";
 import { createRoom } from "../features/collaboration/api";
 import { roomCodeOf } from "../features/collaboration/roomLinks";
 import {
@@ -956,16 +957,14 @@ export default function ProblemWorkspace() {
               )}
 
               {bottomTab === "ai" && (
-                <div className="flex h-full flex-col items-start justify-center gap-2 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-3xl text-[#A855F7]">
-                    smart_toy
-                  </span>
-                  <p className="font-label-md text-on-surface">AI Coach</p>
-                  <p className="text-sm">
-                    Coming soon in the Stitch frontend. Use the production app for
-                    coaching meanwhile.
-                  </p>
-                </div>
+                <LearningCoachPanel
+                  problemId={problemId}
+                  language={language?.slug || "python"}
+                  languageId={language?.languageId || 71}
+                  code={code}
+                  verdict={verdict}
+                  enabled={!!user}
+                />
               )}
             </div>
           </div>

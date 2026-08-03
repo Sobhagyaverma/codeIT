@@ -10,6 +10,7 @@ import com.codeit.modules.auth.dto.AuthResponse;
 import com.codeit.modules.user.User;
 import com.codeit.modules.user.UserService;
 import com.codeit.modules.user.dto.UserLoginDTO;
+import com.codeit.security.crypto.SensitiveFieldDecryptor;
 
 @Service
 public class AuthService {
@@ -23,8 +24,16 @@ public class AuthService {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private SensitiveFieldDecryptor sensitiveFieldDecryptor;
+
     public AuthResponse login(UserLoginDTO dto) {
-        String login = dto.getLogin().trim();
+        String login = sensitiveFieldDecryptor
+                .resolve(dto.getLogin(), dto.isEncrypted(), "login")
+                .trim();
+        String password = sensitiveFieldDecryptor.resolve(
+                dto.getPassword(), dto.isEncrypted(), "password");
+
         User userByDB = looksLikeEmail(login)
                 ? userService.getUserByEmail(login)
                 : userService.getUserByUniqueUserId(login);
@@ -33,7 +42,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        boolean passwordOk = passwordEncoder.matches(dto.getPassword(), userByDB.getPassword());
+        boolean passwordOk = passwordEncoder.matches(password, userByDB.getPassword());
         if (!passwordOk) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }

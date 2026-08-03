@@ -369,24 +369,43 @@ public class ProfileRepository {
 
     public List<ContestHistoryDTO> getContestHistory(Integer userId) {
         String sql = """
+                WITH participant_scores AS (
+                    SELECT
+                        cp.competition_id,
+                        cp.user_id,
+                        COUNT(DISTINCT s.problem_id) AS solved_count,
+                        COALESCE(SUM(s.runtime), 0) AS total_time
+                    FROM competition_participants cp
+                    LEFT JOIN submissions s
+                      ON s.competition_id = cp.competition_id
+                     AND s.user_id = cp.user_id
+                     AND s.status = 'Accepted'
+                    GROUP BY cp.competition_id, cp.user_id
+                ),
+                ranked AS (
+                    SELECT
+                        competition_id,
+                        user_id,
+                        solved_count,
+                        total_time,
+                        RANK() OVER (
+                            PARTITION BY competition_id
+                            ORDER BY solved_count DESC, total_time ASC
+                        ) AS rank
+                    FROM participant_scores
+                )
                 SELECT
                     c.id AS competition_id,
                     c.title,
                     c.end_time,
-                    COALESCE(solved.solved_count, 0) AS solved,
-                    solved.total_time AS score
+                    COALESCE(r.solved_count, 0) AS solved,
+                    r.total_time AS score,
+                    r.rank AS rank
                 FROM competition_participants cp
                 JOIN competitions c ON c.id = cp.competition_id
-                LEFT JOIN (
-                    SELECT competition_id,
-                           COUNT(DISTINCT problem_id) AS solved_count,
-                           COALESCE(SUM(runtime), 0) AS total_time
-                    FROM submissions
-                    WHERE user_id = ?
-                      AND status = 'Accepted'
-                      AND competition_id IS NOT NULL
-                    GROUP BY competition_id
-                ) solved ON solved.competition_id = c.id
+                LEFT JOIN ranked r
+                  ON r.competition_id = c.id
+                 AND r.user_id = cp.user_id
                 WHERE cp.user_id = ?
                 ORDER BY c.end_time DESC NULLS LAST, c.id DESC
                 """;
@@ -400,44 +419,15 @@ public class ProfileRepository {
             Object score = rs.getObject("score");
             dto.setScore(score == null ? null : ((Number) score).doubleValue());
 
+            Object rank = rs.getObject("rank");
+            dto.setRank(rank == null ? null : ((Number) rank).intValue());
+
             Timestamp endTime = rs.getTimestamp("end_time");
             dto.setDate(endTime != null ? endTime.toInstant().toString() : null);
 
-            // Rank is filled later in ProfileService from live leaderboard.
-            dto.setRank(null);
             dto.setRatingDelta(null);
             return dto;
-        }, userId, userId);
-    }
-
-    public Integer findLeaderboardRank(Integer competitionId, Integer userId) {
-        String sql = """
-                SELECT ranked.rank
-                FROM (
-                    SELECT
-                        cp.user_id,
-                        RANK() OVER (
-                            ORDER BY COUNT(DISTINCT s.problem_id) DESC,
-                                     COALESCE(SUM(s.runtime), 0) ASC
-                        ) AS rank
-                    FROM competition_participants cp
-                    LEFT JOIN submissions s
-                      ON s.competition_id = cp.competition_id
-                     AND s.user_id = cp.user_id
-                     AND s.status = 'Accepted'
-                    WHERE cp.competition_id = ?
-                    GROUP BY cp.user_id
-                ) ranked
-                WHERE ranked.user_id = ?
-                """;
-
-        List<Integer> ranks = jdbcTemplate.query(
-                sql,
-                (rs, rowNum) -> rs.getInt("rank"),
-                competitionId,
-                userId);
-
-        return ranks.isEmpty() ? null : ranks.get(0);
+        }, userId);
     }
 
     public Map<String, Object> getActiveContestForUser(Integer userId) {

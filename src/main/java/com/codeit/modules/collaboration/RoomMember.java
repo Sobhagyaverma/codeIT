@@ -12,4 +12,8 @@ public class RoomMember {
     private String role;
     private Timestamp joinedAt;
     private Timestamp lastSeenAt;
+    /** Populated when loaded via JOIN users (avoids N+1). */
+    private String username;
+    /** users.name from JOIN; preferred for display. */
+    private String displayName;
 }

@@ -595,13 +595,25 @@ public class CollaborationService {
         response.setCreatedAt(room.getCreatedAt());
         response.setUpdatedAt(room.getUpdatedAt());
 
-        List<RoomMemberResponse> members = roomMemberRepository.findByRoomId(room.getId()).stream()
+        List<RoomMember> memberRows = roomMemberRepository.findByRoomId(room.getId());
+        List<RoomMemberResponse> members = memberRows.stream()
                 .map(this::toMemberResponse)
                 .toList();
         response.setMembers(members);
         response.setMemberCount(members.size());
-        response.setHostUsername(resolveUsername(room.getHostUserId()));
-        response.setHostName(resolveHostDisplayName(room.getHostUserId()));
+
+        RoomMember hostRow = memberRows.stream()
+                .filter(m -> room.getHostUserId() != null && room.getHostUserId().equals(m.getUserId()))
+                .findFirst()
+                .orElse(null);
+        String hostUsername = hostRow != null && hostRow.getUsername() != null
+                ? hostRow.getUsername()
+                : resolveUsername(room.getHostUserId());
+        String hostName = hostRow != null && hostRow.getDisplayName() != null
+                ? hostRow.getDisplayName()
+                : (hostUsername != null ? hostUsername : "user-" + room.getHostUserId());
+        response.setHostUsername(hostUsername);
+        response.setHostName(hostName);
         return response;
     }
 
@@ -646,22 +658,14 @@ public class CollaborationService {
         return trimmed;
     }
 
-    private String resolveHostDisplayName(Integer userId) {
-        return userRepository
-                .getUserById(userId)
-                .map(u -> {
-                    if (u.getName() != null && !u.getName().isBlank()) {
-                        return u.getName().trim();
-                    }
-                    return u.getUniqueUserId();
-                })
-                .orElse("user-" + userId);
-    }
-
     private RoomMemberResponse toMemberResponse(RoomMember member) {
         RoomMemberResponse response = new RoomMemberResponse();
         response.setUserId(member.getUserId());
-        response.setUsername(resolveUsername(member.getUserId()));
+        String username = member.getUsername();
+        if (username == null || username.isBlank()) {
+            username = resolveUsername(member.getUserId());
+        }
+        response.setUsername(username);
         response.setRole(member.getRole());
         response.setJoinedAt(member.getJoinedAt());
         return response;
@@ -671,7 +675,11 @@ public class CollaborationService {
         RoomMessageResponse response = new RoomMessageResponse();
         response.setId(message.getId());
         response.setUserId(message.getUserId());
-        response.setUsername(resolveUsername(message.getUserId()));
+        String username = message.getUsername();
+        if (username == null || username.isBlank()) {
+            username = resolveUsername(message.getUserId());
+        }
+        response.setUsername(username);
         response.setContent(message.getContent());
         response.setCreatedAt(message.getCreatedAt());
         return response;

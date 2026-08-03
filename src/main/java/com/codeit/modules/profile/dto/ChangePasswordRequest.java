@@ -1,7 +1,6 @@
 package com.codeit.modules.profile.dto;
 
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
@@ -11,6 +10,8 @@ public class ChangePasswordRequest {
     private String currentPassword;
 
     @NotEmpty(message = "New password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
     private String newPassword;
+
+    /** When true, password fields are RSA-OAEP Base64 ciphertexts. */
+    private boolean encrypted;
 }

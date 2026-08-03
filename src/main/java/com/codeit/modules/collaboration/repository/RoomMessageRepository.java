@@ -52,10 +52,12 @@ public class RoomMessageRepository {
     public List<RoomMessage> findRecentByRoomId(UUID roomId, int limit) {
         List<RoomMessage> newestFirst = jdbcTemplate.query(
                 """
-                SELECT id, room_id, user_id, content, created_at
-                FROM room_messages
-                WHERE room_id = ?
-                ORDER BY created_at DESC, id DESC
+                SELECT m.id, m.room_id, m.user_id, m.content, m.created_at,
+                       u.uniqueuserid AS username
+                FROM room_messages m
+                LEFT JOIN users u ON u.id = m.user_id
+                WHERE m.room_id = ?
+                ORDER BY m.created_at DESC, m.id DESC
                 LIMIT ?
                 """,
                 (rs, rowNum) -> mapMessage(rs),
@@ -74,6 +76,14 @@ public class RoomMessageRepository {
         message.setUserId(rs.getInt("user_id"));
         message.setContent(rs.getString("content"));
         message.setCreatedAt(rs.getTimestamp("created_at"));
+        try {
+            String username = rs.getString("username");
+            if (username != null && !username.isBlank()) {
+                message.setUsername(username);
+            }
+        } catch (SQLException ignored) {
+            // Column absent on insert-only mapping
+        }
         return message;
     }
 }

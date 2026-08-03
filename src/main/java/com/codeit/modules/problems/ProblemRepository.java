@@ -36,6 +36,21 @@ public class ProblemRepository {
         return Boolean.TRUE.equals(jdbcTemplate.query(sql, rs -> rs.next() ? true : null, id));
     }
 
+    /** Returns ids from the input list that do not exist in problems. */
+    public List<Integer> findMissingIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        String sql = "SELECT id FROM problems WHERE id IN (" + placeholders + ")";
+        List<Integer> found = jdbcTemplate.query(
+                sql,
+                ids.toArray(),
+                (rs, rowNum) -> rs.getInt("id"));
+        java.util.Set<Integer> foundSet = new java.util.HashSet<>(found);
+        return ids.stream().filter(id -> id != null && !foundSet.contains(id)).distinct().toList();
+    }
+
     public Problem getProblemById(Integer id) {
         String sql = """
                 SELECT * FROM problems

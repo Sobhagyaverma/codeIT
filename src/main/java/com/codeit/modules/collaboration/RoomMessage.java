@@ -12,4 +12,6 @@ public class RoomMessage {
     private Integer userId;
     private String content;
     private Timestamp createdAt;
+    /** Populated when loaded via JOIN users (avoids N+1). */
+    private String username;
 }

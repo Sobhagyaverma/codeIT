@@ -96,6 +96,39 @@ public class CompetitionRepository {
         }
     }
 
+    /** Batch insert competition↔problem links (ON CONFLICT DO NOTHING). */
+    public int addProblemsToCompetitionBatch(Integer competitionId, List<Integer> problemIds) {
+        if (problemIds == null || problemIds.isEmpty()) {
+            return 0;
+        }
+        String sql = """
+                INSERT INTO competition_problems(competition_id, problem_id)
+                VALUES (?, ?)
+                ON CONFLICT DO NOTHING
+                """;
+        try {
+            int[] counts = jdbcTemplate.batchUpdate(sql, new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(java.sql.PreparedStatement ps, int i) throws java.sql.SQLException {
+                    ps.setInt(1, competitionId);
+                    ps.setInt(2, problemIds.get(i));
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return problemIds.size();
+                }
+            });
+            int total = 0;
+            for (int c : counts) {
+                total += Math.max(c, 0);
+            }
+            return total;
+        } catch (DataAccessException e) {
+            throw new RuntimeException("Failed to add problems to competition", e);
+        }
+    }
+
     public List<Integer> getCompetitionProblems(Integer competitionId) {
         String sql = """
                 SELECT problem_id

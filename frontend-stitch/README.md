@@ -31,6 +31,15 @@ VITE_SYNC_WS_URL=ws://localhost:1234
 
 Auth tokens use `codeit.stitch.*` keys (separate from the legacy frontend).
 
+## Sensitive auth (RSA-OAEP)
+
+Login identifier, passwords (login / register / change-password) are encrypted in the browser with the server’s RSA public key (`GET /api/crypto/public-key`) before POST. Backend decrypts with the private key, then bcrypt as usual.
+
+- Algorithm: RSA-OAEP SHA-256
+- Config (Spring): `codeit.crypto.rsa.*` in `application.properties`
+- Private key file (gitignored): `data/codeit-rsa-private.pem` (auto-generated locally)
+- This is defense-in-depth for plaintext JSON; **use HTTPS in production**
+
 ## Screen map
 
 | Area | Route | Notes |

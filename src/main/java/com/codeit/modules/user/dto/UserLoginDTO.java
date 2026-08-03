@@ -13,4 +13,7 @@ public class UserLoginDTO {
     private String login;
     @NotEmpty(message = "Password cant be empty")
     private String password;
+
+    /** When true, login + password are RSA-OAEP Base64 ciphertexts. */
+    private boolean encrypted;
 }

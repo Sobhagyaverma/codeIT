@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.codeit.modules.user.dto.RegisterRequest;
+import com.codeit.security.crypto.SensitiveFieldDecryptor;
 
 @Service
 public class UserService {
@@ -19,6 +20,9 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private SensitiveFieldDecryptor sensitiveFieldDecryptor;
+
     public List<User> getUsers() {
         return userRepository.getUsers();
     }
@@ -27,6 +31,12 @@ public class UserService {
         String name = request.getName().trim();
         String uniqueUserId = request.getUniqueUserId().trim();
         String email = request.getEmail().trim();
+        String password = sensitiveFieldDecryptor.resolve(
+                request.getPassword(), request.isEncrypted(), "password");
+        if (password.length() < 6) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Password must be at least 6 characters");
+        }
 
         if (userRepository.getUserByUniqueUserId(uniqueUserId) != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Unique user ID already exists");
@@ -42,7 +52,7 @@ public class UserService {
         user.setEmail(email);
         // Public register always creates USER — never trust client-supplied role
         user.setRole("USER");
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setPassword(passwordEncoder.encode(password));
 
         int result = userRepository.createUser(user);
         if (result <= 0) {

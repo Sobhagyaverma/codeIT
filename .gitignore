@@ -45,6 +45,8 @@ logs/
 !.env.example
 application-local.properties
 **/application-local.properties
+data/
+*.pem
 
 # Node
 node_modules/

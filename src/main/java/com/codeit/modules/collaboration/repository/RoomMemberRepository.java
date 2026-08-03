@@ -49,10 +49,13 @@ public class RoomMemberRepository {
     public List<RoomMember> findByRoomId(UUID roomId) {
         return jdbcTemplate.query(
                 """
-                        SELECT room_id, user_id, role, joined_at, last_seen_at
-                        FROM room_members
-                        WHERE room_id = ?
-                        ORDER BY joined_at ASC
+                        SELECT m.room_id, m.user_id, m.role, m.joined_at, m.last_seen_at,
+                               u.uniqueuserid AS username,
+                               u.name AS display_name
+                        FROM room_members m
+                        LEFT JOIN users u ON u.id = m.user_id
+                        WHERE m.room_id = ?
+                        ORDER BY m.joined_at ASC
                         """,
                 (rs, rowNum) -> mapMember(rs),
                 roomId);
@@ -61,9 +64,12 @@ public class RoomMemberRepository {
     public Optional<RoomMember> findByRoomIdAndUserId(UUID roomId, Integer userId) {
         List<RoomMember> members = jdbcTemplate.query(
                 """
-                        SELECT room_id, user_id, role, joined_at, last_seen_at
-                        FROM room_members
-                        WHERE room_id = ? AND user_id = ?
+                        SELECT m.room_id, m.user_id, m.role, m.joined_at, m.last_seen_at,
+                               u.uniqueuserid AS username,
+                               u.name AS display_name
+                        FROM room_members m
+                        LEFT JOIN users u ON u.id = m.user_id
+                        WHERE m.room_id = ? AND m.user_id = ?
                         """,
                 (rs, rowNum) -> mapMember(rs),
                 roomId,
@@ -244,6 +250,18 @@ public class RoomMemberRepository {
         member.setRole(rs.getString("role"));
         member.setJoinedAt(rs.getTimestamp("joined_at"));
         member.setLastSeenAt(rs.getTimestamp("last_seen_at"));
+        try {
+            String username = rs.getString("username");
+            if (username != null && !username.isBlank()) {
+                member.setUsername(username);
+            }
+            String displayName = rs.getString("display_name");
+            if (displayName != null && !displayName.isBlank()) {
+                member.setDisplayName(displayName.trim());
+            }
+        } catch (SQLException ignored) {
+            // Column absent on older SELECT shapes
+        }
         return member;
     }
 }

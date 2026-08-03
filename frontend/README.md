@@ -11,6 +11,7 @@ CodeIT is a full-stack coding platform inspired by platforms like LeetCode and H
 - User Login
 - JWT Authentication
 - Role-based access (User/Admin)
+- RSA-OAEP encryption for login id / passwords (login, register, change-password) via `GET /api/crypto/public-key` — defense-in-depth; still use HTTPS in production
 
 ---
 
