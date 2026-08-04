@@ -23,9 +23,10 @@ public class User {
     private String avatarUrl;
     private String location;
     private Boolean showEmail;
+    private Boolean emailVerified;
+    private Integer tokenVersion;
     private Instant createdAt;
     private Instant updatedAt;
-
 
     public User(String id, String name, String uniqueUserId, String email, String password, String role) {
         this.id = id;
@@ -34,7 +35,6 @@ public class User {
         this.email = email;
         this.password = password;
         this.role = role;
-
 
     }
 

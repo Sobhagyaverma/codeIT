@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import AppNav from "../components/AppNav";
 import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationsContext";
 import {
   ApiError,
   getMyProfile,
@@ -243,6 +244,7 @@ function ContestRow({ row }: { row: ProfileContestHistory }) {
 
 export default function Profile() {
   const { user } = useAuth();
+  const { friendsVersion } = useNotifications();
   const { username } = useParams();
   const [params, setParams] = useSearchParams();
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
@@ -315,7 +317,7 @@ export default function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [user, isPublicRoute, username]);
+  }, [user, isPublicRoute, username, friendsVersion]);
 
   const loadMoreSubmissions = async () => {
     if (!isOwner || loadingMore) return;
@@ -436,12 +438,16 @@ export default function Profile() {
             </section>
 
             {/* Stats */}
-            <section className="grid grid-cols-2 gap-6 md:grid-cols-6">
+            <section className="grid grid-cols-2 gap-6 md:grid-cols-4 xl:grid-cols-7">
               {[
                 {
                   label: "Total Solved",
                   value: String(stats.totalSolved),
                   glow: true,
+                },
+                {
+                  label: "Friends",
+                  value: String(stats.friendCount ?? 0),
                 },
                 {
                   label: "Submissions",

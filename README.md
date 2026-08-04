@@ -2,7 +2,7 @@
 
 CodeIT is a full-stack competitive programming platform for solving problems, running and submitting code, joining timed contests with live leaderboards, collaborating in shared rooms, and getting AI-assisted mentoring.
 
-Stack: React + TypeScript frontends, Spring Boot API, PostgreSQL, optional Redis, Judge0, JWT auth, STOMP WebSockets, and a Yjs sync server for real-time editor/whiteboard sync.
+Stack: React + TypeScript frontends, Spring Boot API, PostgreSQL, Redis, Judge0, JWT auth, STOMP WebSockets, and a Yjs sync server for real-time editor/whiteboard sync.
 
 > **Project status:** Core coding, judging, submissions, competitions, profile, AI learning coach (Groq), collaboration (CodeRoom + Problem Collab), and an ADMIN Command Center (problem + competition studios) are implemented. The Stitch UI (`frontend-stitch/`) is the polished app under active migration; the original `frontend/` remains available.
 
@@ -26,7 +26,7 @@ flowchart LR
     Browser <-->|STOMP / SockJS + JWT| WS[WebSocket Broker]
     Browser <-->|Yjs WebSocket| Sync[sync-server]
     API --> PostgreSQL[(PostgreSQL)]
-    API -.->|optional| Redis[(Redis)]
+    API --> Redis[(Redis)]
     API --> Judge0[Judge0]
     API --> Groq[Groq LLM]
     API --> WS
@@ -35,10 +35,10 @@ flowchart LR
 
 ### Frontends
 
-| App | Path | Dev URL | Role |
-| --- | --- | --- | --- |
+| App           | Path               | Dev URL               | Role                                         |
+| ------------- | ------------------ | --------------------- | -------------------------------------------- |
 | **Stitch UI** | `frontend-stitch/` | http://localhost:5175 | Primary polished UI (Stitch screens + admin) |
-| Legacy UI | `frontend/` | http://localhost:5173 | Original production frontend |
+| Legacy UI     | `frontend/`        | http://localhost:5173 | Original production frontend                 |
 
 Both talk to the same API (`9091`) and sync-server (`1234`). Auth storage keys differ (`codeit.stitch.*` vs production keys) so sessions do not clash.
 
@@ -54,18 +54,21 @@ Both talk to the same API (`9091`) and sync-server (`1234`). Auth storage keys d
 
 ## Tech Stack
 
-| Layer | Technologies |
-| --- | --- |
-| Frontend | React 19, TypeScript, Vite, Tailwind 4, Monaco, Excalidraw (legacy), Yjs, STOMP/SockJS |
-| Backend | Java 21, Spring Boot 4, Security, JDBC, Flyway, WebSocket, JJWT, HttpClient 5 |
-| Data / infra | PostgreSQL, optional Redis, Judge0, Groq, Node sync-server |
+| Layer        | Technologies                                                                           |
+| ------------ | -------------------------------------------------------------------------------------- |
+| Frontend     | React 19, TypeScript, Vite, Tailwind 4, Monaco, Excalidraw (legacy), Yjs, STOMP/SockJS |
+| Backend      | Java 21, Spring Boot 4, Security, JDBC, Flyway, WebSocket, JJWT, HttpClient 5          |
+| Data / infra | PostgreSQL, Redis, Judge0, Groq, Node sync-server                                      |
 
 ## Features
 
 ### Authentication
 
 - Register with display name, unique user ID, email, password
+- Email verification OTP (Brevo SMTP + Redis); login blocked until verified
 - Login with email or unique user ID
+- Forgot-password OTP wizard (request → verify → reset); JWT `token_version` invalidates old sessions
+- Contact form posts to `/api/contact` (stored + emailed to inbox)
 - BCrypt passwords, stateless JWT, `USER` / `ADMIN` roles
 - Public registration always creates `USER`
 - Profile settings (`/settings/profile`) for all logged-in users
@@ -95,13 +98,13 @@ Both talk to the same API (`9091`) and sync-server (`1234`). Auth storage keys d
 
 ADMIN-only UI at `/admin` (also `/admin/competitions`, `/admin/competitions/create`):
 
-| Area | What it does | Backend used |
-| --- | --- | --- |
-| Dashboard | KPIs, recent problems/competitions, quick actions | List APIs |
-| Problem Repository | Search/filter/paginate problems | `GET /api/problems` |
-| Problem Studio | Author statement, examples, hidden tests, Monaco starters | `POST /api/problems` |
-| Competition Repository | List/filter contests | `GET /api/competitions/getAllCompetitions` |
-| Competition Studio | Create contest + ordered problem set | `POST …/create` + `addProblemsTo` |
+| Area                   | What it does                                              | Backend used                               |
+| ---------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| Dashboard              | KPIs, recent problems/competitions, quick actions         | List APIs                                  |
+| Problem Repository     | Search/filter/paginate problems                           | `GET /api/problems`                        |
+| Problem Studio         | Author statement, examples, hidden tests, Monaco starters | `POST /api/problems`                       |
+| Competition Repository | List/filter contests                                      | `GET /api/competitions/getAllCompetitions` |
+| Competition Studio     | Create contest + ordered problem set                      | `POST …/create` + `addProblemsTo`          |
 
 Draft autosave in studios is **localStorage** only (no draft API). Fields not on the DTO (slug, rules toggles, judge sliders, scoring model) stay UI-only.
 
@@ -117,7 +120,7 @@ Enabled by default (`codeit.ratelimit.enabled=true`). Covers login/register, run
 
 ### Caching
 
-When Redis is enabled (`codeit.redis.enabled=true`), cache-aside covers problems, test cases, competitions, and leaderboards. With the default config, Redis autoconfig is excluded and caches no-op.
+- Redis cache-aside when enabled (`codeit.redis.enabled=true`, default on). OTP requires Redis.
 
 ## Judge Architecture
 
@@ -148,19 +151,19 @@ Trailing whitespace per line is ignored; other differences matter.
 
 ## Supported Languages
 
-| Language | Slug | Judge0 ID | Submit engine |
-| --- | --- | ---: | --- |
-| C | `c` | 50 | Compile once |
-| C# | `csharp` | 51 | Progressive batch |
-| C++ | `cpp` | 54 | Compile once |
-| Go | `go` | 60 | Compile once |
-| Java | `java` | 62 | Compile once |
-| JavaScript | `javascript` | 63 | Compile once |
-| PHP | `php` | 68 | Compile once |
-| Python | `python` | 71 | Compile once |
-| Ruby | `ruby` | 72 | Compile once |
-| Rust | `rust` | 73 | Compile once |
-| TypeScript | `typescript` | 74 | Compile once |
+| Language   | Slug         | Judge0 ID | Submit engine     |
+| ---------- | ------------ | --------: | ----------------- |
+| C          | `c`          |        50 | Compile once      |
+| C#         | `csharp`     |        51 | Progressive batch |
+| C++        | `cpp`        |        54 | Compile once      |
+| Go         | `go`         |        60 | Compile once      |
+| Java       | `java`       |        62 | Compile once      |
+| JavaScript | `javascript` |        63 | Compile once      |
+| PHP        | `php`        |        68 | Compile once      |
+| Python     | `python`     |        71 | Compile once      |
+| Ruby       | `ruby`       |        72 | Compile once      |
+| Rust       | `rust`       |        73 | Compile once      |
+| TypeScript | `typescript` |        74 | Compile once      |
 
 ```http
 GET /api/submissions/languages
@@ -171,17 +174,17 @@ Programs must read stdin and write stdout.
 
 ## Competition Model
 
-| Global status | Condition |
-| --- | --- |
-| `UPCOMING` | before `startTime` |
-| `ACTIVE` | between `startTime` and `endTime` |
-| `ENDED` | after `endTime` |
+| Global status | Condition                         |
+| ------------- | --------------------------------- |
+| `UPCOMING`    | before `startTime`                |
+| `ACTIVE`      | between `startTime` and `endTime` |
+| `ENDED`       | after `endTime`                   |
 
-| Session status | Meaning |
-| --- | --- |
-| `JOINED` | joined, timer not started |
-| `IN_PROGRESS` | personal timer running |
-| `ENDED` | ended or deadline expired |
+| Session status | Meaning                   |
+| -------------- | ------------------------- |
+| `JOINED`       | joined, timer not started |
+| `IN_PROGRESS`  | personal timer running    |
+| `ENDED`        | ended or deadline expired |
 
 Personal deadline: `min(session start + duration, global end)`.
 
@@ -193,7 +196,7 @@ Leaderboard: distinct accepted problems (desc), then total accepted runtime (asc
 - Node.js `^20.19.0` or `>=22.12.0`
 - PostgreSQL
 - Judge0 with multi-file language `89`
-- Redis optional
+- Redis enabled by default (OTP / rate limits / cache)
 - `GROQ_API_KEY` if using the AI coach
 
 Maven wrapper is included (`./mvnw`).
@@ -219,17 +222,57 @@ Flyway runs automatically on API startup for incremental migrations:
 - `V1__ai_coach_tables.sql`
 - `V2__collaboration_rooms.sql`
 - `V3__room_host_note.sql`
+- `V4__email_verified_and_token_version.sql`
+- `V5__contact_messages.sql`
 
 For older databases that predate the consolidated `schema.sql`, apply the legacy one-shots under `schema/` if needed (`users_name_uniqueuserid.sql`, `competition_session.sql`, `profile.sql`).
 
 Profile API notes: [`docs/PROFILE_API_INTEGRATION.md`](docs/PROFILE_API_INTEGRATION.md).
 
-### 3. Redis (optional)
+### 3. Redis (required)
 
-Default config has Redis **disabled**. To enable:
+Redis is **enabled by default** (`codeit.redis.enabled=true`). OTP / forgot-password require it (fail closed with `EMAIL_TEMPORARILY_UNAVAILABLE` without Redis). Rate limits and cache-aside also use Redis when the server is up.
 
-1. Start Redis (`docker run -d --name codeit-redis -p 6379:6379 redis:7`)
-2. Set `codeit.redis.enabled=true` and remove the Redis entries from `spring.autoconfigure.exclude` in `application.properties`
+Start Redis before the API:
+
+```bash
+docker run -d --name codeit-redis -p 6379:6379 redis:7
+```
+
+Optional overrides: `SPRING_DATA_REDIS_HOST`, `SPRING_DATA_REDIS_PORT`.
+
+### 3b. Email (Brevo free SMTP)
+
+1. Create a free [Brevo](https://www.brevo.com/) account → SMTP & API → generate an SMTP key
+2. Set env vars (never commit keys):
+
+```bash
+export CODEIT_MAIL_ENABLED=true
+export CODEIT_MAIL_FROM='CodeIT <noreply@yourdomain-or-brevo-sender>'
+export CODEIT_MAIL_INBOX='you@example.com'   # Contact Us destination
+export SPRING_MAIL_USERNAME='your-brevo-login-email'
+export BREVO_SMTP_KEY='your-smtp-key'
+export CODEIT_OTP_PEPPER='long-random-pepper'
+```
+
+Defaults in `application.properties`: host `smtp-relay.brevo.com`, port `587`, STARTTLS.
+
+Manual test checklist: [`docs/EMAIL_OTP_CONTACT_TEST.md`](docs/EMAIL_OTP_CONTACT_TEST.md).
+
+### 3c. Cloudflare Turnstile (captcha)
+
+Protects login, register, verify-email, forgot-password, and contact when enabled.
+
+1. Create a widget in the [Cloudflare Turnstile dashboard](https://dash.cloudflare.com/?to=/:account/turnstile)
+2. Set env vars:
+
+```bash
+export CODEIT_CAPTCHA_ENABLED=true
+export TURNSTILE_SITE_KEY=your-site-key
+export TURNSTILE_SECRET_KEY=your-secret-key
+```
+
+Frontend loads site key from `GET /api/captcha/config`. Captcha stays off when `CODEIT_CAPTCHA_ENABLED` is false (local default).
 
 ### 4. Judge0
 
@@ -247,6 +290,15 @@ export SPRING_DATASOURCE_PASSWORD=your_password
 export JUDGE0_API_URL=https://judge0.ktatva.com
 export CODEIT_JWT_SECRET=replace-with-a-secret-at-least-32-characters-long
 export GROQ_API_KEY=your_groq_api_key
+export CODEIT_MAIL_ENABLED=true
+export CODEIT_MAIL_FROM='CodeIT <noreply@example.com>'
+export CODEIT_MAIL_INBOX=you@example.com
+export SPRING_MAIL_USERNAME=your-brevo-login-email
+export BREVO_SMTP_KEY=your-smtp-key
+export CODEIT_OTP_PEPPER=long-random-pepper
+export CODEIT_CAPTCHA_ENABLED=true
+export TURNSTILE_SITE_KEY=your-site-key
+export TURNSTILE_SECRET_KEY=your-secret-key
 ```
 
 Never put API keys in source files or commits.
@@ -307,30 +359,30 @@ Promote a user to admin (SQL), then open `/admin` in the Stitch app.
 
 ## Default Ports
 
-| Service | Port |
-| --- | ---: |
+| Service                             | Port |
+| ----------------------------------- | ---: |
 | Stitch frontend (`frontend-stitch`) | 5175 |
-| Legacy frontend (`frontend`) | 5173 |
-| Spring Boot API | 9091 |
-| Yjs sync-server | 1234 |
-| PostgreSQL | 5432 |
-| Redis (optional) | 6379 |
-| Judge0 | 2358 |
+| Legacy frontend (`frontend`)        | 5173 |
+| Spring Boot API                     | 9091 |
+| Yjs sync-server                     | 1234 |
+| PostgreSQL                          | 5432 |
+| Redis (optional)                    | 6379 |
+| Judge0                              | 2358 |
 
 ## Configuration Reference
 
-| Property | Default | Purpose |
-| --- | --- | --- |
-| `server.port` | `9091` | Backend HTTP port |
-| `judge0.api.url` | `https://judge0.ktatva.com` | Judge0 base URL |
-| `codeit.redis.enabled` | `false` | Enable Redis caching |
-| `codeit.jwt.expiration-ms` | `86400000` | JWT lifetime |
-| `codeit.ratelimit.enabled` | `true` | HTTP / judge / AI / room limits |
-| `codeit.ai.enabled` | `true` | AI coach |
-| `codeit.ai.groq.api-key` | `${GROQ_API_KEY:}` | Groq API key |
-| `codeit.cache.*` | see `application.properties` | Cache TTLs when Redis is on |
-| `codeit.judge.*` | see `application.properties` | Judge batch / timeout settings |
-| `codeit.http.*` | see `application.properties` | Judge0 HTTP pool / timeouts |
+| Property                   | Default                      | Purpose                                |
+| -------------------------- | ---------------------------- | -------------------------------------- |
+| `server.port`              | `9091`                       | Backend HTTP port                      |
+| `judge0.api.url`           | `https://judge0.ktatva.com`  | Judge0 base URL                        |
+| `codeit.redis.enabled`     | `true`                       | Enable Redis (OTP, rate limits, cache) |
+| `codeit.jwt.expiration-ms` | `86400000`                   | JWT lifetime                           |
+| `codeit.ratelimit.enabled` | `true`                       | HTTP / judge / AI / room limits        |
+| `codeit.ai.enabled`        | `true`                       | AI coach                               |
+| `codeit.ai.groq.api-key`   | `${GROQ_API_KEY:}`           | Groq API key                           |
+| `codeit.cache.*`           | see `application.properties` | Cache TTLs when Redis is on            |
+| `codeit.judge.*`           | see `application.properties` | Judge batch / timeout settings         |
+| `codeit.http.*`            | see `application.properties` | Judge0 HTTP pool / timeouts            |
 
 ## Authentication
 
@@ -374,103 +426,103 @@ Auth: **Public** | **JWT** | **ADMIN**
 
 ### Auth and users
 
-| Method | Endpoint | Auth |
-| --- | --- | --- |
-| `POST` | `/api/auth/login` | Public |
-| `POST` | `/api/user/register` | Public |
-| `GET` | `/api/user/getUsers` | ADMIN |
-| `GET` | `/api/user/getUser/{id}` | ADMIN |
-| `DELETE` | `/api/user/deleteUser/{id}` | ADMIN |
+| Method   | Endpoint                    | Auth   |
+| -------- | --------------------------- | ------ |
+| `POST`   | `/api/auth/login`           | Public |
+| `POST`   | `/api/user/register`        | Public |
+| `GET`    | `/api/user/getUsers`        | ADMIN  |
+| `GET`    | `/api/user/getUser/{id}`    | ADMIN  |
+| `DELETE` | `/api/user/deleteUser/{id}` | ADMIN  |
 
 ### Problems
 
-| Method | Endpoint | Description | Auth |
-| --- | --- | --- | --- |
-| `GET` | `/api/problems` | List public problem data | JWT |
-| `GET` | `/api/problems/{id}` | Get public problem details | JWT |
-| `GET` | `/api/problems/difficulty/{difficulty}` | Filter by difficulty | JWT |
-| `GET` | `/api/problems/topic/{topic}` | Filter by topic | JWT |
-| `GET` | `/api/problems/search?keyword=` | Search by keyword | JWT |
-| `POST` | `/api/problems` | Create a problem | ADMIN |
+| Method | Endpoint                                | Description                | Auth  |
+| ------ | --------------------------------------- | -------------------------- | ----- |
+| `GET`  | `/api/problems`                         | List public problem data   | JWT   |
+| `GET`  | `/api/problems/{id}`                    | Get public problem details | JWT   |
+| `GET`  | `/api/problems/difficulty/{difficulty}` | Filter by difficulty       | JWT   |
+| `GET`  | `/api/problems/topic/{topic}`           | Filter by topic            | JWT   |
+| `GET`  | `/api/problems/search?keyword=`         | Search by keyword          | JWT   |
+| `POST` | `/api/problems`                         | Create a problem           | ADMIN |
 
 Hidden tests are excluded from public problem responses.
 
 ### Submissions
 
-| Method | Endpoint | Description | Auth |
-| --- | --- | --- | --- |
-| `GET` | `/api/submissions/languages` | List supported languages | JWT |
-| `POST` | `/api/submissions/run` | Execute code without saving | JWT |
-| `POST` | `/api/submissions/submit` | Judge hidden tests and save verdict | JWT |
-| `GET` | `/api/submissions/user/{userId}` | Own history, or any user as admin | JWT |
-| `GET` | `/api/submissions/problem/{problemId}` | List submissions for a problem | JWT |
+| Method | Endpoint                               | Description                         | Auth |
+| ------ | -------------------------------------- | ----------------------------------- | ---- |
+| `GET`  | `/api/submissions/languages`           | List supported languages            | JWT  |
+| `POST` | `/api/submissions/run`                 | Execute code without saving         | JWT  |
+| `POST` | `/api/submissions/submit`              | Judge hidden tests and save verdict | JWT  |
+| `GET`  | `/api/submissions/user/{userId}`       | Own history, or any user as admin   | JWT  |
+| `GET`  | `/api/submissions/problem/{problemId}` | List submissions for a problem      | JWT  |
 
 ### Competitions
 
-| Method | Endpoint | Description | Auth |
-| --- | --- | --- | --- |
-| `POST` | `/api/competitions/create` | Create a competition | ADMIN |
-| `GET` | `/api/competitions/getAllCompetitions` | List competitions | JWT |
-| `GET` | `/api/competitions/get/{id}` | Get a competition | JWT |
-| `POST` | `/api/competitions/addProblemsTo/{competitionId}/problems` | Assign problems | ADMIN |
-| `GET` | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get competition problem IDs | JWT |
-| `POST` | `/api/competitions/{competitionId}/join` | Join using JWT identity | JWT |
-| `POST` | `/api/competitions/{competitionId}/start` | Start personal timer | JWT |
-| `POST` | `/api/competitions/{competitionId}/end` | End personal session | JWT |
-| `GET` | `/api/competitions/{competitionId}/session` | Get personal session | JWT |
-| `GET` | `/api/competitions/{competitionId}/participants` | List participant IDs | JWT |
-| `POST` | `/api/competitions/{competitionId}/submit` | Submit a contest solution | JWT |
-| `GET` | `/api/competitions/{competitionId}/leaderboard` | Get standings | JWT |
-| `PATCH` | `/api/competitions/{competitionId}/times` | Update start and end times | ADMIN |
+| Method  | Endpoint                                                   | Description                 | Auth  |
+| ------- | ---------------------------------------------------------- | --------------------------- | ----- |
+| `POST`  | `/api/competitions/create`                                 | Create a competition        | ADMIN |
+| `GET`   | `/api/competitions/getAllCompetitions`                     | List competitions           | JWT   |
+| `GET`   | `/api/competitions/get/{id}`                               | Get a competition           | JWT   |
+| `POST`  | `/api/competitions/addProblemsTo/{competitionId}/problems` | Assign problems             | ADMIN |
+| `GET`   | `/api/competitions/getProblemsOf/{competitionId}/problems` | Get competition problem IDs | JWT   |
+| `POST`  | `/api/competitions/{competitionId}/join`                   | Join using JWT identity     | JWT   |
+| `POST`  | `/api/competitions/{competitionId}/start`                  | Start personal timer        | JWT   |
+| `POST`  | `/api/competitions/{competitionId}/end`                    | End personal session        | JWT   |
+| `GET`   | `/api/competitions/{competitionId}/session`                | Get personal session        | JWT   |
+| `GET`   | `/api/competitions/{competitionId}/participants`           | List participant IDs        | JWT   |
+| `POST`  | `/api/competitions/{competitionId}/submit`                 | Submit a contest solution   | JWT   |
+| `GET`   | `/api/competitions/{competitionId}/leaderboard`            | Get standings               | JWT   |
+| `PATCH` | `/api/competitions/{competitionId}/times`                  | Update start and end times  | ADMIN |
 
 ### Collaboration rooms
 
-| Method | Endpoint | Auth |
-| --- | --- | --- |
-| `POST` | `/api/rooms` | JWT |
-| `POST` | `/api/rooms/join/{inviteToken}` | JWT |
-| `GET` | `/api/rooms/{roomId}` | JWT |
-| `GET` | `/api/rooms/{roomId}/sync-token` | JWT |
-| `POST` | `/api/rooms/{roomId}/run` | JWT |
-| `POST` | `/api/rooms/{roomId}/submit` | JWT |
-| `GET`/`POST` | `/api/rooms/{roomId}/messages` | JWT |
+| Method       | Endpoint                         | Auth |
+| ------------ | -------------------------------- | ---- |
+| `POST`       | `/api/rooms`                     | JWT  |
+| `POST`       | `/api/rooms/join/{inviteToken}`  | JWT  |
+| `GET`        | `/api/rooms/{roomId}`            | JWT  |
+| `GET`        | `/api/rooms/{roomId}/sync-token` | JWT  |
+| `POST`       | `/api/rooms/{roomId}/run`        | JWT  |
+| `POST`       | `/api/rooms/{roomId}/submit`     | JWT  |
+| `GET`/`POST` | `/api/rooms/{roomId}/messages`   | JWT  |
 
 ### AI coach
 
-| Method | Endpoint | Auth |
-| --- | --- | --- |
-| `POST` | `/api/ai/coach` | JWT |
-| `POST` | `/api/ai/explain` | JWT |
-| `POST` | `/api/ai/hints` | JWT |
-| `POST` | `/api/ai/analyze` | JWT |
-| `POST` | `/api/ai/analyze-failure` | JWT |
-| `POST` | `/api/ai/review` | JWT |
+| Method | Endpoint                  | Auth |
+| ------ | ------------------------- | ---- |
+| `POST` | `/api/ai/coach`           | JWT  |
+| `POST` | `/api/ai/explain`         | JWT  |
+| `POST` | `/api/ai/hints`           | JWT  |
+| `POST` | `/api/ai/analyze`         | JWT  |
+| `POST` | `/api/ai/analyze-failure` | JWT  |
+| `POST` | `/api/ai/review`          | JWT  |
 
 ### Health
 
-| Method | Endpoint | Auth |
-| --- | --- | --- |
-| `GET` | `/api/health/redis` | Public |
+| Method | Endpoint            | Auth   |
+| ------ | ------------------- | ------ |
+| `GET`  | `/api/health/redis` | Public |
 
 ## WebSocket Updates
 
 STOMP over SockJS:
 
-| Setting | Value |
-| --- | --- |
-| Endpoint | `http://localhost:9091/ws` |
-| Broker prefix | `/topic` |
-| Application prefix | `/app` |
+| Setting            | Value                      |
+| ------------------ | -------------------------- |
+| Endpoint           | `http://localhost:9091/ws` |
+| Broker prefix      | `/topic`                   |
+| Application prefix | `/app`                     |
 
 The SockJS handshake is public; **STOMP CONNECT requires a JWT** (`Authorization: Bearer` / STOMP headers via `StompAuthChannelInterceptor`).
 
 ### Competition topics
 
-| Topic | Trigger |
-| --- | --- |
-| `/topic/competitions/{id}/leaderboard` | Accepted contest submission |
-| `/topic/competitions/{id}/status` | Status / time change |
-| `/topic/competitions/{id}/users/{userId}/session` | Start / end / expire |
+| Topic                                             | Trigger                     |
+| ------------------------------------------------- | --------------------------- |
+| `/topic/competitions/{id}/leaderboard`            | Accepted contest submission |
+| `/topic/competitions/{id}/status`                 | Status / time change        |
+| `/topic/competitions/{id}/users/{userId}/session` | Start / end / expire        |
 
 ### Collaboration topics
 
@@ -478,12 +530,12 @@ Room presence, chat, and run events under `/topic/rooms/...` (see collaboration 
 
 ## Redis Cache Keys (when enabled)
 
-| Key | Default TTL |
-| --- | ---: |
-| `problem:public:{id}` / `problem:judge:{id}` / `problem:all` | 30 min |
-| `testcases:problem:{id}` | 30 min |
-| `competitions:all` / `competition:{id}` | 2 min |
-| `leaderboard:competition:{id}` | 60 s |
+| Key                                                          | Default TTL |
+| ------------------------------------------------------------ | ----------: |
+| `problem:public:{id}` / `problem:judge:{id}` / `problem:all` |      30 min |
+| `testcases:problem:{id}`                                     |      30 min |
+| `competitions:all` / `competition:{id}`                      |       2 min |
+| `leaderboard:competition:{id}`                               |        60 s |
 
 ## Test-Case Format
 
@@ -572,11 +624,11 @@ CodeIT/
 
 ## Docs
 
-| Doc | Topic |
-| --- | --- |
-| [`frontend-stitch/README.md`](frontend-stitch/README.md) | Stitch UI runbook + screen map |
-| [`docs/COLLABORATION_ARCHITECTURE.md`](docs/COLLABORATION_ARCHITECTURE.md) | Rooms, Yjs, roles |
-| [`docs/JUDGE0_HOMELAB_DEPLOY.md`](docs/JUDGE0_HOMELAB_DEPLOY.md) | Judge0 on homelab |
-| [`docs/JUDGE0_DIGITALOCEAN_DEPLOY.md`](docs/JUDGE0_DIGITALOCEAN_DEPLOY.md) | Judge0 on DO |
-| [`docs/PROFILE_API_INTEGRATION.md`](docs/PROFILE_API_INTEGRATION.md) | Profile API |
-| [`sync-server/README.md`](sync-server/README.md) | Sync server |
+| Doc                                                                        | Topic                          |
+| -------------------------------------------------------------------------- | ------------------------------ |
+| [`frontend-stitch/README.md`](frontend-stitch/README.md)                   | Stitch UI runbook + screen map |
+| [`docs/COLLABORATION_ARCHITECTURE.md`](docs/COLLABORATION_ARCHITECTURE.md) | Rooms, Yjs, roles              |
+| [`docs/JUDGE0_HOMELAB_DEPLOY.md`](docs/JUDGE0_HOMELAB_DEPLOY.md)           | Judge0 on homelab              |
+| [`docs/JUDGE0_DIGITALOCEAN_DEPLOY.md`](docs/JUDGE0_DIGITALOCEAN_DEPLOY.md) | Judge0 on DO                   |
+| [`docs/PROFILE_API_INTEGRATION.md`](docs/PROFILE_API_INTEGRATION.md)       | Profile API                    |
+| [`sync-server/README.md`](sync-server/README.md)                           | Sync server                    |

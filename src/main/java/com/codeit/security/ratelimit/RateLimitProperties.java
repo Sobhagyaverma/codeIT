@@ -17,10 +17,73 @@ public class RateLimitProperties {
     private boolean enabled = true;
 
     private final EndpointLimit login = new EndpointLimit(5, 900);
-    private final EndpointLimit register = new EndpointLimit(3, 3600);
+    private final TieredEndpointLimit register = new TieredEndpointLimit(
+            new EndpointLimit(2, 30),
+            new EndpointLimit(5, 3600),
+            new EndpointLimit(10, 86400));
     private final EndpointLimit changePassword = new EndpointLimit(5, 3600);
-    /** OTP / email reset request — very strict (Email + IP both checked). */
-    private final EndpointLimit forgotPassword = new EndpointLimit(1, 86400);
+    /** Forgot password request — burst / sustained / daily (email + IP). */
+    private final TieredEndpointLimit forgotPassword = new TieredEndpointLimit(
+            new EndpointLimit(1, 60),
+            new EndpointLimit(3, 3600),
+            new EndpointLimit(5, 86400));
+
+    private final TieredEndpointLimit verifyEmail = new TieredEndpointLimit(
+            new EndpointLimit(5, 30),
+            new EndpointLimit(20, 3600),
+            new EndpointLimit(40, 86400));
+    private final TieredEndpointLimit verifyEmailResend = new TieredEndpointLimit(
+            new EndpointLimit(1, 60),
+            new EndpointLimit(5, 3600),
+            new EndpointLimit(15, 86400));
+    private final TieredEndpointLimit forgotPasswordVerify = new TieredEndpointLimit(
+            new EndpointLimit(5, 30),
+            new EndpointLimit(15, 3600),
+            new EndpointLimit(30, 86400));
+    private final TieredEndpointLimit forgotPasswordReset = new TieredEndpointLimit(
+            new EndpointLimit(2, 60),
+            new EndpointLimit(5, 3600),
+            new EndpointLimit(10, 86400));
+    private final TieredEndpointLimit contact = new TieredEndpointLimit(
+            new EndpointLimit(2, 60),
+            new EndpointLimit(5, 3600),
+            new EndpointLimit(15, 86400));
+
+    /** Friend request send — 3 per 30s burst, 20/hour sustained, 100/day. Keyed by user. */
+    private final TieredEndpointLimit friendRequest = new TieredEndpointLimit(
+            new EndpointLimit(3, 30),
+            new EndpointLimit(20, 3600),
+            new EndpointLimit(100, 86400));
+    /** Accept / reject / ignore friend request — 10/min burst, 300/day. Keyed by user. */
+    private final TieredEndpointLimit friendRespond = new TieredEndpointLimit(
+            new EndpointLimit(10, 60),
+            new EndpointLimit(120, 3600),
+            new EndpointLimit(300, 86400));
+    /** Notification list / mark-read. */
+    private final TieredEndpointLimit notificationRead = new TieredEndpointLimit(
+            new EndpointLimit(60, 60),
+            new EndpointLimit(300, 3600),
+            new EndpointLimit(1000, 86400));
+    /** Quick Clash create. */
+    private final TieredEndpointLimit quickContestCreate = new TieredEndpointLimit(
+            new EndpointLimit(1, 60),
+            new EndpointLimit(2, 86400),
+            new EndpointLimit(2, 86400));
+    /** Quick Clash invite friends. */
+    private final TieredEndpointLimit quickContestInvite = new TieredEndpointLimit(
+            new EndpointLimit(5, 60),
+            new EndpointLimit(50, 86400),
+            new EndpointLimit(50, 86400));
+    /** Quick Clash join. */
+    private final TieredEndpointLimit quickContestJoin = new TieredEndpointLimit(
+            new EndpointLimit(5, 60),
+            new EndpointLimit(20, 3600),
+            new EndpointLimit(50, 86400));
+    /** Quick Clash start (host). */
+    private final TieredEndpointLimit quickContestStart = new TieredEndpointLimit(
+            new EndpointLimit(2, 60),
+            new EndpointLimit(10, 86400),
+            new EndpointLimit(10, 86400));
 
     /** Judge0 run — burst + sustained + daily. */
     private final TieredEndpointLimit run = new TieredEndpointLimit(
@@ -72,7 +135,7 @@ public class RateLimitProperties {
         return login;
     }
 
-    public EndpointLimit getRegister() {
+    public TieredEndpointLimit getRegister() {
         return register;
     }
 
@@ -80,8 +143,56 @@ public class RateLimitProperties {
         return changePassword;
     }
 
-    public EndpointLimit getForgotPassword() {
+    public TieredEndpointLimit getForgotPassword() {
         return forgotPassword;
+    }
+
+    public TieredEndpointLimit getVerifyEmail() {
+        return verifyEmail;
+    }
+
+    public TieredEndpointLimit getVerifyEmailResend() {
+        return verifyEmailResend;
+    }
+
+    public TieredEndpointLimit getForgotPasswordVerify() {
+        return forgotPasswordVerify;
+    }
+
+    public TieredEndpointLimit getForgotPasswordReset() {
+        return forgotPasswordReset;
+    }
+
+    public TieredEndpointLimit getContact() {
+        return contact;
+    }
+
+    public TieredEndpointLimit getFriendRequest() {
+        return friendRequest;
+    }
+
+    public TieredEndpointLimit getFriendRespond() {
+        return friendRespond;
+    }
+
+    public TieredEndpointLimit getNotificationRead() {
+        return notificationRead;
+    }
+
+    public TieredEndpointLimit getQuickContestCreate() {
+        return quickContestCreate;
+    }
+
+    public TieredEndpointLimit getQuickContestInvite() {
+        return quickContestInvite;
+    }
+
+    public TieredEndpointLimit getQuickContestJoin() {
+        return quickContestJoin;
+    }
+
+    public TieredEndpointLimit getQuickContestStart() {
+        return quickContestStart;
     }
 
     public TieredEndpointLimit getRun() {

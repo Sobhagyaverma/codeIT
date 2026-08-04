@@ -1,0 +1,11 @@
+export { default as HeroSection } from "./HeroSection";
+export { default as LiveStatsBanner } from "./LiveStatsBanner";
+export { default as AboutStatsSection } from "./AboutStatsSection";
+export { default as EcosystemSection } from "./EcosystemSection";
+export { default as AiCoachSection } from "./AiCoachSection";
+export { default as QuickClashSection } from "./QuickClashSection";
+export { default as CodeRoomsSection } from "./CodeRoomsSection";
+export { default as ComparisonSection } from "./ComparisonSection";
+export { default as EverythingIncludedSection } from "./EverythingIncludedSection";
+export { default as HowItWorksSection } from "./HowItWorksSection";
+export { default as FinalCtaSection } from "./FinalCtaSection";

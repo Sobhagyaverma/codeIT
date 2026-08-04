@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { register } from "../lib/api";
+import { register, ApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/toast/ToastProvider";
 import AuthLayout from "../components/auth/AuthLayout";
@@ -9,6 +9,7 @@ import AuthPasswordField from "../components/auth/AuthPasswordField";
 import AuthSubmitButton from "../components/auth/AuthSubmitButton";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import SocialAuthButtons from "../components/auth/SocialAuthButtons";
+import TurnstileWidget from "../components/TurnstileWidget";
 import {
   firstErrorKey,
   mapAuthError,
@@ -39,6 +40,8 @@ export default function Register() {
   >({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   useEffect(() => {
     nameRef.current?.focus();
@@ -86,12 +89,19 @@ export default function Register() {
         uniqueUserId: form.uniqueUserId.trim(),
         email: form.email.trim(),
         password: form.password,
+        captchaToken: captchaToken || undefined,
       });
-      pushToast("Account created. Redirecting to login…", "success");
+      pushToast("Account created. Verify your email…", "success");
       redirectTimer.current = window.setTimeout(() => {
-        navigate("/login", { replace: true });
+        navigate(`/verify-email?email=${encodeURIComponent(form.email.trim())}`, {
+          replace: true,
+        });
       }, 900);
     } catch (err) {
+      if (err instanceof ApiError && err.code === "CAPTCHA_FAILED") {
+        setCaptchaReset((n) => n + 1);
+        setCaptchaToken(null);
+      }
       const message = mapAuthError(err);
       setFormError(message);
       pushToast(message, "error");
@@ -192,6 +202,8 @@ export default function Register() {
             {formError}
           </p>
         )}
+
+        <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaReset} />
 
         <AuthSubmitButton loading={loading} loadingLabel="Creating account…">
           Create account

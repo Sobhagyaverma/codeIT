@@ -6,12 +6,39 @@ export const API_BASE =
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
+  /** Seconds until a rate-limited call may be retried (429 responses only). */
+  retryAfter?: number;
 
-  constructor(message: string, status: number) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    retryAfter?: number
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
+    this.retryAfter = retryAfter;
   }
+}
+
+/** Human-readable failure text, with a cooldown hint when rate limited. */
+export function describeApiError(err: unknown, fallback: string): string {
+  if (!(err instanceof ApiError)) return fallback;
+  if (err.status === 429) {
+    const seconds = err.retryAfter ?? 0;
+    if (seconds > 0) {
+      const wait =
+        seconds >= 60
+          ? `${Math.ceil(seconds / 60)} minute${seconds >= 120 ? "s" : ""}`
+          : `${seconds} second${seconds === 1 ? "" : "s"}`;
+      return `Slow down — try again in ${wait}.`;
+    }
+    return "Slow down — you're doing that too often.";
+  }
+  return err.message || fallback;
 }
 
 export async function request<T>(
@@ -46,9 +73,25 @@ export async function request<T>(
       (isJson && body && (body.message || body.error)) ||
       (typeof body === "string" && body) ||
       `Request failed (${res.status})`;
+    const code =
+      isJson && body && typeof body.code === "string"
+        ? body.code
+        : isJson && body && typeof body.error === "string" && /^[A-Z][A-Z0-9_]+$/.test(body.error)
+          ? body.error
+          : undefined;
+    const retryAfterBody =
+      isJson && body && typeof body.retryAfter === "number"
+        ? body.retryAfter
+        : undefined;
+    const retryAfterHeader = Number(res.headers.get("retry-after"));
     throw new ApiError(
       typeof message === "string" ? message : `Request failed (${res.status})`,
-      res.status
+      res.status,
+      code,
+      retryAfterBody ??
+        (Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+          ? retryAfterHeader
+          : undefined)
     );
   }
 
@@ -65,7 +108,20 @@ export type LoginResponse = {
   expiresIn: number;
 };
 
-export const login = async (loginId: string, password: string) => {
+export type CaptchaConfig = {
+  enabled: boolean;
+  provider: string;
+  siteKey: string;
+};
+
+export const getCaptchaConfig = () =>
+  request<CaptchaConfig>("/api/captcha/config");
+
+export const login = async (
+  loginId: string,
+  password: string,
+  captchaToken?: string
+) => {
   const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
   const encrypted = await isRsaEnabled();
   const body = encrypted
@@ -73,8 +129,14 @@ export const login = async (loginId: string, password: string) => {
         login: await encryptRsaOaep(loginId),
         password: await encryptRsaOaep(password),
         encrypted: true,
+        captchaToken: captchaToken || undefined,
       }
-    : { login: loginId, password, encrypted: false };
+    : {
+        login: loginId,
+        password,
+        encrypted: false,
+        captchaToken: captchaToken || undefined,
+      };
   return request<LoginResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(body),
@@ -86,6 +148,7 @@ export const register = async (data: {
   uniqueUserId: string;
   email: string;
   password: string;
+  captchaToken?: string;
 }) => {
   const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
   const encrypted = await isRsaEnabled();
@@ -97,12 +160,77 @@ export const register = async (data: {
       ? await encryptRsaOaep(data.password)
       : data.password,
     encrypted,
+    captchaToken: data.captchaToken || undefined,
   };
-  return request<string>("/api/user/register", {
+  return request<{ message: string; needsVerification?: boolean; email?: string }>(
+    "/api/user/register",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    }
+  );
+};
+
+export const verifyEmail = (email: string, otp: string, captchaToken?: string) =>
+  request<{ message: string; verified?: boolean }>("/api/auth/verify-email", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ email, otp, captchaToken: captchaToken || undefined }),
+  });
+
+export const resendVerifyEmail = (email: string, captchaToken?: string) =>
+  request<{ message: string; verified?: boolean }>("/api/auth/verify-email/resend", {
+    method: "POST",
+    body: JSON.stringify({ email, captchaToken: captchaToken || undefined }),
+  });
+
+export const forgotPasswordRequest = (email: string, captchaToken?: string) =>
+  request<{ message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email, captchaToken: captchaToken || undefined }),
+  });
+
+export const forgotPasswordVerify = (
+  email: string,
+  otp: string,
+  captchaToken?: string
+) =>
+  request<{ message: string; resetToken: string; expiresInSeconds: number }>(
+    "/api/auth/forgot-password/verify",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, otp, captchaToken: captchaToken || undefined }),
+    }
+  );
+
+export const forgotPasswordReset = async (
+  resetToken: string,
+  newPassword: string,
+  captchaToken?: string
+) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  return request<{ message: string }>("/api/auth/forgot-password/reset", {
+    method: "POST",
+    body: JSON.stringify({
+      resetToken,
+      newPassword: encrypted ? await encryptRsaOaep(newPassword) : newPassword,
+      encrypted,
+      captchaToken: captchaToken || undefined,
+    }),
   });
 };
+
+export const submitContact = (data: {
+  username: string;
+  email: string;
+  subject: string;
+  message: string;
+  captchaToken?: string;
+}) =>
+  request<{ message: string; id: number }>("/api/contact", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 
 export const getProblems = () => request<ProblemPublicDTO[]>("/api/problems");
 
@@ -231,6 +359,7 @@ export type ProfileResponse = {
     longestStreak: number;
     contestBestRank: number | null;
     rating: number | null;
+    friendCount: number;
   };
   topics: Array<{ topic: string; solved: number; total: number }>;
   languages: Array<{ language: string; count: number; percent: number }>;
@@ -392,10 +521,12 @@ export const getCompetitionProblems = (id: number) =>
 export const getCompetitionParticipants = (id: number) =>
   request<number[]>(`/api/competitions/${id}/participants`);
 
-export const joinCompetition = (id: number, userId: number) =>
-  request<void>(`/api/competitions/${id}/join?userId=${userId}`, {
+export const joinCompetition = (id: number, userId?: number) => {
+  const qs = userId != null ? `?userId=${userId}` : "";
+  return request<string>(`/api/competitions/${id}/join${qs}`, {
     method: "POST",
   });
+};
 
 export const startCompetition = (id: number, userId: number) =>
   request<ContestSession>(`/api/competitions/${id}/start?userId=${userId}`, {
@@ -503,5 +634,184 @@ export const getAiHintProgress = (problemId: number) =>
   request<{ problemId: number; unlockedHintLevel: number }>(
     `/api/ai/hints/progress?problemId=${problemId}`
   );
+
+/* ── Friends / Notifications / Quick Clash ───────────────────────── */
+
+export type FriendUserCard = {
+  user_id: number;
+  name: string;
+  unique_user_id: string;
+  avatar_url?: string | null;
+  solved_count?: number;
+  friends_since?: string;
+  request_id?: number;
+  created_at?: string;
+};
+
+export const getFriends = () =>
+  request<{
+    friends: FriendUserCard[];
+    incoming: FriendUserCard[];
+    outgoing: FriendUserCard[];
+  }>("/api/friends");
+
+export const searchFriend = (q: string) =>
+  request<{
+    user_id: number;
+    name: string;
+    unique_user_id: string;
+    avatar_url?: string | null;
+    solved_count?: number;
+    isSelf: boolean;
+    isFriend: boolean;
+    outgoingPending: boolean;
+    incomingPending: boolean;
+  }>(`/api/friends/search?q=${encodeURIComponent(q)}`);
+
+export const sendFriendRequest = (uniqueUserId: string) =>
+  request<{ requestId: number; status: string }>("/api/friends/request", {
+    method: "POST",
+    body: JSON.stringify({ uniqueUserId }),
+  });
+
+export type FriendRespondResult = {
+  status: "ACCEPTED" | "REJECTED" | "IGNORED" | string;
+  friends?: boolean;
+  alreadyHandled?: boolean;
+  userId?: number;
+  name?: string;
+  uniqueUserId?: string;
+};
+
+export const respondFriendRequest = (
+  requestId: number,
+  action: "ACCEPT" | "REJECT" | "IGNORE"
+) =>
+  request<FriendRespondResult>(
+    `/api/friends/requests/${requestId}/respond`,
+    {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }
+  );
+
+export const removeFriend = (userId: number) =>
+  request<{ ok: boolean }>(`/api/friends/${userId}`, { method: "DELETE" });
+
+export type AppNotification = {
+  id: number;
+  type: string;
+  payload: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+};
+
+export const getNotifications = (limit = 50) =>
+  request<{ items: AppNotification[]; unreadCount: number }>(
+    `/api/notifications?limit=${limit}`
+  );
+
+export const getNotificationUnreadCount = () =>
+  request<{ unreadCount: number }>("/api/notifications/unread-count");
+
+export const markNotificationRead = (id: number) =>
+  request<{ ok: boolean; unreadCount: number }>(`/api/notifications/${id}/read`, {
+    method: "POST",
+  });
+
+export const markAllNotificationsRead = () =>
+  request<{ ok: boolean; updated: number; unreadCount: number }>(
+    "/api/notifications/read-all",
+    { method: "POST" }
+  );
+
+export type QuickContest = {
+  id: number;
+  name: string;
+  description?: string;
+  difficulty_tier: string;
+  duration_minutes: number;
+  max_players: number;
+  status: string;
+  invite_token?: string;
+  host_user_id: number;
+  started_at?: string | null;
+  ends_at?: string | null;
+  problems?: Array<{
+    ordinal: number;
+    problem_id: number;
+    title: string;
+    difficulty: string;
+  }>;
+  participants?: Array<Record<string, unknown>>;
+  joinedCount?: number;
+  leaderboard?: Array<Record<string, unknown>>;
+};
+
+export const createQuickContest = (body: {
+  name: string;
+  description?: string;
+  difficultyTier: "EASY" | "MEDIUM" | "HARD";
+  durationMinutes: number;
+  maxPlayers: number;
+}) =>
+  request<QuickContest>("/api/quick-clash", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const getQuickContest = (id: number | string) =>
+  request<QuickContest>(`/api/quick-clash/${id}`);
+
+export const getQuickContestLeaderboard = (id: number | string) =>
+  request<Array<Record<string, unknown>>>(
+    `/api/quick-clash/${id}/leaderboard`
+  );
+
+/** Live Quick Clash submit — judged against full hidden tests, unrated. */
+export const submitQuickContest = (
+  id: number | string,
+  data: {
+    problemId: number;
+    languageId: number;
+    language: string;
+    code: string;
+  }
+) =>
+  request<JudgeVerdictDTO>(`/api/quick-clash/${id}/submit`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const inviteToQuickContest = (id: number | string, friendUserIds: number[]) =>
+  request<{ invited: number; contest: QuickContest }>(`/api/quick-clash/${id}/invite`, {
+    method: "POST",
+    body: JSON.stringify({ friendUserIds }),
+  });
+
+export const joinQuickContest = (id: number | string) =>
+  request<QuickContest>(`/api/quick-clash/${id}/join`, { method: "POST" });
+
+export const readyQuickContest = (id: number | string, ready: boolean) =>
+  request<QuickContest>(`/api/quick-clash/${id}/ready`, {
+    method: "POST",
+    body: JSON.stringify({ ready }),
+  });
+
+export const startQuickContest = (id: number | string) =>
+  request<QuickContest>(`/api/quick-clash/${id}/start`, { method: "POST" });
+
+export const cancelQuickContest = (id: number | string) =>
+  request<{ ok: boolean }>(`/api/quick-clash/${id}/cancel`, { method: "POST" });
+
+export const leaveQuickContest = (id: number | string) =>
+  request<{ ok: boolean }>(`/api/quick-clash/${id}/leave`, { method: "POST" });
+
+export const getQuickClashHistory = () =>
+  request<{
+    active?: Array<Record<string, unknown>>;
+    history: Array<Record<string, unknown>>;
+    invited: Array<Record<string, unknown>>;
+  }>("/api/quick-clash/history");
 
 export type { User, ProblemPublicDTO, Submission };

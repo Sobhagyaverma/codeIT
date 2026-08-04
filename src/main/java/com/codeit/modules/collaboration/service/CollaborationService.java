@@ -3,6 +3,7 @@ package com.codeit.modules.collaboration.service;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -103,18 +104,6 @@ public class CollaborationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type is required");
         }
 
-        // Host may only have one ACTIVE room
-        roomRepository
-                .findActiveByHostUserId(hostUserId)
-                .ifPresent(existing -> {
-                    throw new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            "End your active room before creating another");
-                });
-
-        // User may only belong to one ACTIVE room — leave others as non-host
-        ensureSingleActiveMembership(hostUserId, null);
-
         RoomType type;
         try {
             type = RoomType.valueOf(request.getType().trim().toUpperCase());
@@ -136,6 +125,25 @@ public class CollaborationService {
         } else {
             problemId = null;
         }
+
+        // Host may only have one ACTIVE room — resume when Invite targets the same one;
+        // otherwise archive leftovers so Invite is never stuck outside a room.
+        Optional<Room> existingActive = roomRepository.findActiveByHostUserId(hostUserId);
+        if (existingActive.isPresent()) {
+            Room existing = existingActive.get();
+            boolean sameType = type.name().equals(existing.getType());
+            boolean sameProblem =
+                    type == RoomType.CODEROOM
+                            || (existing.getProblemId() != null
+                                    && existing.getProblemId().equals(problemId));
+            if (sameType && sameProblem) {
+                return toRoomResponse(existing);
+            }
+            roomRepository.archiveAllActiveByHostUserId(hostUserId);
+        }
+
+        // User may only belong to one ACTIVE room — leave others as non-host
+        ensureSingleActiveMembership(hostUserId, null);
 
         String language = request.getLanguage();
         if (language == null || language.isBlank()) {
@@ -621,6 +629,7 @@ public class CollaborationService {
         RoomSummaryResponse response = new RoomSummaryResponse();
         response.setId(row.getId());
         response.setType(row.getType());
+        response.setProblemId(row.getProblemId());
         response.setLanguage(row.getLanguage());
         response.setStatus(row.getStatus());
         response.setActiveWorkspace(row.getActiveWorkspace());

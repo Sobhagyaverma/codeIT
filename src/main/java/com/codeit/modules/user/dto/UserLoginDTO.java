@@ -16,4 +16,7 @@ public class UserLoginDTO {
 
     /** When true, login + password are RSA-OAEP Base64 ciphertexts. */
     private boolean encrypted;
+
+    /** Cloudflare Turnstile token (required when captcha enabled). */
+    private String captchaToken;
 }

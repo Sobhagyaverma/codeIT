@@ -1,6 +1,7 @@
 package com.codeit.modules.user;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.codeit.modules.user.dto.RegisterRequest;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -30,9 +32,10 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> createUser(@Valid @RequestBody RegisterRequest request) {
-        String message = userService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(message);
+    public ResponseEntity<Map<String, Object>> createUser(
+            @Valid @RequestBody RegisterRequest request, HttpServletRequest http) {
+        Map<String, Object> body = userService.register(request, http);
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
     @DeleteMapping("/deleteUser/{id}")

@@ -373,6 +373,14 @@ export default function AdminDashboard() {
           )}
         </div>
         <div className="flex items-center gap-4">
+          <Link
+            to="/"
+            className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-sm font-label-md text-on-surface transition-all hover:border-primary/40 hover:bg-surface-container-highest hover:text-primary active:scale-95 sm:px-4"
+            title="Back to CodeIT"
+          >
+            <span className="material-symbols-outlined text-lg">arrow_back</span>
+            <span className="hidden sm:inline">Back to CodeIT</span>
+          </Link>
           {view === "problems" && (
             <div className="flex items-center rounded-md border border-outline-variant bg-surface-container-low p-0.5">
               <button

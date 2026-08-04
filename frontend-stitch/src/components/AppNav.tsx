@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useNotifications } from "../context/NotificationsContext";
 
 const NAV_LINKS = [
   { to: "/dsa-sheet", label: "DSA Sheet" },
   { to: "/problems", label: "Problems" },
   { to: "/coderoom", label: "CodeRoom" },
   { to: "/competitions", label: "Competitions" },
+  { to: "/competitions/quick", label: "Quick Clash" },
+  { to: "/friends", label: "Friends" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ] as const;
@@ -20,6 +23,7 @@ type AppNavProps = {
 /** Shared top nav for catalog-style Stitch screens (locked link set). */
 export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const location = useLocation();
 
   const isActivePath = (to: string) => {
@@ -33,13 +37,23 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
     if (to === "/competitions") {
       return (
         location.pathname === "/competitions" ||
-        location.pathname.startsWith("/competitions/")
+        (location.pathname.startsWith("/competitions/") &&
+          !location.pathname.startsWith("/competitions/quick"))
       );
+    }
+    if (to === "/competitions/quick") {
+      return location.pathname.startsWith("/competitions/quick");
     }
     if (to === "/coderoom") {
       return (
         location.pathname === "/coderoom" ||
         location.pathname.startsWith("/coderoom/")
+      );
+    }
+    if (to === "/friends") {
+      return (
+        location.pathname === "/friends" ||
+        location.pathname.startsWith("/friends/")
       );
     }
     return location.pathname === to;
@@ -76,6 +90,36 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
         {workspaceActions}
         {user ? (
           <>
+            <Link
+              to="/inbox"
+              title={
+                unreadCount > 0 ? `Inbox — ${unreadCount} unread` : "Inbox"
+              }
+              aria-label={
+                unreadCount > 0 ? `Inbox, ${unreadCount} unread` : "Inbox"
+              }
+              className={`relative inline-flex items-center justify-center rounded-DEFAULT border p-2 transition-colors ${
+                location.pathname === "/inbox"
+                  ? "border-primary/50 bg-primary/10 text-primary"
+                  : "border-outline-variant/40 text-on-surface-variant hover:border-primary/40 hover:text-primary"
+              }`}
+            >
+              <span
+                className="material-symbols-outlined text-lg"
+                style={
+                  unreadCount > 0
+                    ? { fontVariationSettings: '"FILL" 1' }
+                    : undefined
+                }
+              >
+                notifications
+              </span>
+              {unreadCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 font-code-sm text-[10px] font-bold text-on-primary shadow-[0_0_8px_rgba(221,183,255,0.8)]">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
             {user.role === "ADMIN" && (
               <Link
                 to="/admin"

@@ -40,8 +40,27 @@ public class GlobalExceptionHandler {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", Instant.now().toString());
         body.put("status", ex.getStatusCode().value());
-        body.put("error", HttpStatus.valueOf(ex.getStatusCode().value()).getReasonPhrase());
-        body.put("message", ex.getReason());
+        String reason = ex.getReason();
+        boolean coded = reason != null && reason.matches("[A-Z][A-Z0-9_]+");
+        body.put(
+                "error",
+                coded ? reason : HttpStatus.valueOf(ex.getStatusCode().value()).getReasonPhrase());
+        if (coded) {
+            body.put("code", reason);
+            body.put(
+                    "message",
+                    switch (reason) {
+                        case "EMAIL_NOT_VERIFIED" ->
+                            "Email not verified. Please enter the code we sent you.";
+                        case "EMAIL_TEMPORARILY_UNAVAILABLE" ->
+                            "Email service is temporarily unavailable. Try again later.";
+                        case "CAPTCHA_FAILED" ->
+                            "Captcha verification failed. Please try again.";
+                        default -> reason;
+                    });
+        } else {
+            body.put("message", reason);
+        }
         return ResponseEntity.status(ex.getStatusCode()).body(body);
     }
 

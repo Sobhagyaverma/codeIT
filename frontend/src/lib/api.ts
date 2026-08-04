@@ -22,11 +22,13 @@ export const API_BASE =
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -65,10 +67,20 @@ export async function request<T>(
       (isJson && body && (body.message || body.error)) ||
       (typeof body === "string" && body) ||
       `Request failed (${res.status})`;
+    const code =
+      isJson && body && typeof body.code === "string"
+        ? body.code
+        : isJson &&
+            body &&
+            typeof body.error === "string" &&
+            /^[A-Z][A-Z0-9_]+$/.test(body.error)
+          ? body.error
+          : undefined;
 
     throw new ApiError(
       typeof message === "string" ? message : `Request failed (${res.status})`,
-      res.status
+      res.status,
+      code
     );
   }
 
@@ -87,7 +99,20 @@ export interface LoginResponse {
   expiresIn: number;
 }
 
-export const login = async (loginId: string, password: string) => {
+export type CaptchaConfig = {
+  enabled: boolean;
+  provider: string;
+  siteKey: string;
+};
+
+export const getCaptchaConfig = () =>
+  request<CaptchaConfig>("/api/captcha/config");
+
+export const login = async (
+  loginId: string,
+  password: string,
+  captchaToken?: string
+) => {
   const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
   const encrypted = await isRsaEnabled();
   const body = encrypted
@@ -95,8 +120,14 @@ export const login = async (loginId: string, password: string) => {
         login: await encryptRsaOaep(loginId),
         password: await encryptRsaOaep(password),
         encrypted: true,
+        captchaToken: captchaToken || undefined,
       }
-    : { login: loginId, password, encrypted: false };
+    : {
+        login: loginId,
+        password,
+        encrypted: false,
+        captchaToken: captchaToken || undefined,
+      };
   return request<LoginResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(body),
@@ -108,6 +139,7 @@ export const register = async (data: {
   uniqueUserId: string;
   email: string;
   password: string;
+  captchaToken?: string;
 }) => {
   const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
   const encrypted = await isRsaEnabled();
@@ -119,12 +151,77 @@ export const register = async (data: {
       ? await encryptRsaOaep(data.password)
       : data.password,
     encrypted,
+    captchaToken: data.captchaToken || undefined,
   };
-  return request<string>("/api/user/register", {
+  return request<{ message: string; needsVerification?: boolean; email?: string }>(
+    "/api/user/register",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    }
+  );
+};
+
+export const verifyEmail = (email: string, otp: string, captchaToken?: string) =>
+  request<{ message: string; verified?: boolean }>("/api/auth/verify-email", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ email, otp, captchaToken: captchaToken || undefined }),
+  });
+
+export const resendVerifyEmail = (email: string, captchaToken?: string) =>
+  request<{ message: string; verified?: boolean }>("/api/auth/verify-email/resend", {
+    method: "POST",
+    body: JSON.stringify({ email, captchaToken: captchaToken || undefined }),
+  });
+
+export const forgotPasswordRequest = (email: string, captchaToken?: string) =>
+  request<{ message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email, captchaToken: captchaToken || undefined }),
+  });
+
+export const forgotPasswordVerify = (
+  email: string,
+  otp: string,
+  captchaToken?: string
+) =>
+  request<{ message: string; resetToken: string; expiresInSeconds: number }>(
+    "/api/auth/forgot-password/verify",
+    {
+      method: "POST",
+      body: JSON.stringify({ email, otp, captchaToken: captchaToken || undefined }),
+    }
+  );
+
+export const forgotPasswordReset = async (
+  resetToken: string,
+  newPassword: string,
+  captchaToken?: string
+) => {
+  const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
+  const encrypted = await isRsaEnabled();
+  return request<{ message: string }>("/api/auth/forgot-password/reset", {
+    method: "POST",
+    body: JSON.stringify({
+      resetToken,
+      newPassword: encrypted ? await encryptRsaOaep(newPassword) : newPassword,
+      encrypted,
+      captchaToken: captchaToken || undefined,
+    }),
   });
 };
+
+export const submitContact = (data: {
+  username: string;
+  email: string;
+  subject: string;
+  message: string;
+  captchaToken?: string;
+}) =>
+  request<{ message: string; id: number }>("/api/contact", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 
 export const getUsers = () =>
   request<User[]>("/api/user/getUsers");

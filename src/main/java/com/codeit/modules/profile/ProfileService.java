@@ -37,6 +37,7 @@ import com.codeit.modules.profile.dto.ProfileResponseDTO.PersonalBestsDTO;
 import com.codeit.modules.profile.dto.ProfileResponseDTO.StatsDTO;
 import com.codeit.modules.profile.dto.ProfileResponseDTO.TopicProgressDTO;
 import com.codeit.modules.profile.dto.ProfileResponseDTO.TotalAvailableDTO;
+import com.codeit.modules.friends.FriendRepository;
 import com.codeit.modules.profile.dto.UpdateProfileRequest;
 import com.codeit.modules.user.User;
 import com.codeit.modules.user.UserRepository;
@@ -71,6 +72,9 @@ public class ProfileService {
 
     @Autowired
     private SensitiveFieldDecryptor sensitiveFieldDecryptor;
+
+    @Autowired
+    private FriendRepository friendRepository;
 
     public ProfileResponseDTO getMyProfile(Integer userId) {
         User user = userService.getUserById(userId);
@@ -144,7 +148,7 @@ public class ProfileService {
         }
 
         String newHash = passwordEncoder.encode(newPassword);
-        int updated = userRepository.updatePassword(userId, newHash);
+        int updated = userRepository.updatePasswordAndBumpTokenVersion(userId, newHash);
 
         if (updated <= 0) {
             throw new ResponseStatusException(
@@ -283,6 +287,7 @@ public class ProfileService {
         stats.setLongestStreak(streaks[1]);
         stats.setContestBestRank(bestRank);
         stats.setRating(null);
+        stats.setFriendCount(friendRepository.countFriends(userId));
         return stats;
     }
 

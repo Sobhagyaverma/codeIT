@@ -1,6 +1,8 @@
 package com.codeit.modules.user;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -8,8 +10,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.codeit.modules.auth.EmailAuthService;
 import com.codeit.modules.user.dto.RegisterRequest;
+import com.codeit.security.captcha.TurnstileService;
 import com.codeit.security.crypto.SensitiveFieldDecryptor;
+import com.codeit.security.ratelimit.ClientIpResolver;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class UserService {
@@ -23,14 +30,22 @@ public class UserService {
     @Autowired
     private SensitiveFieldDecryptor sensitiveFieldDecryptor;
 
+    @Autowired
+    private EmailAuthService emailAuthService;
+
+    @Autowired
+    private TurnstileService turnstileService;
+
     public List<User> getUsers() {
         return userRepository.getUsers();
     }
 
-    public String register(RegisterRequest request) {
+    public Map<String, Object> register(RegisterRequest request, HttpServletRequest http) {
+        turnstileService.verifyOrThrow(request.getCaptchaToken(), ClientIpResolver.resolve(http));
+
         String name = request.getName().trim();
         String uniqueUserId = request.getUniqueUserId().trim();
-        String email = request.getEmail().trim();
+        String email = request.getEmail().trim().toLowerCase();
         String password = sensitiveFieldDecryptor.resolve(
                 request.getPassword(), request.isEncrypted(), "password");
         if (password.length() < 6) {
@@ -50,15 +65,37 @@ public class UserService {
         user.setName(name);
         user.setUniqueUserId(uniqueUserId);
         user.setEmail(email);
-        // Public register always creates USER — never trust client-supplied role
         user.setRole("USER");
         user.setPassword(passwordEncoder.encode(password));
+        user.setEmailVerified(false);
 
         int result = userRepository.createUser(user);
         if (result <= 0) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create user");
         }
-        return "User created successfully";
+
+        User created = userRepository.getUserByEmail(email);
+        try {
+            if (created != null) {
+                emailAuthService.sendVerificationEmail(created);
+            }
+        } catch (ResponseStatusException ex) {
+            // Account exists; FE can resend. Surface unavailable clearly.
+            if (ex.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
+                Map<String, Object> body = new LinkedHashMap<>();
+                body.put("message", "User created. Email delivery is temporarily unavailable — use resend later.");
+                body.put("needsVerification", true);
+                body.put("email", email);
+                return body;
+            }
+            throw ex;
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", "User created successfully. Please verify your email.");
+        body.put("needsVerification", true);
+        body.put("email", email);
+        return body;
     }
 
     public int delete(int id) {

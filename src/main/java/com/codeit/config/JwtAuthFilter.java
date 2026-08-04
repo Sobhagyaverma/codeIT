@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.codeit.modules.auth.AuthUserPrincipal;
 import com.codeit.modules.auth.JwtService;
+import com.codeit.modules.user.UserRepository;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -24,11 +25,13 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final UserRepository userRepository;
     private final SecurityContextRepository securityContextRepository =
             new RequestAttributeSecurityContextRepository();
 
-    public JwtAuthFilter(JwtService jwtService) {
+    public JwtAuthFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -50,8 +53,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (jwtService.isValid(token)
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
 
+                Integer userId = jwtService.extractUserId(token);
+                int claimTv = jwtService.extractTokenVersion(token);
+                Integer dbTv = userRepository.getTokenVersion(userId);
+                if (dbTv == null || claimTv != dbTv) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 AuthUserPrincipal principal = new AuthUserPrincipal(
-                        jwtService.extractUserId(token),
+                        userId,
                         jwtService.extractEmail(token),
                         null,
                         jwtService.extractRole(token));

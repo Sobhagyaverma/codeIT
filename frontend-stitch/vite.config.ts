@@ -32,6 +32,12 @@ export default defineConfig({
         target: "http://localhost:9091",
         changeOrigin: true,
       },
+      // STOMP over SockJS for realtime notifications / contests
+      "/ws": {
+        target: "http://localhost:9091",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

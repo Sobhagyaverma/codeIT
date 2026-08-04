@@ -31,7 +31,7 @@ public class JudgeExecutionLimits {
             @Value("${codeit.judge.wall-time-limit-seconds:10}") double wallTimeLimitSeconds,
             @Value("${codeit.judge.memory-limit-kb:262144}") int memoryLimitKb,
             @Value("${codeit.judge.max-file-size-kb:1024}") int maxFileSizeKb,
-            @Value("${codeit.judge.max-processes:10}") int maxProcesses) {
+            @Value("${codeit.judge.max-processes:64}") int maxProcesses) {
         this.maxSourceBytes = Math.max(1024, maxSourceBytes);
         this.maxStdinBytes = Math.max(0, maxStdinBytes);
         this.maxOutputBytes = Math.max(1024, maxOutputBytes);

@@ -137,6 +137,19 @@ public class RoomRepository {
                 roomId);
     }
 
+    /** Archives every ACTIVE room hosted by this user (stale leftovers / Invite replace). */
+    public int archiveAllActiveByHostUserId(Integer hostUserId) {
+        return jdbcTemplate.update(
+                """
+                        UPDATE rooms
+                        SET status = 'ARCHIVED', updated_at = ?
+                        WHERE host_user_id = ?
+                          AND status = 'ACTIVE'
+                        """,
+                Timestamp.from(Instant.now()),
+                hostUserId);
+    }
+
     private Room mapRoom(ResultSet rs) throws SQLException {
         Room room = new Room();
         room.setId((UUID) rs.getObject("id"));

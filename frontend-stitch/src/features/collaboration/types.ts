@@ -53,6 +53,7 @@ export type CreateRoomPayload = {
 export type RoomSummary = {
   id: string;
   type: RoomType;
+  problemId?: number | null;
   language: string;
   status: RoomStatus;
   activeWorkspace: WorkspaceType;

@@ -13,8 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Rate-limit POST /api/user/register by client IP.
- * Stops account-spam before UserService / DB work.
+ * Rate-limit POST /api/user/register by client IP (burst + sustained + daily).
  */
 public class RegisterRateLimitFilter extends OncePerRequestFilter {
 
@@ -51,25 +50,13 @@ public class RegisterRateLimitFilter extends OncePerRequestFilter {
             FilterChain filterChain) throws ServletException, IOException {
 
         String ip = ClientIpResolver.resolve(request);
-        var register = properties.getRegister();
-
-        RateLimitResult result = rateLimitService.check(
-                "register",
-                "ip",
-                ip,
-                register.getLimit(),
-                register.getWindowSeconds());
-
-        if (!result.allowed()) {
-            log.warn("Register rate limit exceeded for ip={} key={}", ip, result.key());
-            responseWriter.write(
-                    response,
-                    new RateLimitExceededException("register", result.retryAfterSeconds()));
+        try {
+            rateLimitService.checkTieredOrThrow("register", ip, properties.getRegister());
+        } catch (RateLimitExceededException ex) {
+            log.warn("Register rate limit exceeded for ip={}", ip);
+            responseWriter.write(response, ex);
             return;
         }
-
-        response.setHeader("X-RateLimit-Limit", String.valueOf(result.limit()));
-        response.setHeader("X-RateLimit-Remaining", String.valueOf(result.remaining()));
 
         filterChain.doFilter(request, response);
     }

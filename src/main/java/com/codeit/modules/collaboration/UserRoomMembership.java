@@ -10,6 +10,7 @@ import lombok.Data;
 public class UserRoomMembership {
     private UUID id;
     private String type;
+    private Integer problemId;
     private String language;
     private String status;
     private String activeWorkspace;

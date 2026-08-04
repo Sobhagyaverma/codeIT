@@ -121,6 +121,49 @@ public class UserRepository {
         return jdbcTemplate.update(sql, passwordHash, userId);
     }
 
+    public int updatePasswordAndBumpTokenVersion(int userId, String passwordHash) {
+        String sql = """
+                UPDATE users
+                SET password = ?,
+                    token_version = token_version + 1,
+                    updated_at = NOW()
+                WHERE id = ?
+                """;
+        return jdbcTemplate.update(sql, passwordHash, userId);
+    }
+
+    public int setEmailVerified(int userId, boolean verified) {
+        return jdbcTemplate.update(
+                """
+                        UPDATE users
+                        SET email_verified = ?,
+                            updated_at = NOW()
+                        WHERE id = ?
+                        """,
+                verified,
+                userId);
+    }
+
+    public int bumpTokenVersion(int userId) {
+        return jdbcTemplate.update(
+                """
+                        UPDATE users
+                        SET token_version = token_version + 1,
+                            updated_at = NOW()
+                        WHERE id = ?
+                        """,
+                userId);
+    }
+
+    public Integer getTokenVersion(int userId) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT token_version FROM users WHERE id = ?", Integer.class, userId);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        }
+    }
+
     private User mapUser(ResultSet rs) throws SQLException {
         User user = new User();
         user.setId(rs.getString("id"));
@@ -136,6 +179,20 @@ public class UserRepository {
 
         Boolean showEmail = (Boolean) rs.getObject("show_email");
         user.setShowEmail(showEmail != null ? showEmail : Boolean.FALSE);
+
+        try {
+            Boolean emailVerified = (Boolean) rs.getObject("email_verified");
+            user.setEmailVerified(emailVerified != null ? emailVerified : Boolean.FALSE);
+        } catch (SQLException ignored) {
+            user.setEmailVerified(Boolean.TRUE);
+        }
+
+        try {
+            Object tv = rs.getObject("token_version");
+            user.setTokenVersion(tv == null ? 0 : ((Number) tv).intValue());
+        } catch (SQLException ignored) {
+            user.setTokenVersion(0);
+        }
 
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {

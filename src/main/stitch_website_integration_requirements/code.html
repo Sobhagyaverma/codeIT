@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+
+<html class="dark scroll-smooth" lang="en" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeIT - Learn by solving</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&amp;family=Outfit:wght@400;500&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#edddf4",
+                        "outline": "#988d9f",
+                        "secondary": "#deb7ff",
+                        "primary-fixed": "#f0dbff",
+                        "on-primary-container": "#400071",
+                        "on-secondary-container": "#d4a5ff",
+                        "on-surface-variant": "#cfc2d6",
+                        "inverse-surface": "#edddf4",
+                        "surface-container-low": "#211828",
+                        "surface-variant": "#3b3142",
+                        "surface-container": "#251c2c",
+                        "on-tertiary": "#382a4a",
+                        "primary-container": "#b76dff",
+                        "on-tertiary-container": "#312343",
+                        "surface": "#18101f",
+                        "secondary-fixed": "#f1dbff",
+                        "outline-variant": "#4d4354",
+                        "tertiary-container": "#9b8ab0",
+                        "surface-container-highest": "#3b3142",
+                        "secondary-fixed-dim": "#deb7ff",
+                        "on-background": "#edddf4",
+                        "surface-container-high": "#302637",
+                        "inverse-on-surface": "#362d3e",
+                        "on-secondary": "#45166e",
+                        "tertiary-fixed": "#eddcff",
+                        "on-secondary-fixed": "#2d0050",
+                        "primary-fixed-dim": "#ddb7ff",
+                        "tertiary-fixed-dim": "#d2bfe8",
+                        "inverse-primary": "#842bd2",
+                        "secondary-container": "#603389",
+                        "tertiary": "#d2bfe8",
+                        "error-container": "#93000a",
+                        "background": "#08080b",
+                        "on-error": "#690005",
+                        "on-secondary-fixed-variant": "#5d3186",
+                        "on-primary-fixed-variant": "#6900b3",
+                        "surface-dim": "#18101f",
+                        "surface-container-lowest": "#050508",
+                        "on-tertiary-fixed": "#221534",
+                        "on-primary": "#490080",
+                        "on-tertiary-fixed-variant": "#4f4062",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#ddb7ff",
+                        "surface-bright": "#403547",
+                        "on-primary-fixed": "#2c0051",
+                        "primary": "#ddb7ff",
+                        "error": "#ffb4ab"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "48px",
+                        "unit": "4px",
+                        "gutter": "24px",
+                        "container-max": "1440px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "label-md": ["Outfit"],
+                        "headline-lg": ["Sora"],
+                        "body-md": ["Outfit"],
+                        "body-lg": ["Outfit"],
+                        "headline-lg-mobile": ["Sora"],
+                        "code-sm": ["JetBrains Mono"],
+                        "headline-xl": ["Sora"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #08080b;
+            color: #edddf4;
+            background-image: radial-gradient(circle at 50% -20%, rgba(168, 85, 247, 0.15), transparent 60%);
+            background-attachment: fixed;
+        }
+
+        /* Ambient Background */
+        .ambient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .ambient-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            animation: drift 20s infinite alternate ease-in-out;
+        }
+        
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: rgba(168, 85, 247, 0.6); animation-delay: 0s; }
+        .blob-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: rgba(139, 92, 246, 0.4); animation-delay: -5s; }
+        .blob-3 { top: 40%; left: 60%; width: 40vw; height: 40vw; background: rgba(192, 132, 252, 0.3); animation-delay: -10s; }
+
+        @keyframes drift {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(5%, 5%) scale(1.1); }
+            100% { transform: translate(-5%, -5%) scale(0.9); }
+        }
+
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Custom Glowing Sphere Effect */
+        .hero-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(168,85,247,0.15) 0%, rgba(168,85,247,0.05) 40%, transparent 70%);
+            border-radius: 50%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .hero-arc {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 900px;
+            height: 400px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+            z-index: 0;
+            pointer-events: none;
+            box-shadow: 0 -20px 60px rgba(168,85,247,0.1);
+        }
+        .hero-arc::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 150px;
+            background: linear-gradient(to top, rgba(168,85,247,0.8), transparent);
+        }
+        
+        /* Glassmorphic Cards & Hover Lift */
+        .glass-card {
+            background: linear-gradient(180deg, rgba(20, 20, 30, 0.6) 0%, rgba(10, 10, 15, 0.8) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        
+        .glass-card:hover.hover-lift {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(168, 85, 247, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+
+        .dashboard-mockup {
+            animation: float 6s ease-in-out infinite;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        
+        .dashboard-mockup::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            left: 10%;
+            width: 80%;
+            height: 20px;
+            background: rgba(168, 85, 247, 0.2);
+            filter: blur(30px);
+            border-radius: 50%;
+            z-index: -1;
+            animation: shadow-pulse 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px) rotateX(2deg); }
+            50% { transform: translateY(-20px) rotateX(0deg); }
+            100% { transform: translateY(0px) rotateX(2deg); }
+        }
+        
+        @keyframes shadow-pulse {
+            0% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 0.2; transform: scale(0.8); }
+            100% { opacity: 0.5; transform: scale(1); }
+        }
+        
+        .blinking-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 15px;
+            background-color: white;
+            animation: blink 1s step-end infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        .live-indicator {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse-green 2s infinite;
+        }
+        
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        /* Grid Background Pattern */
+        .grid-pattern {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+        
+        .bg-grid-subtle {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050508;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b3142;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4d4354;
+        }
+        
+        /* Entrance Animations */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease-out;
+        }
+        
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .stagger-1 { transition-delay: 0.1s; }
+        .stagger-2 { transition-delay: 0.2s; }
+        .stagger-3 { transition-delay: 0.3s; }
+        .stagger-4 { transition-delay: 0.4s; }
+
+        /* Button Glow on Hover */
+        .btn-glow {
+            transition: all 0.3s ease;
+        }
+        .btn-glow:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md text-on-surface antialiased min-h-screen flex flex-col selection:bg-primary-container/30 relative">
+<!-- Ambient Background Elements -->
+<div class="ambient-bg">
+<div class="bg-grid-subtle absolute inset-0"></div>
+<div class="ambient-blob blob-1"></div>
+<div class="ambient-blob blob-2"></div>
+<div class="ambient-blob blob-3"></div>
+</div>
+<div class="noise-overlay"></div>
+<!-- Top Navigation -->
+<nav class="fixed top-0 w-full z-50 transition-all duration-300 py-4 border-b border-transparent bg-transparent" id="navbar">
+<div class="flex justify-between items-center px-8 w-full max-w-[1600px] mx-auto">
+<!-- Brand -->
+<a class="flex items-center group" href="/">
+<span class="font-headline-lg text-white text-xl font-bold tracking-wide uppercase text-[#a855f7] group-hover:text-[#c084fc] transition-colors">CodeIT</span>
+</a>
+<!-- Desktop Nav Links -->
+<div class="hidden md:flex items-center gap-8">
+<a class="text-white/70 font-body-sm text-[14px] hover:text-white transition-colors duration-200 cursor-pointer" href="#">Problems</a>
+<a class="text-white/70 font-body-sm text-[14px] hover:text-white transition-colors duration-200 cursor-pointer" href="#">Learn</a>
+<a class="text-white/70 font-body-sm text-[14px] hover:text-white transition-colors duration-200 cursor-pointer" href="#">Competitions</a>
+<a class="text-[#a855f7] font-body-sm text-[14px] hover:text-[#c084fc] transition-colors duration-200 cursor-pointer flex items-center gap-1 group" href="#">Quick Clash <span class="material-symbols-outlined text-[14px] group-hover:rotate-45 transition-transform">star</span></a>
+<a class="text-white/70 font-body-sm text-[14px] hover:text-white transition-colors duration-200 cursor-pointer" href="#">CodeRoom</a>
+<a class="text-[#a855f7] font-body-sm text-[14px] hover:text-[#c084fc] transition-colors duration-200 cursor-pointer flex items-center gap-1 group" href="#">Friends <span class="material-symbols-outlined text-[14px] group-hover:rotate-45 transition-transform">star</span></a>
+<a class="text-white/70 font-body-sm text-[14px] hover:text-white transition-colors duration-200 cursor-pointer" href="#">About</a>
+<a class="text-white/70 font-body-sm text-[14px] hover:text-white transition-colors duration-200 cursor-pointer" href="#">Contact</a>
+</div>
+<!-- Actions -->
+<div class="flex items-center gap-6">
+<button class="text-white/70 hover:text-white transition-colors hover:scale-110 duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<a class="text-white/70 font-body-sm text-[14px] hover:text-white transition-colors font-medium" href="#">Login / Dashboard</a>
+<button class="px-6 py-2 bg-[#a855f7] text-white font-body-sm text-[14px] font-semibold rounded-full hover:bg-opacity-90 hover:shadow-[0_0_20px_rgba(168,85,247,0.5)] transition-all btn-glow">
+                    Get Started
+                </button>
+<!-- Mobile Menu Toggle -->
+<button class="md:hidden text-white ml-4">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-32 pb-24 relative">
+<!-- Hero Section -->
+<section class="relative w-full flex flex-col items-center justify-center overflow-hidden py-16 z-10" id="hero-section">
+<!-- Abstract Background Elements -->
+<div class="hero-glow"></div>
+<div class="hero-arc"></div>
+<!-- Content -->
+<div class="relative z-20 text-center px-4 max-w-5xl mx-auto flex flex-col items-center gap-6 mt-12 animate-[fadeInUp_1s_ease-out]">
+<p class="font-code-sm text-[12px] uppercase tracking-[0.2em] text-[#a855f7] mb-2 font-semibold">
+                    WELCOME TO CODEIT
+                </p>
+<h1 class="font-headline-lg-mobile text-[48px] leading-[1.1] md:font-headline-xl md:text-[84px] text-white font-medium tracking-tight drop-shadow-2xl">
+                    Master Competitive <br class="hidden md:block"/>
+                    Programming, <div>Together.
+                </div></h1>
+<p class="font-body-lg text-body-lg md:text-[20px] md:leading-[32px] text-white/60 max-w-3xl font-light mt-4">
+                    Practice coding problems. Learn DSA step by step. Challenge your friends. Compete in live contests. Get AI-powered guidance whenever you're stuck.
+                </p>
+<!-- CTAs -->
+<div class="flex flex-col sm:flex-row items-center gap-6 mt-10">
+<a class="btn-glow w-full sm:w-auto px-10 py-4 bg-[#a855f7] text-white font-body-md text-[15px] font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-[0_0_30px_rgba(168,85,247,0.3)] hover:shadow-[0_0_40px_rgba(168,85,247,0.5)]" href="/start">
+                        Start Coding
+                    </a>
+<a class="btn-glow w-full sm:w-auto px-10 py-4 bg-transparent border border-white/20 text-white font-body-md text-[15px] font-semibold rounded-full flex items-center justify-center gap-2 hover:border-white/50 hover:bg-white/5 transition-all" href="/quick-clash">
+                        Quick Clash
+                    </a>
+</div>
+<!-- Badges -->
+<div class="flex flex-wrap justify-center gap-4 mt-12">
+<span class="px-4 py-1.5 rounded-full border border-[#a855f7]/30 bg-[#a855f7]/10 text-white/90 text-[13px] font-body-sm flex items-center gap-2 backdrop-blur-md hover:bg-[#a855f7]/20 transition-colors cursor-default">
+<span class="material-symbols-outlined text-[16px] text-[#a855f7]">check_circle</span> AI Coach
+</span>
+<span class="px-4 py-1.5 rounded-full border border-[#a855f7]/30 bg-[#a855f7]/10 text-white/90 text-[13px] font-body-sm flex items-center gap-2 backdrop-blur-md hover:bg-[#a855f7]/20 transition-colors cursor-default">
+<span class="material-symbols-outlined text-[16px] text-[#a855f7]">check_circle</span> Quick Clash
+</span>
+<span class="px-4 py-1.5 rounded-full border border-[#a855f7]/30 bg-[#a855f7]/10 text-white/90 text-[13px] font-body-sm flex items-center gap-2 backdrop-blur-md hover:bg-[#a855f7]/20 transition-colors cursor-default">
+<span class="material-symbols-outlined text-[16px] text-[#a855f7]">check_circle</span> Live Contests
+</span>
+<span class="px-4 py-1.5 rounded-full border border-[#a855f7]/30 bg-[#a855f7]/10 text-white/90 text-[13px] font-body-sm flex items-center gap-2 backdrop-blur-md hover:bg-[#a855f7]/20 transition-colors cursor-default">
+<span class="material-symbols-outlined text-[16px] text-[#a855f7]">check_circle</span> CodeRoom &amp; Friends
+</span>
+</div>
+<!-- Floating Dashboard Mockup -->
+<div class="mt-24 relative w-full max-w-6xl dashboard-mockup z-30" id="hero-mockup">
+<div class="glass-card rounded-xl border border-white/10 p-2 shadow-2xl relative overflow-hidden bg-[#08080b]/90">
+<!-- Mockup Header -->
+<div class="flex items-center gap-2 p-3 border-b border-white/5 mb-4">
+<div class="w-3 h-3 rounded-full bg-red-500/80 hover:bg-red-500 transition-colors"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-500/80 hover:bg-yellow-500 transition-colors"></div>
+<div class="w-3 h-3 rounded-full bg-green-500/80 hover:bg-green-500 transition-colors"></div>
+<div class="ml-4 px-4 py-1 bg-white/5 rounded-md text-[12px] text-white/50 font-code-sm flex-1 text-center border border-white/5 flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[14px]">lock</span> codeit.dev/workspace
+</div>
+</div>
+<!-- Mockup Layout -->
+<div class="grid grid-cols-12 gap-4 h-[500px]">
+<!-- Sidebar -->
+<div class="col-span-3 bg-white/5 rounded-lg border border-white/5 p-4 flex flex-col gap-4">
+<div class="h-8 bg-white/10 rounded w-3/4 animate-pulse"></div>
+<div class="h-4 bg-white/5 rounded w-full"></div>
+<div class="h-4 bg-white/5 rounded w-5/6"></div>
+<div class="h-4 bg-white/5 rounded w-full"></div>
+<div class="mt-auto p-4 bg-[#a855f7]/10 rounded-lg border border-[#a855f7]/20 flex items-center gap-3 hover:bg-[#a855f7]/20 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-[#a855f7] animate-bounce" style="animation-duration: 2s;">smart_toy</span>
+<div>
+<div class="text-[12px] text-white font-medium">AI Coach</div>
+<div class="text-[10px] text-white/50 flex items-center gap-1"><div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>Ready to help</div>
+</div>
+</div>
+</div>
+<!-- Editor -->
+<div class="col-span-6 bg-[#050508] rounded-lg border border-white/5 p-4 font-code-sm text-[13px] relative group">
+<div class="text-white/40 mb-2">// Two Sum</div>
+<div class="text-[#a855f7]">function <span class="text-blue-400">twoSum</span>(nums, target) {</div>
+<div class="pl-4 text-white/70">const map = new Map();</div>
+<div class="pl-4 text-white/70">for (let i = 0; i &lt; nums.length; i++) {</div>
+<div class="pl-8 text-white/70">const complement = target - nums[i];</div>
+<div class="pl-8 text-[#a855f7]">if <span class="text-white/70">(map.has(complement)) {</span></div>
+<div class="pl-12 text-white/70">return [map.get(complement), i];</div>
+<div class="pl-8 text-white/70">}</div>
+<div class="pl-8 text-white/70">map.set(nums[i], i);<span class="blinking-cursor"></span></div>
+<div class="pl-4 text-white/70">}</div>
+<div class="text-white/70">}</div>
+<div class="absolute bottom-4 right-4 flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+<button class="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[12px] rounded transition-colors">Run</button>
+<button class="px-4 py-1.5 bg-[#a855f7] hover:bg-[#c084fc] text-white text-[12px] rounded font-medium transition-colors shadow-[0_0_10px_rgba(168,85,247,0.3)]">Submit</button>
+</div>
+</div>
+<!-- Right Panel (Leaderboard/Clash) -->
+<div class="col-span-3 flex flex-col gap-4">
+<div class="flex-1 bg-white/5 rounded-lg border border-white/5 p-4 relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-[#a855f7]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="text-[13px] font-medium text-white mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#a855f7] text-[16px]">swords</span> Quick Clash Lobby</div>
+<div class="flex flex-col gap-2 relative z-10">
+<div class="flex items-center justify-between p-2 bg-white/5 rounded border border-white/5 hover:border-white/20 transition-colors">
+<div class="flex items-center gap-2"><div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-[10px] text-blue-300">U1</div><span class="text-[12px] text-white/70">User1</span></div>
+<span class="text-[12px] text-green-400 flex items-center gap-1"><div class="live-indicator"></div>Ready</span>
+</div>
+<div class="flex items-center justify-between p-2 bg-white/5 rounded border border-[#a855f7]/30 hover:border-[#a855f7]/60 transition-colors bg-[#a855f7]/5">
+<div class="flex items-center gap-2"><div class="w-6 h-6 rounded-full bg-[#a855f7]/20 flex items-center justify-center text-[10px] text-[#a855f7]">ME</div><span class="text-[12px] text-white font-medium">You</span></div>
+<span class="text-[12px] text-green-400 flex items-center gap-1"><div class="live-indicator"></div>Ready</span>
+</div>
+</div>
+</div>
+<div class="flex-1 bg-white/5 rounded-lg border border-white/5 p-4 hover:border-white/10 transition-colors">
+<div class="text-[13px] font-medium text-white mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-[#a855f7] text-[16px]">leaderboard</span> Live Ranks</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between group/rank"><div class="flex items-center gap-2"><span class="text-[12px] font-medium text-yellow-500 w-4">1.</span><span class="text-[12px] text-white/70 group-hover/rank:text-white transition-colors">Alex</span></div><span class="text-[12px] text-white/70 font-code-sm">2400</span></div>
+<div class="flex items-center justify-between group/rank"><div class="flex items-center gap-2"><span class="text-[12px] font-medium text-gray-400 w-4">2.</span><span class="text-[12px] text-white/70 group-hover/rank:text-white transition-colors">Sarah</span></div><span class="text-[12px] text-white/70 font-code-sm">2350</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Live Stats Banner -->
+<div class="w-full bg-[#a855f7]/5 border-y border-[#a855f7]/10 py-4 reveal">
+<div class="max-w-[1200px] mx-auto px-6 flex flex-wrap justify-around items-center gap-4">
+<div class="flex items-center gap-3">
+<div class="live-indicator"></div>
+<span class="text-white/60 text-[14px]">Users Online: <strong class="text-white font-code-sm counter" data-target="1432">0</strong></span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#a855f7] text-[18px]">check_circle</span>
+<span class="text-white/60 text-[14px]">Problems Solved Today: <strong class="text-white font-code-sm counter" data-target="85420">0</strong></span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#a855f7] text-[18px]">emoji_events</span>
+<span class="text-white/60 text-[14px]">Active Contests: <strong class="text-white font-code-sm counter" data-target="12">0</strong></span>
+</div>
+</div>
+</div>
+<!-- Features / Stats Section -->
+<section class="py-24 px-6 max-w-[1200px] mx-auto w-full relative z-20 reveal">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- About Block -->
+<div class="flex flex-col justify-center pr-12">
+<p class="font-code-sm text-[12px] uppercase tracking-[0.1em] text-white/50 mb-4 font-semibold">
+                        ABOUT CODEIT PLATFORM
+                    </p>
+<h2 class="font-headline-lg text-[36px] leading-[1.2] text-white font-medium mb-6">Everything You Need To Become A Better Programmer</h2>
+<p class="font-body-md text-white/60 leading-relaxed mb-8">The ultimate environment for competitive programmers. Solve complex problems, participate in high-stakes contests, and master DSA with real-time feedback and a unified compiler suite.</p>
+<div class="flex gap-4 flex-wrap">
+<button class="px-8 py-3 bg-[#a855f7] text-white font-body-sm text-[14px] font-semibold rounded-full hover:bg-opacity-90 transition-all btn-glow shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                            Sign Up
+                        </button>
+<button class="px-8 py-3 bg-transparent text-white border border-white/20 font-body-sm text-[14px] font-semibold rounded-full hover:bg-white/5 hover:border-white/50 transition-all">
+                            LEARN MORE
+                        </button>
+</div>
+</div>
+<!-- Metrics Grid -->
+<div class="grid grid-cols-2 gap-4 relative">
+<div class="absolute inset-0 grid-pattern opacity-30 z-0 rounded-2xl pointer-events-none"></div>
+<!-- Card 1 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col items-center justify-center text-center relative z-10 h-[220px]">
+<h3 class="font-headline-lg text-[40px] font-bold text-white mb-2 flex items-center"><span class="counter" data-target="1000">0</span>+</h3>
+<p class="text-white/50 font-body-sm text-[14px]">Curated Problems</p>
+<div class="absolute inset-0 bg-gradient-to-b from-[#a855f7]/5 to-transparent rounded-2xl pointer-events-none"></div>
+</div>
+<!-- Card 2 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col items-center justify-center text-center relative z-10 h-[220px]">
+<h3 class="font-headline-lg text-[40px] font-bold text-white mb-2 flex items-center"><span class="counter" data-target="120">0</span>+</h3>
+<p class="text-white/50 font-body-sm text-[14px]">Learning Lessons</p>
+<div class="absolute inset-0 bg-gradient-to-b from-[#a855f7]/5 to-transparent rounded-2xl pointer-events-none"></div>
+</div>
+<!-- Card 3 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col items-center justify-center text-center relative z-10 h-[220px]">
+<h3 class="font-headline-lg text-[40px] font-bold text-white mb-2">24/7</h3>
+<p class="text-white/50 font-body-sm text-[14px]">AI Personal Coding Coach</p>
+<div class="absolute inset-0 bg-gradient-to-b from-[#a855f7]/5 to-transparent rounded-2xl pointer-events-none"></div>
+</div>
+<!-- Card 4 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col items-center justify-center text-center relative z-10 h-[220px]">
+<h3 class="font-headline-lg text-[32px] font-bold text-white mb-2">Realtime</h3>
+<p class="text-white/50 font-body-sm text-[14px]">Collaborative Rooms</p>
+<div class="absolute inset-0 bg-gradient-to-b from-[#a855f7]/5 to-transparent rounded-2xl pointer-events-none"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Detailed Features -->
+<section class="py-24 px-6 max-w-[1200px] mx-auto w-full relative z-20 reveal">
+<div class="mb-16 text-center">
+<h2 class="font-headline-lg text-[32px] text-white font-medium mb-4">The CodeIT Ecosystem</h2>
+<p class="text-white/50 text-[15px]">Explore our toolkit and shape the future of collaborative coding.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Feature 1 -->
+<div class="glass-card hover-lift rounded-2xl p-10 flex flex-col items-center text-center relative overflow-hidden group border-white/10 hover:border-[#a855f7]/50 transition-colors reveal stagger-1">
+<div class="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-[#a855f7] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[48px] text-[#a855f7] mb-6 group-hover:scale-110 transition-transform">school</span>
+<h4 class="font-headline-lg-mobile text-[22px] text-white mb-3">DSA Learning</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Master Data Structures and Algorithms with step-by-step guidance, curated sheets, and comprehensive learning paths.</p>
+</div>
+<!-- Feature 2 -->
+<div class="glass-card hover-lift rounded-2xl p-10 flex flex-col items-center text-center relative overflow-hidden group border-white/10 hover:border-[#a855f7]/50 transition-colors reveal stagger-2">
+<div class="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-[#a855f7] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[48px] text-[#a855f7] mb-6 group-hover:scale-110 transition-transform">psychology</span>
+<h4 class="font-headline-lg-mobile text-[22px] text-white mb-3">AI Coach</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Get personalized feedback, code reviews, and hints precisely when you get stuck, powered by advanced AI.</p>
+</div>
+<!-- Feature 3 -->
+<div class="glass-card hover-lift rounded-2xl p-10 flex flex-col items-center text-center relative overflow-hidden group border-white/10 hover:border-[#a855f7]/50 transition-colors reveal stagger-3">
+<div class="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-[#a855f7] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<span class="material-symbols-outlined text-[48px] text-[#a855f7] mb-6 group-hover:scale-110 transition-transform">swords</span>
+<h4 class="font-headline-lg-mobile text-[22px] text-white mb-3">Quick Clash</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Engage in rapid-fire coding battles with friends or random opponents to test your speed and accuracy under pressure.</p>
+</div>
+</div>
+</section>
+<!-- Deep Dives -->
+<!-- AI Coach Deep Dive -->
+<section class="py-24 px-6 max-w-[1200px] mx-auto w-full relative z-20 reveal">
+<div class="flex flex-col md:flex-row items-center gap-12">
+<div class="md:w-1/2 order-2 md:order-1">
+<div class="glass-card rounded-xl p-6 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+<span class="material-symbols-outlined text-[100px] text-[#a855f7]">psychology</span>
+</div>
+<div class="flex flex-col gap-4 relative z-10">
+<div class="bg-white/5 rounded-lg p-4 border border-white/10">
+<div class="text-[12px] text-red-400 mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px]">cancel</span> Wrong Answer on Test Case 4</div>
+<div class="font-code-sm text-[12px] text-white/70 bg-black/50 p-2 rounded">Expected: [1, 2], Output: [2, 1]</div>
+</div>
+<div class="flex gap-2 justify-center py-2">
+<span class="material-symbols-outlined text-[#a855f7] animate-bounce">arrow_downward</span>
+</div>
+<div class="bg-[#a855f7]/10 rounded-lg p-4 border border-[#a855f7]/30">
+<div class="flex items-center gap-3 mb-3">
+<span class="material-symbols-outlined text-[#a855f7]">smart_toy</span>
+<span class="text-[13px] font-medium text-white">AI Coach Analysis</span>
+</div>
+<p class="text-[13px] text-white/70 leading-relaxed mb-4">You're close! Your logic finds the correct indices, but the order is swapped. Remember, the problem asks for the indices in the order they appear.</p>
+<div class="flex flex-col gap-2">
+<button class="bg-white/5 hover:bg-white/10 text-white/80 text-[12px] p-2 rounded flex justify-between items-center transition-colors">
+<span>Get a conceptual hint</span>
+<span class="material-symbols-outlined text-[14px]">lightbulb</span>
+</button>
+<button class="bg-white/5 hover:bg-white/10 text-white/80 text-[12px] p-2 rounded flex justify-between items-center transition-colors">
+<span>Check complexity</span>
+<span class="material-symbols-outlined text-[14px]">speed</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md:w-1/2 order-1 md:order-2">
+<h2 class="font-headline-lg text-[32px] text-white font-medium mb-4">Smarter Learning with AI Coach</h2>
+<p class="font-body-md text-white/60 leading-relaxed mb-6">Our AI doesn't just give you the answer. It guides you to the solution, helping you understand the underlying concepts.</p>
+<ul class="flex flex-col gap-4">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[#a855f7] mt-1">analytics</span>
+<div>
+<h4 class="text-white font-medium text-[15px]">Deep Analysis</h4>
+<p class="text-white/50 text-[13px]">Understands your specific bug, not just generic errors.</p>
+</div>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[#a855f7] mt-1">format_list_numbered</span>
+<div>
+<h4 class="text-white font-medium text-[15px]">Progressive Hints</h4>
+<p class="text-white/50 text-[13px]">Controls how much help you get, from vague concepts to pseudo-code.</p>
+</div>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[#a855f7] mt-1">school</span>
+<div>
+<h4 class="text-white font-medium text-[15px]">Never Spoons-feeds</h4>
+<p class="text-white/50 text-[13px]">Forces you to think and apply the learned concepts.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</section>
+<!-- Quick Clash Deep Dive -->
+<section class="py-24 px-6 max-w-[1200px] mx-auto w-full relative z-20 reveal">
+<div class="flex flex-col md:flex-row items-center gap-12">
+<div class="md:w-1/2">
+<h2 class="font-headline-lg text-[32px] text-white font-medium mb-4">Adrenaline-Pumping Quick Clash</h2>
+<p class="font-body-md text-white/60 leading-relaxed mb-6">Test your skills under pressure. Create private rooms, invite friends, and battle it out on random problems without affecting your global rating.</p>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-white/5 border border-white/10 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-[#a855f7] mb-2">lock</span>
+<span class="text-white text-[13px] font-medium">Private Lobbies</span>
+</div>
+<div class="bg-white/5 border border-white/10 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-[#a855f7] mb-2">shuffle</span>
+<span class="text-white text-[13px] font-medium">Random Problems</span>
+</div>
+<div class="bg-white/5 border border-white/10 rounded-lg p-4 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-[#a855f7] mb-2">group_add</span>
+<span class="text-white text-[13px] font-medium">Up to 10 Players</span>
+</div>
+<div class="bg-white/5 border border-white/10 rounded-lg p-4 flex flex-col items-center justify-center text-center relative overflow-hidden">
+<div class="absolute inset-0 bg-red-500/10 mix-blend-overlay"></div>
+<span class="material-symbols-outlined text-red-400 mb-2 relative z-10">block</span>
+<span class="text-white text-[13px] font-medium relative z-10">AI Disabled</span>
+</div>
+</div>
+<button class="px-6 py-2 bg-transparent border border-[#a855f7] text-[#a855f7] font-body-sm text-[14px] font-semibold rounded-full hover:bg-[#a855f7]/10 transition-all">
+                Learn More About Clash
+            </button>
+</div>
+<div class="md:w-1/2">
+<div class="glass-card rounded-xl p-6">
+<div class="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
+<h3 class="text-white font-medium flex items-center gap-2"><span class="material-symbols-outlined text-[#a855f7]">settings</span> Clash Settings</h3>
+<span class="px-2 py-1 bg-white/10 rounded text-[10px] text-white/50">Host View</span>
+</div>
+<div class="flex flex-col gap-4">
+<div>
+<label class="text-[12px] text-white/50 mb-1 block">Difficulty</label>
+<div class="flex gap-2">
+<div class="px-3 py-1.5 bg-green-500/20 border border-green-500/50 rounded text-[12px] text-green-400 cursor-pointer">Easy</div>
+<div class="px-3 py-1.5 bg-white/5 border border-white/10 rounded text-[12px] text-white/70 cursor-pointer">Medium</div>
+<div class="px-3 py-1.5 bg-white/5 border border-white/10 rounded text-[12px] text-white/70 cursor-pointer">Hard</div>
+</div>
+</div>
+<div>
+<label class="text-[12px] text-white/50 mb-1 block">Duration</label>
+<div class="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+<div class="w-1/3 h-full bg-[#a855f7]"></div>
+</div>
+<div class="flex justify-between mt-1 text-[10px] text-white/40">
+<span>15m</span>
+<span class="text-white">30m</span>
+<span>60m</span>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-white/10">
+<button class="w-full py-2 bg-[#a855f7] text-white rounded font-medium text-[14px] hover:bg-opacity-90 transition-colors shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                            Start Match
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- CodeRoom Deep Dive -->
+<section class="py-24 px-6 max-w-[1200px] mx-auto w-full relative z-20 reveal">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-[32px] text-white font-medium mb-4">Collaborative CodeRooms</h2>
+<p class="text-white/50 text-[15px] max-w-2xl mx-auto">Interview prep or pair programming? CodeRooms provide a shared environment with real-time execution, whiteboarding, and chat.</p>
+</div>
+<div class="glass-card rounded-2xl p-2 border border-white/10 overflow-hidden relative">
+<!-- Browser Header -->
+<div class="flex items-center gap-2 p-3 bg-black/50 border-b border-white/5">
+<div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+<div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+<div class="ml-4 px-4 py-1 bg-white/5 rounded-md text-[12px] text-white/50 font-code-sm flex-1 max-w-md text-center border border-white/5 mx-auto">codeit.dev/room/a1b2c3</div>
+<div class="flex gap-2">
+<div class="w-6 h-6 rounded-full bg-blue-500/50 border border-white/20"></div>
+<div class="w-6 h-6 rounded-full bg-pink-500/50 border border-white/20"></div>
+</div>
+</div>
+<div class="grid grid-cols-4 h-[400px]">
+<!-- Main Editor -->
+<div class="col-span-3 bg-[#050508] p-4 relative font-code-sm text-[13px]">
+<div class="flex border-b border-white/10 mb-4 pb-2 gap-4">
+<span class="text-white border-b-2 border-[#a855f7] pb-2 cursor-pointer">solution.js</span>
+<span class="text-white/50 hover:text-white pb-2 cursor-pointer transition-colors">whiteboard</span>
+</div>
+<div class="text-[#a855f7]">function <span class="text-blue-400">reverseList</span>(head) {</div>
+<div class="pl-4 text-white/70">let prev = null;</div>
+<div class="pl-4 text-white/70 relative">let curr = head;
+                    <!-- Cursor 1 -->
+<div class="absolute -left-1 top-1 w-0.5 h-4 bg-pink-500 animate-pulse"></div>
+<div class="absolute left-0 -top-5 bg-pink-500 text-white text-[10px] px-1 rounded rounded-bl-none">Alice</div>
+</div>
+<div class="pl-4 text-white/70 mt-2">while (curr !== null) {</div>
+<div class="pl-8 text-white/70">const nextTemp = curr.next;</div>
+<div class="pl-8 text-white/70 relative">curr.next = prev;
+                    <!-- Cursor 2 -->
+<div class="absolute -left-1 top-1 w-0.5 h-4 bg-blue-500 animate-pulse"></div>
+<div class="absolute left-0 -top-5 bg-blue-500 text-white text-[10px] px-1 rounded rounded-bl-none">Bob</div>
+</div>
+<div class="pl-8 text-white/70">prev = curr;</div>
+<div class="pl-8 text-white/70">curr = nextTemp;</div>
+<div class="pl-4 text-white/70">}</div>
+<div class="pl-4 text-white/70">return prev;</div>
+<div class="text-white/70">}</div>
+</div>
+<!-- Sidebar Chat/Controls -->
+<div class="col-span-1 bg-white/5 border-l border-white/10 p-4 flex flex-col">
+<div class="text-[13px] font-medium text-white mb-4 border-b border-white/10 pb-2">Room Chat</div>
+<div class="flex-1 overflow-hidden flex flex-col gap-3">
+<div class="flex flex-col gap-1">
+<span class="text-[10px] text-pink-400">Alice</span>
+<span class="text-[12px] text-white/80 bg-white/5 p-2 rounded-lg rounded-tl-none">I'll handle the pointer updates in the loop.</span>
+</div>
+<div class="flex flex-col gap-1 items-end">
+<span class="text-[10px] text-blue-400">Bob (You)</span>
+<span class="text-[12px] text-white/80 bg-[#a855f7]/20 p-2 rounded-lg rounded-tr-none">Sounds good. I think we have the base case covered.</span>
+</div>
+</div>
+<div class="mt-4">
+<input class="w-full bg-black/50 border border-white/10 rounded p-2 text-[12px] text-white focus:outline-none focus:border-[#a855f7]/50" placeholder="Type a message..." type="text"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Comparison Section -->
+<section class="py-24 px-6 max-w-[1000px] mx-auto w-full relative z-20 reveal">
+<div class="mb-16 text-center">
+<h2 class="font-headline-lg text-[32px] text-white font-medium mb-4">Why Choose CodeIT?</h2>
+<p class="text-white/50 text-[15px]">Built for modern developers who want to learn faster and together.</p>
+</div>
+<div class="glass-card rounded-2xl overflow-hidden border border-white/10">
+<div class="grid grid-cols-3 bg-black/40 border-b border-white/10 p-4">
+<div class="col-span-1 text-white/50 font-medium text-[14px]">Features</div>
+<div class="col-span-1 text-center text-white/50 font-medium text-[14px]">Other Platforms</div>
+<div class="col-span-1 text-center text-[#a855f7] font-bold text-[16px] flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">star</span> CodeIT
+            </div>
+</div>
+<div class="flex flex-col divide-y divide-white/5">
+<!-- Row 1 -->
+<div class="grid grid-cols-3 p-4 hover:bg-white/5 transition-colors">
+<div class="col-span-1 text-white/80 text-[14px] flex items-center">Problem Repository</div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-green-500">check</span></div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-green-500">check</span></div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-3 p-4 hover:bg-white/5 transition-colors">
+<div class="col-span-1 text-white/80 text-[14px] flex items-center">Structured Learning</div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-red-500/50">close</span></div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-green-500">check</span></div>
+</div>
+<!-- Row 3 -->
+<div class="grid grid-cols-3 p-4 hover:bg-white/5 transition-colors">
+<div class="col-span-1 text-white/80 text-[14px] flex items-center">Contextual AI Coach</div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-red-500/50">close</span></div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-green-500">check</span></div>
+</div>
+<!-- Row 4 -->
+<div class="grid grid-cols-3 p-4 hover:bg-white/5 transition-colors">
+<div class="col-span-1 text-white/80 text-[14px] flex items-center">Quick Clash Battles</div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-red-500/50">close</span></div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-green-500">check</span></div>
+</div>
+<!-- Row 5 -->
+<div class="grid grid-cols-3 p-4 hover:bg-white/5 transition-colors">
+<div class="col-span-1 text-white/80 text-[14px] flex items-center">Realtime Collaborative IDE</div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-red-500/50">close</span></div>
+<div class="col-span-1 flex justify-center items-center"><span class="material-symbols-outlined text-green-500">check</span></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bento Grid: Everything Included -->
+<section class="py-24 px-6 max-w-[1200px] mx-auto w-full relative z-20 reveal">
+<div class="mb-16 text-center">
+<h2 class="font-headline-lg text-[32px] text-white font-medium mb-4">Everything Included</h2>
+<p class="text-white/50 text-[15px]">A complete platform designed to accelerate your growth.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[200px]">
+<!-- Box 1 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col justify-between md:col-span-2 md:row-span-2 relative overflow-hidden group hover:border-[#a855f7]/30 transition-all border-white/5 reveal stagger-1">
+<div class="absolute inset-0 bg-gradient-to-br from-[#a855f7]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+<span class="material-symbols-outlined text-[40px] text-[#a855f7] mb-4 group-hover:scale-110 transition-transform">code_blocks</span>
+<div>
+<h4 class="font-headline-lg-mobile text-[24px] text-white mb-2">Problems Repository</h4>
+<p class="text-[15px] text-white/60 leading-relaxed">Access a massive repository of coding challenges ranging from easy to hard. Filter by topic, company, and difficulty.</p>
+</div>
+</div>
+<!-- Box 2 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col justify-between md:col-span-2 relative overflow-hidden group hover:border-[#a855f7]/30 transition-all border-white/5 reveal stagger-2">
+<span class="material-symbols-outlined text-[32px] text-[#a855f7] mb-4 group-hover:scale-110 transition-transform">checklist</span>
+<div>
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-1">DSA Learning</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Structured roadmap to master algorithms.</p>
+</div>
+</div>
+<!-- Box 3 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col justify-between md:col-span-1 relative overflow-hidden group hover:border-[#a855f7]/30 transition-all border-white/5 reveal stagger-3">
+<span class="material-symbols-outlined text-[32px] text-[#a855f7] mb-4 group-hover:scale-110 transition-transform">emoji_events</span>
+<div>
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-1">Competitions</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Join global contests.</p>
+</div>
+</div>
+<!-- Box 4 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col justify-between md:col-span-1 relative overflow-hidden group hover:border-[#a855f7]/30 transition-all border-white/5 reveal stagger-4">
+<span class="material-symbols-outlined text-[32px] text-[#a855f7] mb-4 group-hover:scale-110 transition-transform">flash_on</span>
+<div>
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-1">Quick Clash</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Fast-paced 1v1 battles.</p>
+</div>
+</div>
+<!-- Box 5 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col justify-between md:col-span-2 relative overflow-hidden group hover:border-[#a855f7]/30 transition-all border-white/5 reveal stagger-1">
+<span class="material-symbols-outlined text-[32px] text-[#a855f7] mb-4 group-hover:scale-110 transition-transform">group</span>
+<div>
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-1">Friends &amp; Community</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Connect, track progress, and learn together.</p>
+</div>
+</div>
+<!-- Box 6 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col justify-between md:col-span-1 relative overflow-hidden group hover:border-[#a855f7]/30 transition-all border-white/5 reveal stagger-2">
+<span class="material-symbols-outlined text-[32px] text-[#a855f7] mb-4 group-hover:scale-110 transition-transform">smart_toy</span>
+<div>
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-1">AI Coach</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">24/7 personal tutor.</p>
+</div>
+</div>
+<!-- Box 7 -->
+<div class="glass-card hover-lift rounded-2xl p-8 flex flex-col justify-between md:col-span-1 relative overflow-hidden group hover:border-[#a855f7]/30 transition-all border-white/5 reveal stagger-3">
+<span class="material-symbols-outlined text-[32px] text-[#a855f7] mb-4 group-hover:scale-110 transition-transform">terminal</span>
+<div>
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-1">CodeRoom</h4>
+<p class="text-[14px] text-white/60 leading-relaxed">Collaborative IDE.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Product Showcase (Screenshots context placeholder) -->
+<section class="py-24 px-6 max-w-[1200px] mx-auto w-full relative z-20 reveal hidden">
+<!-- Intentionally hidden as exact screenshots are not available in this simplified mockup, but structure remains -->
+</section>
+<!-- How CodeIT Works Timeline -->
+<section class="py-24 px-6 max-w-[1000px] mx-auto w-full relative z-20 reveal">
+<div class="mb-16 text-center">
+<h2 class="font-headline-lg text-[32px] text-white font-medium mb-4">How CodeIT Works</h2>
+<p class="text-white/50 text-[15px]">Your journey to competitive programming mastery.</p>
+</div>
+<div class="relative">
+<!-- Vertical Line -->
+<div class="absolute left-[28px] md:left-1/2 top-0 bottom-0 w-[2px] bg-white/10 md:-translate-x-1/2"></div>
+<!-- Step 1 -->
+<div class="relative flex flex-col md:flex-row items-start md:items-center justify-between mb-12 group reveal stagger-1">
+<div class="md:w-[45%] md:text-right order-2 md:order-1 pl-16 md:pl-0 mt-4 md:mt-0">
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-2">Create Account</h4>
+<p class="text-[14px] text-white/50">Sign up and set up your profile to start tracking your progress.</p>
+</div>
+<div class="absolute left-0 md:left-1/2 w-14 h-14 bg-[#08080b] border-2 border-[#a855f7] rounded-full flex items-center justify-center z-10 md:-translate-x-1/2 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(168,85,247,0.4)] group-hover:bg-[#a855f7]/20">
+<span class="material-symbols-outlined text-[#a855f7]">person_add</span>
+</div>
+<div class="md:w-[45%] order-3 md:order-3"></div>
+</div>
+<!-- Step 2 -->
+<div class="relative flex flex-col md:flex-row items-start md:items-center justify-between mb-12 group reveal stagger-2">
+<div class="md:w-[45%] order-2 md:order-1"></div>
+<div class="absolute left-0 md:left-1/2 w-14 h-14 bg-[#08080b] border-2 border-[#a855f7] rounded-full flex items-center justify-center z-10 md:-translate-x-1/2 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(168,85,247,0.4)] group-hover:bg-[#a855f7]/20">
+<span class="material-symbols-outlined text-[#a855f7]">school</span>
+</div>
+<div class="md:w-[45%] md:text-left order-3 md:order-3 pl-16 md:pl-0 mt-4 md:mt-0">
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-2">Learn &amp; Practice</h4>
+<p class="text-[14px] text-white/50">Follow structured DSA sheets and solve curated problems daily.</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="relative flex flex-col md:flex-row items-start md:items-center justify-between mb-12 group reveal stagger-3">
+<div class="md:w-[45%] md:text-right order-2 md:order-1 pl-16 md:pl-0 mt-4 md:mt-0">
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-2">Compete</h4>
+<p class="text-[14px] text-white/50">Join Quick Clash battles and live contests to test your speed.</p>
+</div>
+<div class="absolute left-0 md:left-1/2 w-14 h-14 bg-[#08080b] border-2 border-[#a855f7] rounded-full flex items-center justify-center z-10 md:-translate-x-1/2 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(168,85,247,0.4)] group-hover:bg-[#a855f7]/20">
+<span class="material-symbols-outlined text-[#a855f7]">emoji_events</span>
+</div>
+<div class="md:w-[45%] order-3 md:order-3"></div>
+</div>
+<!-- Step 4 -->
+<div class="relative flex flex-col md:flex-row items-start md:items-center justify-between group reveal stagger-4">
+<div class="md:w-[45%] order-2 md:order-1"></div>
+<div class="absolute left-0 md:left-1/2 w-14 h-14 bg-[#08080b] border-2 border-[#a855f7] rounded-full flex items-center justify-center z-10 md:-translate-x-1/2 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(168,85,247,0.4)] group-hover:bg-[#a855f7]/20">
+<span class="material-symbols-outlined text-[#a855f7]">trending_up</span>
+</div>
+<div class="md:w-[45%] md:text-left order-3 md:order-3 pl-16 md:pl-0 mt-4 md:mt-0">
+<h4 class="font-headline-lg-mobile text-[20px] text-white mb-2">Improve Your Skills</h4>
+<p class="text-[14px] text-white/50">Review your performance, get AI feedback, and watch your rank climb.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA Section -->
+<section class="py-24 px-6 max-w-[1000px] mx-auto w-full relative z-20 text-center reveal">
+<div class="glass-card rounded-3xl p-12 md:p-16 relative overflow-hidden border border-[#a855f7]/20 shadow-[0_0_50px_rgba(168,85,247,0.1)] group">
+<div class="absolute inset-0 bg-gradient-to-t from-[#a855f7]/20 to-transparent pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity duration-700"></div>
+<h2 class="font-headline-lg text-[40px] md:text-[56px] text-white font-medium mb-6 relative z-10 drop-shadow-lg">Ready To Level Up Your Coding Journey?</h2>
+<p class="text-white/60 text-[16px] md:text-[18px] mb-10 max-w-2xl mx-auto relative z-10">Join thousands of developers mastering algorithms, dominating contests, and preparing for top tech interviews.</p>
+<div class="flex flex-col sm:flex-row items-center justify-center gap-6 relative z-10">
+<a class="btn-glow w-full sm:w-auto px-10 py-4 bg-[#a855f7] text-white font-body-md text-[15px] font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-[0_0_30px_rgba(168,85,247,0.3)] hover:shadow-[0_0_40px_rgba(168,85,247,0.5)]" href="/start">
+                Start Coding
+            </a>
+<a class="btn-glow w-full sm:w-auto px-10 py-4 bg-transparent border border-white/20 text-white font-body-md text-[15px] font-semibold rounded-full flex items-center justify-center gap-2 hover:border-white/50 hover:bg-white/5 transition-all" href="/quick-clash">
+                Quick Clash
+            </a>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full bg-[#050508] border-t border-white/5 relative z-10 pt-16 pb-8">
+<div class="max-w-[1200px] mx-auto px-6">
+<div class="grid grid-cols-2 md:grid-cols-5 gap-8 mb-16">
+<div class="col-span-2">
+<span class="font-headline-lg text-white text-xl font-bold tracking-wide uppercase text-[#a855f7] block mb-4">CodeIT</span>
+<p class="text-white/40 text-[13px] max-w-xs mb-6">Connect and build on the advanced collaborative IDE platform. Redefining competitive programming.</p>
+<div class="flex gap-4">
+<a class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/50 hover:bg-[#a855f7]/20 hover:text-[#a855f7] transition-colors" href="#"><span class="material-symbols-outlined text-[20px]">public</span></a>
+<a class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/50 hover:bg-[#a855f7]/20 hover:text-[#a855f7] transition-colors" href="#"><span class="material-symbols-outlined text-[20px]">mail</span></a>
+</div>
+</div>
+<div>
+<h5 class="text-white font-semibold text-[14px] mb-4">Platform</h5>
+<ul class="flex flex-col gap-3">
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Problems</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">DSA Sheet</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Competitions</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Quick Clash</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">CodeRoom</a></li>
+</ul>
+</div>
+<div>
+<h5 class="text-white font-semibold text-[14px] mb-4">Resources</h5>
+<ul class="flex flex-col gap-3">
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Friends</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">AI Coach</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Leaderboard</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Blog</a></li>
+</ul>
+</div>
+<div>
+<h5 class="text-white font-semibold text-[14px] mb-4">Company</h5>
+<ul class="flex flex-col gap-3">
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">About Us</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Contact</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Privacy Policy</a></li>
+<li class=""><a class="text-white/50 text-[13px] hover:text-[#a855f7] transition-colors" href="#">Terms of Service</a></li>
+</ul>
+</div>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/5">
+<span class="text-white/40 font-body-sm text-[12px]">© 2024 CodeIT Platform. All rights reserved.</span>
+</div>
+</div>
+</footer>
+<script>
+    // Navbar Blur on Scroll
+    window.addEventListener('scroll', () => {
+        const nav = document.getElementById('navbar');
+        if (window.scrollY > 50) {
+            nav.classList.add('backdrop-blur-md', 'bg-[#08080b]/80', 'border-white/5');
+            nav.classList.remove('bg-transparent', 'border-transparent');
+        } else {
+            nav.classList.remove('backdrop-blur-md', 'bg-[#08080b]/80', 'border-white/5');
+            nav.classList.add('bg-transparent', 'border-transparent');
+        }
+    });
+
+    // Reveal Animations on Scroll
+    function reveal() {
+        var reveals = document.querySelectorAll(".reveal");
+        for (var i = 0; i < reveals.length; i++) {
+            var windowHeight = window.innerHeight;
+            var elementTop = reveals[i].getBoundingClientRect().top;
+            var elementVisible = 150;
+            if (elementTop < windowHeight - elementVisible) {
+                reveals[i].classList.add("active");
+            }
+        }
+    }
+    window.addEventListener("scroll", reveal);
+    reveal(); // Trigger once on load
+
+    // Counter Animation
+    const counters = document.querySelectorAll('.counter');
+    const speed = 200; // The lower the slower
+
+    const animateCounters = () => {
+        counters.forEach(counter => {
+            const updateCount = () => {
+                const target = +counter.getAttribute('data-target');
+                const count = +counter.innerText;
+                
+                // Lower inc to slow and higher to fast
+                const inc = target / speed;
+
+                if (count < target) {
+                    counter.innerText = Math.ceil(count + inc);
+                    setTimeout(updateCount, 1);
+                } else {
+                    counter.innerText = target;
+                }
+            };
+            
+            // Only start animation if element is in view (simplified check)
+            const rect = counter.getBoundingClientRect();
+            if (rect.top < window.innerHeight && counter.innerText == "0") {
+                 updateCount();
+            }
+        });
+    }
+    window.addEventListener("scroll", animateCounters);
+    setTimeout(animateCounters, 1000); // Initial check
+    
+    // Mouse Parallax for Hero Mockup
+    document.addEventListener('mousemove', function(e) {
+        const mockup = document.getElementById('hero-mockup');
+        if(mockup) {
+            const xAxis = (window.innerWidth / 2 - e.pageX) / 50;
+            const yAxis = (window.innerHeight / 2 - e.pageY) / 50;
+            mockup.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg) translateY(${Math.sin(Date.now() / 1000) * 10}px)`;
+        }
+    });
+</script>
+</body></html>

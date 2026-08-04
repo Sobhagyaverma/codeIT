@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AppNav from "../components/AppNav";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -64,6 +64,7 @@ function useNow(intervalMs = 1000) {
 
 export default function Competitions() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const now = useNow(1000);
   const [data, setData] = useState<ContestDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,12 +175,20 @@ export default function Competitions() {
     setJoiningId(contest.id);
     setActionMsg(null);
     try {
-      await joinCompetition(contest.id, user.id);
-      setActionMsg(`Joined ${contest.title}.`);
-      await refresh();
+      const result = await joinCompetition(contest.id, user.id);
+      const msg = typeof result === "string" ? result.toLowerCase() : "";
+      if (msg && !msg.includes("joined") && !msg.includes("already")) {
+        throw new Error(result);
+      }
+      setActionMsg(`Joined ${contest.title}. Opening room…`);
+      navigate(`/competitions/${contest.id}`);
     } catch (err) {
       setActionMsg(
-        err instanceof ApiError ? err.message : "Failed to join contest."
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to join contest."
       );
     } finally {
       setJoiningId(null);
@@ -189,10 +198,11 @@ export default function Competitions() {
   const stats = data?.stats;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#09040D] text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container">
+    <div className="problem-workspace relative flex min-h-screen flex-col overflow-x-hidden text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container">
+      <div className="pw-ambient" aria-hidden />
       <AppNav activeHint="/competitions" />
 
-      <main className="mx-auto w-full max-w-container-max flex-1 space-y-12 px-margin-mobile py-8 pt-24 md:px-margin-desktop md:py-12">
+      <main className="relative z-10 mx-auto w-full max-w-container-max flex-1 space-y-12 px-margin-mobile py-8 pt-24 md:px-margin-desktop md:py-12">
         <section className="space-y-4">
           <p className="font-label-md text-label-md tracking-widest text-primary uppercase">
             Competitions
@@ -204,6 +214,13 @@ export default function Competitions() {
             Improve under real contest conditions — timed rounds, live
             standings.
           </p>
+          <Link
+            to="/competitions/quick"
+            className="font-label-md inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-5 py-2.5 text-primary shadow-[0_0_16px_rgba(168,85,247,0.2)] transition-all hover:border-primary/55 hover:bg-primary/15 hover:shadow-[0_0_24px_rgba(168,85,247,0.35)]"
+          >
+            <span className="material-symbols-outlined text-[18px]">bolt</span>
+            Quick Clash
+          </Link>
         </section>
 
         <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -218,7 +235,7 @@ export default function Competitions() {
           ].map((card) => (
             <div
               key={card.label}
-              className="glass-panel flex flex-col gap-2 rounded-lg p-6"
+              className="glass-panel flex flex-col gap-2 rounded-2xl border border-white/8 p-6 transition-all hover:border-primary/30 hover:shadow-[0_0_24px_rgba(168,85,247,0.12)]"
             >
               <span className="font-label-md text-label-md text-on-surface-variant">
                 {card.label}
@@ -349,15 +366,19 @@ export default function Competitions() {
                                 </p>
                               </div>
                               <div className="flex w-full flex-col gap-3">
-                                <Link
-                                  to={`/competitions/${contest.id}`}
-                                  className="w-full rounded bg-primary px-6 py-3 text-center font-label-md text-label-md font-bold text-on-primary shadow-[0_0_15px_rgba(221,183,255,0.2)] transition-all hover:bg-primary-container"
+                                <button
+                                  type="button"
+                                  disabled={joiningId === contest.id}
+                                  onClick={() => void handleJoin(contest)}
+                                  className="w-full rounded-full bg-primary px-6 py-3 text-center font-label-md text-label-md font-bold text-on-primary shadow-[0_0_15px_rgba(221,183,255,0.2)] transition-all hover:bg-primary-container disabled:opacity-50"
                                 >
-                                  Join contest
-                                </Link>
+                                  {joiningId === contest.id
+                                    ? "Joining…"
+                                    : "Join contest"}
+                                </button>
                                 <Link
                                   to={`/competitions/${contest.id}`}
-                                  className="w-full rounded border border-outline-variant px-6 py-3 text-center font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-variant/30"
+                                  className="w-full rounded-full border border-outline-variant px-6 py-3 text-center font-label-md text-label-md text-on-surface transition-colors hover:bg-surface-variant/30"
                                 >
                                   View details
                                 </Link>

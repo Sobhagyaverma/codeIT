@@ -5,10 +5,12 @@ import AppNav from "../components/AppNav";
 import { IoPre } from "../components/IoPre";
 import { useAuth } from "../context/AuthContext";
 import LearningCoachPanel from "../features/ai-coach/components/LearningCoachPanel";
-import { createRoom } from "../features/collaboration/api";
+import { createRoom, endRoom, getMyRooms } from "../features/collaboration/api";
 import { roomCodeOf } from "../features/collaboration/roomLinks";
+import type { RoomSummary } from "../features/collaboration/types";
 import {
   ApiError,
+  describeApiError,
   getLanguages,
   getProblem,
   submitCode,
@@ -16,6 +18,7 @@ import {
   type LanguageDTO,
   type ProblemPublicDTO,
 } from "../lib/api";
+import { useToast } from "../context/ToastContext";
 import {
   loadCodeDraft,
   pickPreferredLanguage,
@@ -147,7 +150,10 @@ export default function ProblemWorkspace() {
   const problemId = Number(id);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [inviting, setInviting] = useState(false);
+  const [endingRoom, setEndingRoom] = useState(false);
+  const [hostedRoom, setHostedRoom] = useState<RoomSummary | null>(null);
 
   const [problem, setProblem] = useState<ProblemPublicDTO | null>(null);
   const [languages, setLanguages] = useState<LanguageDTO[]>([]);
@@ -169,9 +175,9 @@ export default function ProblemWorkspace() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [savedToast, setSavedToast] = useState(false);
 
-  const [splitPct, setSplitPct] = useState(45);
-  const [editorPct, setEditorPct] = useState(62);
-  const splitRef = useRef<HTMLElement | null>(null);
+  const [splitPct, setSplitPct] = useState(40);
+  const [editorPct, setEditorPct] = useState(68);
+  const splitRef = useRef<HTMLDivElement | null>(null);
   const editorSplitRef = useRef<HTMLElement | null>(null);
   const draggingRef = useRef(false);
   const draggingEditorRef = useRef(false);
@@ -186,6 +192,35 @@ export default function ProblemWorkspace() {
     () => parseConstraints(problem?.constraintsData),
     [problem]
   );
+
+  useEffect(() => {
+    if (!user) {
+      setHostedRoom(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        // Include CodeRoom leftovers — those also block Invite via "one active host room".
+        const rooms = await getMyRooms({
+          status: "ACTIVE",
+          limit: 50,
+        });
+        if (cancelled) return;
+        const hosted = rooms.filter((r) => r.role === "HOST");
+        const forThisProblem =
+          hosted.find(
+            (r) => r.type === "PROBLEM_COLLAB" && r.problemId === problemId
+          ) ?? null;
+        setHostedRoom(forThisProblem ?? hosted[0] ?? null);
+      } catch {
+        if (!cancelled) setHostedRoom(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, problemId]);
 
   useEffect(() => {
     const onMove = (clientX: number, clientY: number) => {
@@ -403,9 +438,10 @@ export default function ProblemWorkspace() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#09040D] text-on-surface">
+      <div className="problem-workspace flex min-h-screen flex-col text-on-surface">
+        <div className="pw-ambient" aria-hidden />
         <AppNav activeHint="/problems" />
-        <div className="flex flex-1 items-center justify-center pt-16">
+        <div className="relative z-10 flex flex-1 items-center justify-center pt-16">
           <p className="font-label-md text-on-surface-variant">Loading problem…</p>
         </div>
       </div>
@@ -414,9 +450,10 @@ export default function ProblemWorkspace() {
 
   if (error || !problem) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#09040D] text-on-surface">
+      <div className="problem-workspace flex min-h-screen flex-col text-on-surface">
+        <div className="pw-ambient" aria-hidden />
         <AppNav activeHint="/problems" />
-        <div className="mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
+        <div className="relative z-10 mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
           <p className="font-headline-lg text-headline-lg-mobile text-hard">
             {error || "Problem not found"}
           </p>
@@ -429,90 +466,226 @@ export default function ProblemWorkspace() {
   }
 
   return (
-    <div className="font-body-md flex h-screen flex-col overflow-hidden bg-background text-on-background antialiased selection:bg-primary-container selection:text-on-primary-container">
+    <div className="problem-workspace font-body-md relative flex h-screen flex-col overflow-hidden text-on-background antialiased selection:bg-primary-container selection:text-on-primary-container">
+      <div className="pw-ambient" aria-hidden />
       <AppNav
         activeHint="/problems"
         workspaceActions={
           user ? (
-            <button
-              type="button"
-              disabled={inviting}
-              className="font-label-md text-label-md flex items-center gap-2 rounded border border-primary/30 px-4 py-2 text-primary transition-all hover:bg-primary/10 disabled:opacity-50"
-              onClick={() => {
-                void (async () => {
-                  setInviting(true);
-                  setActionError(null);
-                  try {
-                    const room = await createRoom({
-                      type: "PROBLEM_COLLAB",
-                      problemId,
-                      language: language?.slug || "python",
-                    });
-                    navigate(
-                      `/problems/${problemId}/room/${room.id}?code=${encodeURIComponent(roomCodeOf(room))}`
-                    );
-                  } catch (err) {
-                    setActionError(
-                      err instanceof Error
-                        ? err.message
-                        : "Failed to start collab room."
-                    );
-                  } finally {
-                    setInviting(false);
-                  }
-                })();
-              }}
-            >
-              <span className="material-symbols-outlined text-sm">
-                person_add
-              </span>
-              {inviting ? "Starting…" : "Invite"}
-            </button>
+            <div className="flex items-center gap-2">
+              {hostedRoom && (
+                <>
+                  <button
+                    type="button"
+                    className="font-label-md text-label-md flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2 text-primary transition-all hover:border-primary/55 hover:bg-primary/15 disabled:opacity-50"
+                    onClick={() => {
+                      if (hostedRoom.type === "CODEROOM") {
+                        navigate(
+                          `/coderoom/${hostedRoom.id}?code=${encodeURIComponent(roomCodeOf(hostedRoom))}`
+                        );
+                        return;
+                      }
+                      navigate(
+                        `/problems/${hostedRoom.problemId ?? problemId}/room/${hostedRoom.id}?code=${encodeURIComponent(roomCodeOf(hostedRoom))}`
+                      );
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      meeting_room
+                    </span>
+                    {hostedRoom.type === "PROBLEM_COLLAB" &&
+                    hostedRoom.problemId === problemId
+                      ? "Open room"
+                      : "Open other room"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={endingRoom}
+                    className="font-label-md text-label-md flex items-center gap-2 rounded-full border border-hard/40 bg-hard/10 px-4 py-2 text-hard transition-all hover:bg-hard/15 disabled:opacity-50"
+                    onClick={() => {
+                      void (async () => {
+                        setEndingRoom(true);
+                        try {
+                          await endRoom(hostedRoom.id);
+                          setHostedRoom(null);
+                          showToast({
+                            title: "Room ended",
+                            tone: "success",
+                            icon: "check_circle",
+                          });
+                        } catch (err) {
+                          showToast({
+                            title: "Couldn’t end room",
+                            message: describeApiError(err, "Try again."),
+                            tone: "error",
+                            icon: "error",
+                          });
+                        } finally {
+                          setEndingRoom(false);
+                        }
+                      })();
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      stop_circle
+                    </span>
+                    {endingRoom ? "Ending…" : "End room"}
+                  </button>
+                </>
+              )}
+              {(!hostedRoom || hostedRoom.problemId !== problemId) && (
+                <button
+                  type="button"
+                  disabled={inviting || endingRoom}
+                  className="font-label-md text-label-md flex items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-4 py-2 text-primary shadow-[0_0_16px_rgba(168,85,247,0.15)] transition-all hover:border-primary/55 hover:bg-primary/15 hover:shadow-[0_0_24px_rgba(168,85,247,0.3)] disabled:opacity-50"
+                  onClick={() => {
+                    void (async () => {
+                      setInviting(true);
+                      setActionError(null);
+                      try {
+                        // End any leftover hosted room (CodeRoom or other problem)
+                        // so Invite never dead-ends with a 409.
+                        if (hostedRoom && hostedRoom.role === "HOST") {
+                          const sameProblem =
+                            hostedRoom.type === "PROBLEM_COLLAB" &&
+                            hostedRoom.problemId === problemId;
+                          if (!sameProblem) {
+                            await endRoom(hostedRoom.id);
+                            setHostedRoom(null);
+                          }
+                        }
+                        const room = await createRoom({
+                          type: "PROBLEM_COLLAB",
+                          problemId,
+                          language: language?.slug || "python",
+                        });
+                        navigate(
+                          `/problems/${problemId}/room/${room.id}?code=${encodeURIComponent(roomCodeOf(room))}`
+                        );
+                      } catch (err) {
+                        if (
+                          err instanceof ApiError &&
+                          err.status === 409
+                        ) {
+                          try {
+                            const rooms = await getMyRooms({
+                              status: "ACTIVE",
+                              limit: 50,
+                            });
+                            const blockers = rooms.filter(
+                              (r) => r.role === "HOST"
+                            );
+                            for (const r of blockers) {
+                              try {
+                                await endRoom(r.id);
+                              } catch {
+                                /* already ended */
+                              }
+                            }
+                            setHostedRoom(null);
+                            const room = await createRoom({
+                              type: "PROBLEM_COLLAB",
+                              problemId,
+                              language: language?.slug || "python",
+                            });
+                            navigate(
+                              `/problems/${problemId}/room/${room.id}?code=${encodeURIComponent(roomCodeOf(room))}`
+                            );
+                            return;
+                          } catch (retryErr) {
+                            const message = describeApiError(
+                              retryErr,
+                              "Failed to start collab room."
+                            );
+                            setActionError(message);
+                            showToast({
+                              title: "Invite failed",
+                              message,
+                              tone: "error",
+                              icon: "error",
+                            });
+                            return;
+                          }
+                        }
+                        const message = describeApiError(
+                          err,
+                          "Failed to start collab room."
+                        );
+                        setActionError(message);
+                        showToast({
+                          title: "Invite failed",
+                          message,
+                          tone: "error",
+                          icon: "error",
+                        });
+                      } finally {
+                        setInviting(false);
+                      }
+                    })();
+                  }}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    person_add
+                  </span>
+                  {inviting
+                    ? "Starting…"
+                    : hostedRoom
+                      ? "End & invite here"
+                      : "Invite"}
+                </button>
+              )}
+            </div>
           ) : null
         }
       />
 
-      <main
-        ref={splitRef}
-        className="mt-16 flex h-[calc(100vh-64px)] min-h-0 flex-1 flex-col overflow-hidden bg-[#09040D] p-2 md:flex-row"
-      >
+      <main className="relative z-10 mt-16 flex h-[calc(100vh-64px)] min-h-0 flex-1 flex-col overflow-hidden p-3">
+        <div
+          ref={splitRef}
+          className="pw-workspace-frame flex min-h-0 flex-1 flex-col md:flex-row"
+        >
         {/* Left: statement */}
         <section
-          className="glass-panel relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg"
+          className="pw-panel relative flex min-h-0 min-w-0 flex-col overflow-hidden"
           style={{
             flexBasis: `${splitPct}%`,
             flexGrow: 0,
             flexShrink: 0,
           }}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-outline-variant/30 bg-surface-container/50 p-3">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-xl text-on-surface-variant">
-                menu_book
+          <div className="pw-toolbar flex shrink-0 items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <span className="material-symbols-outlined text-[18px]">
+                  menu_book
+                </span>
               </span>
-              <span className="font-label-md text-label-md text-on-background">
+              <span className="font-label-md text-[13px] font-semibold tracking-wide text-on-background">
                 Description
               </span>
             </div>
             <button
               type="button"
               onClick={onBookmark}
-              className="group relative text-on-surface-variant transition-colors hover:text-primary"
+              className="group relative rounded-lg p-1.5 text-on-surface-variant transition-all hover:bg-primary/10 hover:text-primary"
               title={user ? "Save" : "Save (Login Required)"}
             >
-              <span className="material-symbols-outlined text-lg">bookmark_border</span>
+              <span className="material-symbols-outlined text-lg">
+                bookmark_border
+              </span>
               {!user && (
-                <span className="absolute bottom-full right-0 mb-2 hidden whitespace-nowrap rounded bg-surface-container-highest p-1 text-xs text-on-surface group-hover:block">
+                <span className="absolute right-0 bottom-full mb-2 hidden whitespace-nowrap rounded-lg border border-outline-variant/30 bg-surface-container-highest px-2 py-1 text-xs text-on-surface shadow-lg group-hover:block">
                   Save (Login Required)
                 </span>
               )}
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+          <div className="pw-scroll min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
             <div>
-              <h1 className="font-headline-lg text-headline-lg mb-3 text-primary">
-                {problem.id}. {problem.title}
+              <h1 className="font-headline-lg mb-3 text-[26px] leading-tight font-semibold tracking-tight text-white md:text-[30px]">
+                <span className="text-primary">{problem.id}.</span>{" "}
+                {problem.title}
               </h1>
               <div className="flex flex-wrap items-center gap-2">
                 <span
@@ -523,7 +696,7 @@ export default function ProblemWorkspace() {
                 {topics.map((t) => (
                   <span
                     key={t}
-                    className="flex items-center gap-1 rounded-full border border-outline-variant/30 bg-surface-container-high px-3 py-1 font-label-md text-[12px] text-on-surface-variant"
+                    className="flex items-center gap-1 rounded-full border border-outline-variant/25 bg-white/5 px-3 py-1 font-label-md text-[12px] text-on-surface-variant backdrop-blur-sm"
                   >
                     <span className="material-symbols-outlined text-[14px]">
                       local_offer
@@ -534,7 +707,7 @@ export default function ProblemWorkspace() {
               </div>
             </div>
 
-            <div className="font-body-md whitespace-pre-wrap leading-relaxed text-on-surface-variant">
+            <div className="font-body-md whitespace-pre-wrap text-[15px] leading-relaxed text-on-surface-variant/90">
               {problem.description}
             </div>
 
@@ -551,14 +724,17 @@ export default function ProblemWorkspace() {
                     .filter(Boolean)
                     .join("\n\n");
                   return (
-                    <div key={i}>
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="font-label-md text-on-background">
-                          Example {i + 1}:
+                    <div
+                      key={i}
+                      className="rounded-2xl border border-white/5 bg-black/25 p-4 transition-colors hover:border-primary/20"
+                    >
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="font-label-md text-[13px] font-semibold text-white">
+                          Example {i + 1}
                         </p>
                         <button
                           type="button"
-                          className="text-on-surface-variant transition-colors hover:text-primary"
+                          className="rounded-lg p-1 text-on-surface-variant transition-colors hover:bg-primary/10 hover:text-primary"
                           onClick={() => copyText(block)}
                           aria-label="Copy example"
                         >
@@ -569,13 +745,13 @@ export default function ProblemWorkspace() {
                       </div>
                       <div className="space-y-2.5">
                         <div>
-                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                          <p className="mb-1 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
                             Input
                           </p>
                           <IoPre>{inputText}</IoPre>
                         </div>
                         <div>
-                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">
+                          <p className="mb-1 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
                             Output
                           </p>
                           <IoPre tone="ok">{outputText}</IoPre>
@@ -594,8 +770,10 @@ export default function ProblemWorkspace() {
 
             {constraints.length > 0 && (
               <div>
-                <p className="font-label-md mb-2 text-on-background">Constraints:</p>
-                <ul className="font-code-sm list-inside list-disc space-y-1 text-on-surface-variant">
+                <p className="font-label-md mb-2 text-[13px] font-semibold text-white">
+                  Constraints
+                </p>
+                <ul className="font-code-sm list-inside list-disc space-y-1.5 text-on-surface-variant">
                   {constraints.map((c) => (
                     <li key={c}>
                       <code className="text-secondary">{c}</code>
@@ -607,7 +785,7 @@ export default function ProblemWorkspace() {
           </div>
         </section>
 
-        {/* Horizontal / vertical resize: statement ↔ workspace */}
+        {/* Resize: statement ↔ workspace */}
         <div
           role="separator"
           aria-orientation="vertical"
@@ -620,67 +798,95 @@ export default function ProblemWorkspace() {
             e.preventDefault();
             startResize();
           }}
-          className="group relative z-10 flex h-3 shrink-0 cursor-row-resize items-center justify-center rounded hover:bg-primary/10 md:h-auto md:w-2 md:cursor-col-resize"
-        >
-          <div className="h-1 w-10 rounded-full bg-outline-variant/60 group-hover:bg-primary md:h-10 md:w-1" />
-        </div>
+          className="pw-resize pw-resize-col hidden md:flex"
+        />
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize statement and editor"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            startResize();
+          }}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            startResize();
+          }}
+          className="pw-resize pw-resize-row flex md:hidden"
+        />
 
-        {/* Right: IDE + terminal */}
+        {/* Right: unified IDE shell (editor dominates + integrated bottom) */}
         <section
           ref={editorSplitRef}
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          className="pw-ide-shell flex min-h-0 min-w-0 flex-1 flex-col"
         >
           <div
-            className="glass-panel flex min-h-[140px] flex-col overflow-hidden rounded-lg"
+            className="flex min-h-[160px] flex-col overflow-hidden"
             style={{ flex: `0 0 ${editorPct}%` }}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-outline-variant/30 bg-surface-container/50 p-2">
+            <div className="pw-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5">
               <div className="relative flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setLangOpen((o) => !o)}
-                  className="font-code-sm flex items-center gap-2 rounded border border-outline-variant/50 bg-surface-container-high px-3 py-1.5 text-xs text-on-surface transition-colors hover:bg-surface-variant"
+                  className="pw-lang-trigger font-code-sm flex items-center gap-2 rounded-xl px-3.5 py-2 text-[12px] font-medium text-on-surface"
                 >
+                  <span className="material-symbols-outlined text-[16px] text-primary">
+                    code
+                  </span>
                   {language?.name || "Language"}
-                  <span className="material-symbols-outlined text-[16px]">
+                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
                     expand_more
                   </span>
                 </button>
                 {langOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-1 max-h-56 min-w-[10rem] overflow-y-auto rounded border border-outline-variant/40 bg-surface-container-high py-1 shadow-lg">
+                  <div className="pw-lang-menu absolute top-full left-0 z-30 mt-2 max-h-60 min-w-[12rem] overflow-y-auto py-1.5">
                     {languages.map((l) => (
                       <button
                         key={l.slug}
                         type="button"
-                        className={`block w-full px-3 py-1.5 text-left font-code-sm text-xs hover:bg-surface-variant ${
-                          l.slug === language?.slug ? "text-primary" : "text-on-surface"
+                        className={`flex w-full items-center justify-between px-3.5 py-2 text-left font-code-sm text-[12px] transition-colors hover:bg-primary/10 ${
+                          l.slug === language?.slug
+                            ? "bg-primary/10 text-primary"
+                            : "text-on-surface"
                         }`}
                         onClick={() => handleLanguageChange(l.slug)}
                       >
                         {l.name}
+                        {l.slug === language?.slug && (
+                          <span className="material-symbols-outlined text-[14px]">
+                            check
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <button
                   type="button"
                   disabled={running || submitting || !language}
                   onClick={handleRun}
-                  className="font-label-md text-label-md rounded border border-outline-variant/50 px-4 py-1.5 text-on-surface transition-all hover:bg-surface-variant hover:text-secondary disabled:opacity-50"
+                  className="pw-btn-run font-label-md flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold disabled:opacity-50"
                 >
+                  <span className="material-symbols-outlined text-[16px]">
+                    play_arrow
+                  </span>
                   {running ? "Running…" : "Run"}
                 </button>
                 <button
                   type="button"
                   disabled={running || submitting || !language}
                   onClick={handleSubmit}
-                  className="font-label-md text-label-md group relative rounded border border-primary bg-primary/10 px-4 py-1.5 text-primary transition-all hover:bg-primary/20 hover:shadow-[0_0_10px_rgba(221,183,255,0.3)] disabled:opacity-50"
+                  className="pw-btn-submit font-label-md group relative flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold disabled:opacity-50"
                 >
+                  <span className="material-symbols-outlined text-[16px]">
+                    rocket_launch
+                  </span>
                   {submitting ? "Submitting…" : "Submit"}
                   {!user && (
-                    <span className="absolute right-0 top-full z-50 mt-2 hidden whitespace-nowrap rounded bg-surface-container-highest p-1 text-xs text-on-surface group-hover:block">
+                    <span className="absolute top-full right-0 z-50 mt-2 hidden whitespace-nowrap rounded-lg border border-outline-variant/30 bg-surface-container-highest px-2 py-1 text-xs text-on-surface shadow-lg group-hover:block">
                       Login Required to Submit
                     </span>
                   )}
@@ -688,7 +894,7 @@ export default function ProblemWorkspace() {
               </div>
             </div>
 
-            <div className="relative min-h-0 flex-1 overflow-hidden bg-[#0d1117]">
+            <div className="relative min-h-0 flex-1 overflow-hidden bg-[#0a0610]">
               <Editor
                 key={MONACO_LANG[language?.slug || "python"] || "plaintext"}
                 height="100%"
@@ -705,15 +911,18 @@ export default function ProblemWorkspace() {
                 }
                 options={{
                   fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                  fontSize: 13,
+                  fontSize: 14,
                   minimap: { enabled: false },
                   scrollBeyondLastLine: false,
-                  padding: { top: 12 },
+                  padding: { top: 16, bottom: 16 },
                   automaticLayout: true,
                   tabSize: 2,
-                  renderLineHighlight: "line",
+                  renderLineHighlight: "all",
                   bracketPairColorization: { enabled: true },
                   guides: { bracketPairs: true },
+                  smoothScrolling: true,
+                  cursorBlinking: "smooth",
+                  cursorSmoothCaretAnimation: "on",
                 }}
               />
             </div>
@@ -732,45 +941,58 @@ export default function ProblemWorkspace() {
               e.preventDefault();
               startEditorResize();
             }}
-            className="group relative z-10 flex h-3 shrink-0 cursor-row-resize items-center justify-center rounded hover:bg-primary/10"
-          >
-            <div className="h-1 w-10 rounded-full bg-outline-variant/60 group-hover:bg-primary" />
-          </div>
+            className="pw-resize pw-resize-row"
+          />
 
-          <div className="glass-panel flex min-h-[140px] min-w-0 flex-1 flex-col overflow-hidden rounded-lg">
-            <div className="flex shrink-0 items-center gap-1 border-b border-outline-variant/30 bg-surface-container/50 p-1">
+          <div className="flex min-h-[140px] min-w-0 flex-1 flex-col overflow-hidden border-t border-white/5">
+            <div className="pw-toolbar flex shrink-0 items-center gap-1 px-2 py-1.5">
               {(
                 [
-                  { id: "testcase" as const, icon: "fact_check", label: "Testcase" },
-                  { id: "result" as const, icon: "terminal", label: "Test Result" },
-                  { id: "ai" as const, icon: "smart_toy", label: "AI Coach", accent: true },
+                  {
+                    id: "testcase" as const,
+                    icon: "fact_check",
+                    label: "Testcase",
+                  },
+                  {
+                    id: "result" as const,
+                    icon: "terminal",
+                    label: "Test Result",
+                  },
                 ] as const
               ).map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setBottomTab(tab.id)}
-                  className={`font-label-md mr-0 flex items-center gap-2 rounded-t-md px-4 py-2 text-xs transition-colors ${
-                    tab.id === "ai" ? "ml-auto mr-1" : ""
-                  } ${
+                  className={`pw-tab font-label-md flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-medium ${
                     bottomTab === tab.id
-                      ? "border-b-2 border-primary bg-surface-variant text-primary"
-                      : "text-on-surface-variant hover:bg-surface-variant/50 hover:text-on-surface"
+                      ? "pw-tab-active bg-white/5 text-primary"
+                      : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
                   }`}
                 >
-                  <span
-                    className={`material-symbols-outlined text-[14px] ${
-                      "accent" in tab && tab.accent ? "text-[#A855F7]" : ""
-                    }`}
-                  >
+                  <span className="material-symbols-outlined text-[15px]">
                     {tab.icon}
                   </span>
                   {tab.label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => setBottomTab("ai")}
+                className={`pw-ai-tab font-label-md ml-auto flex items-center gap-2 px-4 py-1.5 text-[12px] font-semibold ${
+                  bottomTab === "ai"
+                    ? "pw-ai-tab-active text-[#e9d5ff]"
+                    : "text-[#c084fc]"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px] text-[#a855f7]">
+                  smart_toy
+                </span>
+                AI Coach
+              </button>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto bg-surface-container-lowest p-4">
+            <div className="pw-scroll min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-black/20 to-transparent p-4">
               {bottomTab === "testcase" && (
                 <div className="space-y-3">
                   {examples.length > 0 ? (
@@ -781,10 +1003,10 @@ export default function ProblemWorkspace() {
                             key={i}
                             type="button"
                             onClick={() => setActiveCaseIdx(i)}
-                            className={`rounded px-3 py-1 font-label-md text-xs ${
+                            className={`pw-case-chip rounded-full px-3.5 py-1.5 font-label-md text-[12px] font-medium ${
                               activeCaseIdx === i
-                                ? "bg-primary/20 text-primary"
-                                : "bg-surface-container text-on-surface-variant hover:text-on-surface"
+                                ? "pw-case-chip-active bg-primary/20 text-primary"
+                                : "bg-white/5 text-on-surface-variant hover:bg-white/10 hover:text-on-surface"
                             }`}
                           >
                             Case {i + 1}
@@ -792,9 +1014,11 @@ export default function ProblemWorkspace() {
                         ))}
                       </div>
                       <div>
-                        <p className="mb-1 text-xs text-on-surface-variant">stdin</p>
+                        <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
+                          stdin
+                        </p>
                         <textarea
-                          className="mono min-h-[5rem] w-full resize-y rounded border border-outline-variant/30 bg-surface-container-lowest p-3 text-[13px] leading-[1.55] tracking-wide text-on-surface outline-none focus:border-primary"
+                          className="mono min-h-[5rem] w-full resize-y rounded-2xl border border-white/8 bg-black/30 p-3.5 text-[13px] leading-[1.55] tracking-wide text-on-surface outline-none transition-shadow focus:border-primary/50 focus:shadow-[0_0_0_3px_rgba(183,109,255,0.15)]"
                           spellCheck={false}
                           value={caseStdins[activeCaseIdx] ?? ""}
                           onChange={(e) => {
@@ -805,7 +1029,7 @@ export default function ProblemWorkspace() {
                         />
                       </div>
                       <div>
-                        <p className="mb-1 text-xs text-on-surface-variant">
+                        <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
                           Expected output
                         </p>
                         <IoPre tone="ok">
@@ -817,11 +1041,11 @@ export default function ProblemWorkspace() {
                     </>
                   ) : (
                     <div>
-                      <p className="mb-1 text-xs text-on-surface-variant">
+                      <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
                         Custom stdin
                       </p>
                       <textarea
-                        className="font-code-sm min-h-[8rem] w-full resize-y rounded border border-outline-variant/30 bg-surface-container/50 p-3 text-on-surface outline-none focus:border-primary"
+                        className="font-code-sm min-h-[8rem] w-full resize-y rounded-2xl border border-white/8 bg-black/30 p-3.5 text-on-surface outline-none transition-shadow focus:border-primary/50 focus:shadow-[0_0_0_3px_rgba(183,109,255,0.15)]"
                         value={customStdin}
                         onChange={(e) => setCustomStdin(e.target.value)}
                         placeholder="Enter stdin for a custom run…"
@@ -834,10 +1058,10 @@ export default function ProblemWorkspace() {
               {bottomTab === "result" && (
                 <div className="space-y-4">
                   {actionError && (
-                    <p className="rounded border border-hard/40 bg-hard/10 p-3 text-sm text-hard">
+                    <p className="rounded-2xl border border-hard/40 bg-hard/10 p-3 text-sm text-hard">
                       {actionError}{" "}
                       {!user && (
-                        <Link to="/login" className="underline text-primary">
+                        <Link to="/login" className="text-primary underline">
                           Log in
                         </Link>
                       )}
@@ -852,7 +1076,7 @@ export default function ProblemWorkspace() {
 
                   {verdict && (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-3">
                         <div className="flex items-center gap-3">
                           <span
                             className={`font-headline-lg flex items-center gap-2 text-xl ${verdictColor(verdict.verdict)}`}
@@ -866,25 +1090,30 @@ export default function ProblemWorkspace() {
                           </span>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="rounded-lg border border-outline-variant/20 bg-surface-container/50 p-3">
-                          <p className="mb-1 text-xs text-on-surface-variant">Runtime</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-2xl border border-white/6 bg-white/4 p-3.5">
+                          <p className="mb-1 text-xs text-on-surface-variant">
+                            Runtime
+                          </p>
                           <p className="font-code-sm text-lg text-on-surface">
                             {formatTimeSec(verdict.time)}
                           </p>
                         </div>
-                        <div className="rounded-lg border border-outline-variant/20 bg-surface-container/50 p-3">
-                          <p className="mb-1 text-xs text-on-surface-variant">Memory</p>
+                        <div className="rounded-2xl border border-white/6 bg-white/4 p-3.5">
+                          <p className="mb-1 text-xs text-on-surface-variant">
+                            Memory
+                          </p>
                           <p className="font-code-sm text-lg text-on-surface">
                             {formatMemoryKb(verdict.memory)}
                           </p>
                         </div>
-                        <div className="rounded-lg border border-outline-variant/20 bg-surface-container/50 p-3">
+                        <div className="rounded-2xl border border-white/6 bg-white/4 p-3.5">
                           <p className="mb-1 text-xs text-on-surface-variant">
                             Test Cases
                           </p>
                           <p className="font-code-sm text-lg text-on-surface">
-                            {verdict.passedCount ?? "—"}/{verdict.totalCount ?? "—"}
+                            {verdict.passedCount ?? "—"}/
+                            {verdict.totalCount ?? "—"}
                           </p>
                         </div>
                       </div>
@@ -893,7 +1122,7 @@ export default function ProblemWorkspace() {
 
                   {runSession && !verdict && (
                     <div className="space-y-4">
-                      <div className="flex items-center gap-3 border-b border-outline-variant/20 pb-3">
+                      <div className="flex items-center gap-3 border-b border-white/5 pb-3">
                         <span
                           className={`font-headline-lg flex items-center gap-2 text-xl ${verdictColor(runSession.overall)}`}
                         >
@@ -910,7 +1139,7 @@ export default function ProblemWorkspace() {
                       </div>
 
                       {runSession.compileOutput && (
-                        <pre className="font-code-sm whitespace-pre-wrap rounded border border-hard/30 bg-hard/10 p-3 text-hard">
+                        <pre className="font-code-sm whitespace-pre-wrap rounded-2xl border border-hard/30 bg-hard/10 p-3 text-hard">
                           {runSession.compileOutput}
                         </pre>
                       )}
@@ -918,29 +1147,37 @@ export default function ProblemWorkspace() {
                       {runSession.cases.map((c) => (
                         <div
                           key={c.index}
-                          className="space-y-2 rounded-lg border border-outline-variant/20 bg-surface-container/40 p-3"
+                          className="space-y-2 rounded-2xl border border-white/6 bg-white/4 p-3.5"
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-label-md text-sm">
                               Case {c.index}
                             </span>
                             <span
-                              className={`text-xs ${c.passed ? "text-easy" : "text-hard"}`}
+                              className={`text-xs font-medium ${c.passed ? "text-easy" : "text-hard"}`}
                             >
                               {c.status}
                             </span>
                           </div>
                           <div className="grid gap-2 text-xs md:grid-cols-3">
                             <div>
-                              <p className="mb-1 text-on-surface-variant">Input</p>
+                              <p className="mb-1 text-on-surface-variant">
+                                Input
+                              </p>
                               <IoPre>{c.inputDisplay}</IoPre>
                             </div>
                             <div>
-                              <p className="mb-1 text-on-surface-variant">Expected</p>
-                              <IoPre tone="ok">{c.expectedOutput || "(none)"}</IoPre>
+                              <p className="mb-1 text-on-surface-variant">
+                                Expected
+                              </p>
+                              <IoPre tone="ok">
+                                {c.expectedOutput || "(none)"}
+                              </IoPre>
                             </div>
                             <div>
-                              <p className="mb-1 text-on-surface-variant">Output</p>
+                              <p className="mb-1 text-on-surface-variant">
+                                Output
+                              </p>
                               <IoPre tone={c.passed ? "ok" : "error"}>
                                 {c.userOutput || "(empty)"}
                               </IoPre>
@@ -969,10 +1206,11 @@ export default function ProblemWorkspace() {
             </div>
           </div>
         </section>
+        </div>
       </main>
 
       {savedToast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded border border-outline-variant/40 bg-surface-container-high px-4 py-2 text-sm text-on-surface shadow-lg">
+        <div className="fixed right-6 bottom-6 z-50 rounded-2xl border border-primary/25 bg-surface-container-high/95 px-4 py-2.5 text-sm text-on-surface shadow-[0_0_24px_rgba(168,85,247,0.25)] backdrop-blur-md">
           {user ? "Draft auto-saved locally." : "Log in to save bookmarks."}
         </div>
       )}

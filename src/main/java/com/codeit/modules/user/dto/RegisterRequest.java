@@ -20,4 +20,7 @@ public class RegisterRequest {
 
     /** When true, password is an RSA-OAEP Base64 ciphertext. */
     private boolean encrypted;
+
+    /** Cloudflare Turnstile token (required when captcha enabled). */
+    private String captchaToken;
 }

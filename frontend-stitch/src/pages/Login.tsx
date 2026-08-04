@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ApiError, login } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import TurnstileWidget from "../components/TurnstileWidget";
 
 const LEFT_BG =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuB0pkqjDs_c1M_SDcWreXKSC6T80ekev2YeHxksln1UXxulTdUcIVnwaMaWAQPPtEK4nymYcchMCXU3UM4NFbL5iyie9Ev60Pk1pDnUrEn0XRGQV5_bhJ_O7lCVLHZ0mnR8T3EuPfZgVTLiCRNSgNdEyt1xpr7a0FelYtM6My02Zf1R-yVB-t3jCIG6Y1IqlBTFxXoocLF2B7LubCPe1i8ghTmVgcgHEXdQ3aDaxnXQQAESllBWQgQQ";
@@ -18,6 +19,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [btnLabel, setBtnLabel] = useState("Sign In");
   const [successStyle, setSuccessStyle] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
   const [toast, setToast] = useState<{ open: boolean; exiting: boolean; message: string }>({
     open: false,
     exiting: false,
@@ -59,7 +62,7 @@ export default function Login() {
     setLoading(true);
     setBtnLabel("Authenticating...");
     try {
-      const auth = await login(identifier.trim(), password);
+      const auth = await login(identifier.trim(), password, captchaToken || undefined);
       establishSession({
         user: {
           id: auth.userId,
@@ -77,6 +80,20 @@ export default function Login() {
       setSuccessStyle(true);
       window.setTimeout(() => navigate("/problems", { replace: true }), 400);
     } catch (err) {
+      if (err instanceof ApiError && err.code === "CAPTCHA_FAILED") {
+        setCaptchaReset((n) => n + 1);
+        setCaptchaToken(null);
+      }
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        const q = identifier.includes("@")
+          ? `?email=${encodeURIComponent(identifier.trim())}`
+          : "";
+        showToast("Verify your email before signing in.");
+        window.setTimeout(() => navigate(`/verify-email${q}`), 500);
+        setBtnLabel("Sign In");
+        setSuccessStyle(false);
+        return;
+      }
       const message =
         err instanceof ApiError
           ? err.message
@@ -228,12 +245,12 @@ export default function Login() {
                   >
                     Password
                   </label>
-                  <button
-                    type="button"
+                  <Link
+                    to="/forgot-password"
                     className="font-label-md text-label-md text-primary transition-colors hover:text-primary-container"
                   >
                     Forgot Password?
-                  </button>
+                  </Link>
                 </div>
                 <div className="relative">
                   <span className="material-symbols-outlined absolute top-1/2 left-4 -translate-y-1/2 text-outline">
@@ -283,6 +300,11 @@ export default function Login() {
                   Remember me
                 </label>
               </div>
+
+              <TurnstileWidget
+                onToken={setCaptchaToken}
+                resetKey={captchaReset}
+              />
 
               <button
                 type="submit"

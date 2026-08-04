@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Mail, MessageSquare, Phone, Send } from "lucide-react";
+import { ApiError, submitContact } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
+import TurnstileWidget from "../components/TurnstileWidget";
 
 const CONTACT_EMAIL = "sobhagyaverma16@gmail.com";
 const CONTACT_PHONE_DISPLAY = "+91 75002 51999";
@@ -14,32 +17,52 @@ const PARTICLES = [
 ] as const;
 
 export default function Contact() {
-  const [name, setName] = useState("");
+  const { user } = useAuth();
+  const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
 
-  const handleSend = (event: FormEvent) => {
+  const handleSend = async (event: FormEvent) => {
     event.preventDefault();
 
     if (!message.trim()) {
       setStatus("Please type a message first.");
       return;
     }
+    if (!name.trim() || !email.trim()) {
+      setStatus("Name and email are required.");
+      return;
+    }
 
-    const mailSubject = subject.trim() || "CodeIT contact message";
-    const bodyLines = [
-      name.trim() ? `From: ${name.trim()}` : null,
-      "",
-      message.trim(),
-      "",
-      "— Sent via CodeIT Contact page",
-    ].filter((line) => line !== null);
-
-    const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
-
-    window.location.href = mailto;
-    setStatus("Opening your email app to send the message…");
+    setLoading(true);
+    setStatus("");
+    try {
+      const res = await submitContact({
+        username: name.trim(),
+        email: email.trim(),
+        subject: subject.trim() || "CodeIT contact message",
+        message: message.trim(),
+        captchaToken: captchaToken || undefined,
+      });
+      setStatus(res.message);
+      setMessage("");
+      setSubject("");
+      setCaptchaReset((n) => n + 1);
+      setCaptchaToken(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "CAPTCHA_FAILED") {
+        setCaptchaReset((n) => n + 1);
+        setCaptchaToken(null);
+      }
+      setStatus(err instanceof ApiError ? err.message : "Could not send message.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -119,8 +142,8 @@ export default function Contact() {
                 <p className="verdict-strip">Quick tip</p>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-[var(--text-dim)]">
-                Sending opens your email app with the message pre-filled to{" "}
-                {CONTACT_EMAIL}. Hit send from there and it lands in the inbox.
+                Messages are saved and emailed to the CodeIT inbox (rate limited).
+                You can still reach us directly at {CONTACT_EMAIL}.
               </p>
             </div>
           </aside>
@@ -128,7 +151,7 @@ export default function Contact() {
           <section className="rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]/80 p-5 practice-glass sm:p-6">
             <h2 className="display text-xl font-semibold">Quick message</h2>
             <p className="mt-1 text-sm text-[var(--text-dim)]">
-              Fill this in and we&apos;ll open a ready-to-send email for you.
+              Fill this in and we&apos;ll deliver it to the CodeIT inbox.
             </p>
 
             <form className="mt-5 space-y-4" onSubmit={handleSend}>
@@ -137,7 +160,7 @@ export default function Contact() {
                   htmlFor="contact-name"
                   className="mb-1.5 block text-xs font-medium text-[var(--text-dim)]"
                 >
-                  Your name (optional)
+                  Your name
                 </label>
                 <input
                   id="contact-name"
@@ -145,6 +168,25 @@ export default function Contact() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
+                  required
+                  className="w-full rounded-xl border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="contact-email"
+                  className="mb-1.5 block text-xs font-medium text-[var(--text-dim)]"
+                >
+                  Email
+                </label>
+                <input
+                  id="contact-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
                   className="w-full rounded-xl border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition focus:border-[var(--accent)]"
                 />
               </div>
@@ -184,12 +226,15 @@ export default function Contact() {
                 />
               </div>
 
+              <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaReset} />
+
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[#0a0d12] shadow-[0_8px_24px_rgba(245,166,35,0.22)] transition hover:-translate-y-0.5 hover:brightness-110"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[#0a0d12] shadow-[0_8px_24px_rgba(245,166,35,0.22)] transition hover:-translate-y-0.5 hover:brightness-110 disabled:opacity-70"
               >
                 <Send className="h-4 w-4" aria-hidden />
-                Send message
+                {loading ? "Sending…" : "Send message"}
               </button>
 
               {status && (

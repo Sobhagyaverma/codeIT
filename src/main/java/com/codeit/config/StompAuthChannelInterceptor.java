@@ -17,6 +17,8 @@ import com.codeit.modules.auth.JwtService;
 @Component
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
+    private static final String USER_TOPIC_PREFIX = "/topic/users/";
+
     private final JwtService jwtService;
 
     public StompAuthChannelInterceptor(JwtService jwtService) {
@@ -47,7 +49,46 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             accessor.setUser(authentication);
         }
 
+        if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            requireOwnUserTopic(accessor);
+        }
+
         return message;
+    }
+
+    /**
+     * Personal topics ({@code /topic/users/{id}/**}) carry private data such as friend
+     * requests, so a session may only subscribe to its own.
+     */
+    private void requireOwnUserTopic(StompHeaderAccessor accessor) {
+        String destination = accessor.getDestination();
+        if (destination == null || !destination.startsWith(USER_TOPIC_PREFIX)) {
+            return;
+        }
+
+        String rest = destination.substring(USER_TOPIC_PREFIX.length());
+        int slash = rest.indexOf('/');
+        String idPart = slash >= 0 ? rest.substring(0, slash) : rest;
+
+        Integer requestedId;
+        try {
+            requestedId = Integer.valueOf(idPart);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Malformed user topic: " + destination);
+        }
+
+        Integer currentId = currentUserId(accessor);
+        if (currentId == null || !currentId.equals(requestedId)) {
+            throw new IllegalArgumentException("Cannot subscribe to another user's topic");
+        }
+    }
+
+    private Integer currentUserId(StompHeaderAccessor accessor) {
+        if (accessor.getUser() instanceof UsernamePasswordAuthenticationToken token
+                && token.getPrincipal() instanceof AuthUserPrincipal principal) {
+            return principal.getUserId();
+        }
+        return null;
     }
 
     private String extractToken(StompHeaderAccessor accessor) {

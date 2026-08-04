@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { login } from "../lib/api";
+import { ApiError, login } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/toast/ToastProvider";
 import AuthLayout from "../components/auth/AuthLayout";
@@ -8,6 +8,7 @@ import AuthField from "../components/auth/AuthField";
 import AuthPasswordField from "../components/auth/AuthPasswordField";
 import AuthSubmitButton from "../components/auth/AuthSubmitButton";
 import SocialAuthButtons from "../components/auth/SocialAuthButtons";
+import TurnstileWidget from "../components/TurnstileWidget";
 import {
   firstErrorKey,
   mapAuthError,
@@ -33,6 +34,8 @@ export default function Login() {
   >({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
   const redirectTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -61,7 +64,7 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const auth = await login(identifier.trim(), password);
+      const auth = await login(identifier.trim(), password, captchaToken || undefined);
       establishSession({
         user: {
           id: auth.userId,
@@ -81,6 +84,18 @@ export default function Login() {
         navigate(redirectTo, { replace: true });
       }, 700);
     } catch (err) {
+      if (err instanceof ApiError && err.code === "CAPTCHA_FAILED") {
+        setCaptchaReset((n) => n + 1);
+        setCaptchaToken(null);
+      }
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        const q = identifier.includes("@")
+          ? `?email=${encodeURIComponent(identifier.trim())}`
+          : "";
+        pushToast("Verify your email before signing in.", "error");
+        navigate(`/verify-email${q}`);
+        return;
+      }
       const message = mapAuthError(err);
       setFormError(message);
       pushToast(message, "error");
@@ -155,15 +170,9 @@ export default function Login() {
             />
             Remember me
           </label>
-          <button
-            type="button"
-            disabled
-            title="Coming soon"
-            className="text-[var(--text-dim)] opacity-70"
-            aria-disabled="true"
-          >
+          <Link to="/forgot-password" className="text-[var(--info)] hover:underline">
             Forgot password?
-          </button>
+          </Link>
         </div>
 
         {formError && (
@@ -174,6 +183,8 @@ export default function Login() {
             {formError}
           </p>
         )}
+
+        <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaReset} />
 
         <AuthSubmitButton loading={loading} loadingLabel="Signing in…">
           Log in

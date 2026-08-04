@@ -95,7 +95,14 @@ public class SecurityConfig {
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 paths.matcher("/api/auth/login"),
+                                                                paths.matcher("/api/auth/verify-email"),
+                                                                paths.matcher("/api/auth/verify-email/resend"),
+                                                                paths.matcher("/api/auth/forgot-password"),
+                                                                paths.matcher("/api/auth/forgot-password/verify"),
+                                                                paths.matcher("/api/auth/forgot-password/reset"),
                                                                 paths.matcher("/api/user/register"),
+                                                                paths.matcher("/api/contact"),
+                                                                paths.matcher("/api/captcha/config"),
                                                                 paths.matcher("/api/crypto/public-key"),
                                                                 paths.matcher("/api/health"),
                                                                 paths.matcher("/api/health/**"),

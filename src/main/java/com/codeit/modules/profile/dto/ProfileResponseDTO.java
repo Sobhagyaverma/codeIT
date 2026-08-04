@@ -58,6 +58,7 @@ public class ProfileResponseDTO {
         private int longestStreak;
         private Integer contestBestRank;
         private Integer rating;
+        private int friendCount;
     }
 
     @Data

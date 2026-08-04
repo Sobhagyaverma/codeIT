@@ -10,7 +10,11 @@ import com.codeit.modules.auth.dto.AuthResponse;
 import com.codeit.modules.user.User;
 import com.codeit.modules.user.UserService;
 import com.codeit.modules.user.dto.UserLoginDTO;
+import com.codeit.security.captcha.TurnstileService;
 import com.codeit.security.crypto.SensitiveFieldDecryptor;
+import com.codeit.security.ratelimit.ClientIpResolver;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 public class AuthService {
@@ -27,7 +31,12 @@ public class AuthService {
     @Autowired
     private SensitiveFieldDecryptor sensitiveFieldDecryptor;
 
-    public AuthResponse login(UserLoginDTO dto) {
+    @Autowired
+    private TurnstileService turnstileService;
+
+    public AuthResponse login(UserLoginDTO dto, HttpServletRequest request) {
+        turnstileService.verifyOrThrow(dto.getCaptchaToken(), ClientIpResolver.resolve(request));
+
         String login = sensitiveFieldDecryptor
                 .resolve(dto.getLogin(), dto.isEncrypted(), "login")
                 .trim();
@@ -45,6 +54,10 @@ public class AuthService {
         boolean passwordOk = passwordEncoder.matches(password, userByDB.getPassword());
         if (!passwordOk) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
+
+        if (!Boolean.TRUE.equals(userByDB.getEmailVerified())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED");
         }
 
         String token = jwtService.generateToken(userByDB);

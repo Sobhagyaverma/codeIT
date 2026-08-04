@@ -137,7 +137,7 @@ public class RoomMemberRepository {
     public List<UserRoomMembership> findActiveMembershipsByUserId(Integer userId) {
         return jdbcTemplate.query(
                 """
-                        SELECT r.id, r.type, r.language, r.status, r.active_workspace,
+                        SELECT r.id, r.type, r.problem_id, r.language, r.status, r.active_workspace,
                                r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
                                m.role, m.joined_at, m.last_seen_at,
                                u.name AS host_name,
@@ -198,7 +198,7 @@ public class RoomMemberRepository {
             Integer userId, String status, String type, int limit) {
         return jdbcTemplate.query(
                 """
-                        SELECT r.id, r.type, r.language, r.status, r.active_workspace,
+                        SELECT r.id, r.type, r.problem_id, r.language, r.status, r.active_workspace,
                                r.invite_token, r.updated_at, r.created_at, r.host_user_id, r.host_note,
                                m.role, m.joined_at, m.last_seen_at,
                                u.name AS host_name,
@@ -225,6 +225,8 @@ public class RoomMemberRepository {
         UserRoomMembership row = new UserRoomMembership();
         row.setId((UUID) rs.getObject("id"));
         row.setType(rs.getString("type"));
+        Object problemId = rs.getObject("problem_id");
+        row.setProblemId(problemId != null ? rs.getInt("problem_id") : null);
         row.setLanguage(rs.getString("language"));
         row.setStatus(rs.getString("status"));
         row.setActiveWorkspace(rs.getString("active_workspace"));

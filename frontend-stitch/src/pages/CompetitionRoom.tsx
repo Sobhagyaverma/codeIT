@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import AppNav from "../components/AppNav";
@@ -84,11 +84,11 @@ type WorkspaceTab = "problem" | "standings";
 type BottomTab = "testcase" | "result";
 
 function difficultyClass(d?: string) {
-  const x = (d || "").toUpperCase();
-  if (x === "EASY") return "border-easy/20 bg-easy/10 text-easy";
-  if (x === "MEDIUM") return "border-amber-500/20 bg-amber-500/10 text-amber-500";
-  if (x === "HARD") return "border-hard/20 bg-hard/10 text-hard";
-  return "border-outline-variant/20 bg-surface-container text-on-surface-variant";
+  const u = (d || "").trim().toUpperCase();
+  if (u === "EASY") return "bg-[#1A3F33] text-easy border-[#235343]";
+  if (u === "MEDIUM") return "bg-[#3F351A] text-medium border-[#534723]";
+  if (u === "HARD") return "bg-[#3F1A1A] text-hard border-[#532323]";
+  return "bg-surface-container-high text-on-surface-variant border-outline-variant/30";
 }
 
 function formatPenalty(seconds: number) {
@@ -110,6 +110,8 @@ export default function CompetitionRoom() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [solvedIds, setSolvedIds] = useState<Set<number>>(new Set());
   const [session, setSession] = useState<ContestSession | null>(null);
+  const [joined, setJoined] = useState(false);
+  const [joining, setJoining] = useState(false);
   const [board, setBoard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +155,23 @@ export default function CompetitionRoom() {
     [problem]
   );
 
+  const loadProblemDetails = useCallback(async (ids: number[]) => {
+    const problemEntries = await Promise.all(
+      ids.map(async (pid) => {
+        try {
+          return [pid, await getProblem(pid)] as const;
+        } catch {
+          return null;
+        }
+      })
+    );
+    const map: Record<number, ProblemPublicDTO> = {};
+    for (const entry of problemEntries) {
+      if (entry) map[entry[0]] = entry[1];
+    }
+    setProblems(map);
+  }, []);
+
   useEffect(() => {
     if (!Number.isFinite(competitionId) || competitionId <= 0) {
       setError("Invalid competition id.");
@@ -169,6 +188,8 @@ export default function CompetitionRoom() {
     (async () => {
       setLoading(true);
       setError(null);
+      setJoined(false);
+      setProblems({});
       try {
         const [comp, ids, langs] = await Promise.all([
           getCompetition(competitionId),
@@ -176,12 +197,6 @@ export default function CompetitionRoom() {
           getLanguages().catch(() => FALLBACK_LANGUAGES),
         ]);
         if (cancelled) return;
-
-        const [participants] = await Promise.all([
-          // ignore failures
-          Promise.resolve(null),
-        ]);
-        void participants;
 
         setContest(
           toContestCard(comp, {
@@ -191,34 +206,40 @@ export default function CompetitionRoom() {
         );
         setProblemIds(ids);
         setLanguages(langs.length ? langs : FALLBACK_LANGUAGES);
-        setLanguage(pickPreferredLanguage(langs.length ? langs : FALLBACK_LANGUAGES));
-
-        const problemEntries = await Promise.all(
-          ids.map(async (pid) => {
-            try {
-              return [pid, await getProblem(pid)] as const;
-            } catch {
-              return null;
-            }
-          })
+        setLanguage(
+          pickPreferredLanguage(langs.length ? langs : FALLBACK_LANGUAGES)
         );
-        if (cancelled) return;
-        const map: Record<number, ProblemPublicDTO> = {};
-        for (const entry of problemEntries) {
-          if (entry) map[entry[0]] = entry[1];
-        }
-        setProblems(map);
 
+        let alreadyIn = false;
         try {
-          const sess = await getCompetitionSession(competitionId, user.id);
+          let sess = await getCompetitionSession(competitionId, user.id);
+          if (
+            sess.sessionStatus === "JOINED" &&
+            toContestCard(comp, {}).status === "ACTIVE"
+          ) {
+            try {
+              sess = await startCompetition(competitionId, user.id);
+            } catch {
+              /* stay JOINED — Start button available */
+            }
+          }
           if (!cancelled) {
             setSession(sess);
+            setJoined(true);
+            alreadyIn = true;
             if (typeof sess.remainingSeconds === "number") {
               setRemaining(sess.remainingSeconds);
             }
           }
         } catch {
-          /* not joined yet */
+          if (!cancelled) {
+            setSession(null);
+            setJoined(false);
+          }
+        }
+
+        if (alreadyIn && !cancelled) {
+          await loadProblemDetails(ids);
         }
 
         try {
@@ -244,7 +265,7 @@ export default function CompetitionRoom() {
       cancelled = true;
       runAbortRef.current?.abort();
     };
-  }, [competitionId, user]);
+  }, [competitionId, user, loadProblemDetails]);
 
   useEffect(() => {
     if (!contest) return;
@@ -339,11 +360,14 @@ export default function CompetitionRoom() {
   const ensureSession = async () => {
     if (!user) throw new Error("Log in to compete.");
     if (session?.sessionStatus === "IN_PROGRESS") return session;
+    if (!joined) {
+      throw new Error("Join the contest before submitting.");
+    }
     setBusy(true);
     try {
-      await joinCompetition(competitionId, user.id).catch(() => undefined);
       const started = await startCompetition(competitionId, user.id);
       setSession(started);
+      setActionError(null);
       if (typeof started.remainingSeconds === "number") {
         setRemaining(started.remainingSeconds);
       }
@@ -353,8 +377,112 @@ export default function CompetitionRoom() {
     }
   };
 
+  const handleStartSession = async () => {
+    if (!user) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const started = await startCompetition(competitionId, user.id);
+      setSession(started);
+      if (typeof started.remainingSeconds === "number") {
+        setRemaining(started.remainingSeconds);
+      }
+    } catch (err) {
+      // Already in progress — refresh session
+      if (
+        err instanceof Error &&
+        /already started/i.test(err.message)
+      ) {
+        try {
+          const sess = await getCompetitionSession(competitionId, user.id);
+          setSession(sess);
+          if (typeof sess.remainingSeconds === "number") {
+            setRemaining(sess.remainingSeconds);
+          }
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+      setActionError(
+        err instanceof ApiError ? err.message : "Failed to start session."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleJoinContest = async () => {
+    if (!user) {
+      setActionError("Log in to join this contest.");
+      return;
+    }
+    if (contest?.status === "ENDED") {
+      setActionError("This competition has ended.");
+      return;
+    }
+    setJoining(true);
+    setActionError(null);
+    try {
+      const joinResult = await joinCompetition(competitionId, user.id);
+      const joinMsg =
+        typeof joinResult === "string" ? joinResult.toLowerCase() : "";
+      if (
+        joinMsg &&
+        !joinMsg.includes("joined") &&
+        !joinMsg.includes("already")
+      ) {
+        throw new Error(joinResult);
+      }
+
+      let nextSession: ContestSession | null = null;
+      try {
+        nextSession = await startCompetition(competitionId, user.id);
+      } catch (startErr) {
+        nextSession = await getCompetitionSession(competitionId, user.id);
+        // Live contest but still JOINED — try start once more after refresh
+        if (
+          nextSession.sessionStatus === "JOINED" &&
+          contest?.status === "ACTIVE"
+        ) {
+          try {
+            nextSession = await startCompetition(competitionId, user.id);
+          } catch {
+            /* keep JOINED; user can click Start */
+            void startErr;
+          }
+        }
+      }
+      setSession(nextSession);
+      setJoined(true);
+      if (typeof nextSession.remainingSeconds === "number") {
+        setRemaining(nextSession.remainingSeconds);
+      }
+      await loadProblemDetails(problemIds);
+      try {
+        setBoard(await getLeaderboard(competitionId));
+      } catch {
+        /* ignore */
+      }
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to join contest."
+      );
+    } finally {
+      setJoining(false);
+    }
+  };
+
   const handleEndSession = async () => {
     if (!user) return;
+    if (session?.sessionStatus !== "IN_PROGRESS") {
+      setActionError("Start the contest before ending your session.");
+      return;
+    }
     setBusy(true);
     setActionError(null);
     try {
@@ -457,9 +585,10 @@ export default function CompetitionRoom() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen flex-col bg-background text-on-surface">
+      <div className="problem-workspace font-body-md relative flex min-h-screen flex-col text-on-background antialiased">
+        <div className="pw-ambient" aria-hidden />
         <AppNav activeHint="/competitions" />
-        <div className="mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
+        <div className="relative z-10 mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
           <p className="font-headline-lg-mobile text-headline-lg-mobile">
             Sign in to enter the contest room
           </p>
@@ -473,9 +602,10 @@ export default function CompetitionRoom() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col bg-background text-on-surface">
+      <div className="problem-workspace font-body-md relative flex min-h-screen flex-col text-on-background antialiased">
+        <div className="pw-ambient" aria-hidden />
         <AppNav activeHint="/competitions" />
-        <div className="flex flex-1 items-center justify-center pt-16">
+        <div className="relative z-10 flex flex-1 items-center justify-center pt-16">
           <p className="text-on-surface-variant">Loading contest…</p>
         </div>
       </div>
@@ -484,9 +614,10 @@ export default function CompetitionRoom() {
 
   if (error || !contest) {
     return (
-      <div className="flex min-h-screen flex-col bg-background text-on-surface">
+      <div className="problem-workspace font-body-md relative flex min-h-screen flex-col text-on-background antialiased">
+        <div className="pw-ambient" aria-hidden />
         <AppNav activeHint="/competitions" />
-        <div className="mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
+        <div className="relative z-10 mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
           <p className="text-hard">{error || "Contest not found"}</p>
           <Link to="/competitions" className="text-primary hover:underline">
             Back to Competitions
@@ -504,13 +635,14 @@ export default function CompetitionRoom() {
         : "ENDED";
 
   return (
-    <div className="font-body-md flex h-screen flex-col overflow-hidden bg-background text-on-background antialiased">
+    <div className="problem-workspace font-body-md relative flex h-screen flex-col overflow-hidden text-on-background antialiased">
+      <div className="pw-ambient" aria-hidden />
       <AppNav activeHint="/competitions" />
 
-      <main className="mx-auto flex h-screen w-full max-w-container-max flex-1 flex-col overflow-hidden pt-16">
+      <main className="relative z-10 mt-16 flex h-[calc(100vh-64px)] min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3">
         {/* Contest header */}
-        <header className="glass-panel relative z-40 flex flex-shrink-0 items-center justify-between px-gutter py-4">
-          <div className="flex flex-col gap-2">
+        <header className="pw-contest-header relative z-40 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 px-gutter py-3">
+          <div className="flex min-w-0 flex-col gap-2">
             <Link
               to="/competitions"
               className="flex items-center gap-1 font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
@@ -520,22 +652,22 @@ export default function CompetitionRoom() {
               </span>
               Competitions
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
                 {contest.title}
               </h1>
               <div
-                className={`flex items-center gap-1.5 rounded-sm border px-2 py-0.5 ${
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${
                   contest.status === "ACTIVE"
-                    ? "border-emerald-500/20 bg-emerald-500/10"
-                    : "border-outline-variant/20 bg-surface-container"
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : "border-outline-variant/20 bg-white/5"
                 }`}
               >
                 {contest.status === "ACTIVE" && (
                   <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                 )}
                 <span
-                  className={`font-label-md text-xs font-bold tracking-wider ${
+                  className={`font-label-md text-[10px] font-bold tracking-wider uppercase ${
                     contest.status === "ACTIVE"
                       ? "text-emerald-400"
                       : "text-on-surface-variant"
@@ -545,55 +677,132 @@ export default function CompetitionRoom() {
                 </span>
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {contest.problemCount != null && (
-                <span className="rounded-sm border border-outline-variant/20 bg-surface-container-highest px-2 py-0.5 font-code-sm text-xs text-on-surface-variant">
+                <span className="rounded-full border border-outline-variant/20 bg-white/5 px-2.5 py-0.5 font-code-sm text-[11px] text-on-surface-variant">
                   {contest.problemCount} problems
                 </span>
               )}
-              <span className="rounded-sm border border-outline-variant/20 bg-surface-container-highest px-2 py-0.5 font-code-sm text-xs text-on-surface-variant">
+              <span className="rounded-full border border-outline-variant/20 bg-white/5 px-2.5 py-0.5 font-code-sm text-[11px] text-on-surface-variant">
                 {formatDuration(contest.durationMinutes)}
               </span>
               {contest.contestType && (
-                <span className="rounded-sm border border-primary/20 bg-primary/10 px-2 py-0.5 font-code-sm text-xs text-primary">
+                <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 font-code-sm text-[11px] text-primary">
                   {contest.contestType}
                 </span>
               )}
               {contest.difficulty && (
-                <span className="rounded-sm border border-outline-variant/20 bg-surface-container-highest px-2 py-0.5 font-code-sm text-xs text-on-surface-variant">
+                <span className="rounded-full border border-outline-variant/20 bg-white/5 px-2.5 py-0.5 font-code-sm text-[11px] text-on-surface-variant">
                   {contest.difficulty}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center justify-center">
-            <div className="rounded-sm border border-primary/20 bg-surface-container-low px-6 py-2 font-code-sm text-3xl font-bold tracking-widest text-primary [text-shadow:0_0_8px_rgba(183,109,255,0.4)] shadow-[0_0_10px_rgba(183,109,255,0.3)]">
+          <div className="flex flex-col items-center justify-center">
+            <div className="rounded-xl border border-primary/30 bg-primary/10 px-6 py-2 font-code-sm text-3xl font-bold tracking-widest text-primary shadow-[0_0_16px_rgba(168,85,247,0.25)]">
               {remaining != null ? formatSecondsClock(remaining) : "--:--:--"}
             </div>
-            <span className="mt-1 font-label-md text-xs tracking-widest text-on-surface-variant uppercase">
+            <span className="mt-1 font-label-md text-[10px] tracking-widest text-on-surface-variant uppercase">
               Time Remaining
             </span>
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              disabled={busy || session?.sessionStatus === "ENDED"}
-              onClick={() => void handleEndSession()}
-              className="flex items-center gap-2 rounded-sm border border-error/50 px-4 py-2 font-label-md text-label-md text-error transition-all hover:border-error hover:bg-error/10 disabled:opacity-40"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                power_settings_new
+            {!joined ? (
+              <button
+                type="button"
+                disabled={joining || contest.status === "ENDED"}
+                onClick={() => void handleJoinContest()}
+                className="pw-btn-submit font-label-md text-label-md flex items-center gap-2 rounded-full px-5 py-2.5 font-bold disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  login
+                </span>
+                {joining ? "Joining…" : "Join contest"}
+              </button>
+            ) : session?.sessionStatus === "IN_PROGRESS" ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleEndSession()}
+                className="font-label-md text-label-md flex items-center gap-2 rounded-full border border-hard/40 bg-hard/10 px-4 py-2 text-hard transition-all hover:bg-hard/15 disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  power_settings_new
+                </span>
+                End session
+              </button>
+            ) : session?.sessionStatus === "ENDED" ? (
+              <span className="rounded-full border border-outline-variant/30 px-4 py-2 font-label-md text-sm text-on-surface-variant">
+                Session ended
               </span>
-              End session
-            </button>
+            ) : (
+              <button
+                type="button"
+                disabled={busy || contest.status === "ENDED"}
+                onClick={() => void handleStartSession()}
+                className="pw-btn-submit font-label-md text-label-md flex items-center gap-2 rounded-full px-5 py-2.5 font-bold disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  play_arrow
+                </span>
+                {busy ? "Starting…" : "Start contest"}
+              </button>
+            )}
           </div>
         </header>
 
+        {actionError && (
+          <div className="flex-shrink-0 rounded-xl border border-hard/30 bg-hard/10 px-4 py-2 text-sm text-hard">
+            {actionError}
+          </div>
+        )}
+
+        {!joined ? (
+          <div className="pw-contest-header flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+              <span className="material-symbols-outlined text-[32px]">
+                emoji_events
+              </span>
+            </div>
+            <div className="max-w-md space-y-2">
+              <h2 className="font-headline-lg text-2xl font-semibold text-white">
+                Join to unlock problems
+              </h2>
+              <p className="text-sm leading-relaxed text-on-surface-variant">
+                Register for{" "}
+                <span className="text-primary">{contest.title}</span> before
+                you can view statements, run code, or submit solutions.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={joining || contest.status === "ENDED"}
+              onClick={() => void handleJoinContest()}
+              className="pw-btn-submit flex items-center gap-2 rounded-full px-8 py-3 font-label-md text-sm font-bold disabled:opacity-40"
+            >
+              <span className="material-symbols-outlined text-[20px]">
+                login
+              </span>
+              {joining
+                ? "Joining…"
+                : contest.status === "ENDED"
+                  ? "Contest ended"
+                  : "Join contest"}
+            </button>
+            <Link
+              to="/competitions"
+              className="text-sm text-on-surface-variant hover:text-primary"
+            >
+              Back to competitions
+            </Link>
+          </div>
+        ) : (
+          <>
         {/* Controls strip */}
-        <div className="z-30 flex flex-shrink-0 items-center justify-between border-b border-outline-variant/20 bg-surface-container-lowest px-gutter py-2">
-          <div className="flex items-center gap-1">
+        <div className="pw-contest-strip z-30 flex flex-shrink-0 items-center justify-between gap-2 px-2 py-2">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
             {problemIds.map((pid, idx) => {
               const letter = PROBLEM_LETTERS[idx] || String(idx + 1);
               const active = idx === activeIdx;
@@ -606,37 +815,29 @@ export default function CompetitionRoom() {
                     setActiveIdx(idx);
                     setWorkspaceTab("problem");
                   }}
-                  className={`group relative flex h-10 w-10 flex-col items-center justify-center rounded-sm transition-colors ${
+                  className={`pw-letter-btn group relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md font-label-md text-sm font-bold transition-colors ${
                     active
-                      ? "border-b-2 border-primary bg-surface-container"
-                      : "hover:bg-surface-container"
+                      ? "pw-letter-btn-active bg-primary text-on-primary"
+                      : "bg-white/5 text-on-surface-variant hover:bg-primary/15 hover:text-primary"
                   }`}
                 >
-                  <span
-                    className={`font-code-sm font-bold ${
-                      active
-                        ? "text-primary"
-                        : "text-on-surface-variant group-hover:text-on-surface"
-                    }`}
-                  >
-                    {letter}
-                  </span>
+                  {letter}
                   {solved && (
-                    <div className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   )}
                 </button>
               );
             })}
           </div>
 
-          <div className="flex items-center gap-2 rounded-sm border border-outline-variant/20 bg-surface-container p-1">
+          <div className="flex flex-shrink-0 items-center gap-1 pr-2">
             <button
               type="button"
               onClick={() => setWorkspaceTab("problem")}
-              className={`flex items-center gap-2 rounded-sm px-3 py-1.5 font-label-md text-label-md transition-colors ${
+              className={`pw-tab flex items-center gap-2 rounded-lg px-3 py-1.5 font-label-md text-[13px] font-medium ${
                 workspaceTab === "problem"
-                  ? "border border-primary/20 bg-primary/20 text-primary shadow-sm"
-                  : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                  ? "pw-tab-active bg-white/5 text-primary"
+                  : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">
@@ -647,10 +848,10 @@ export default function CompetitionRoom() {
             <button
               type="button"
               onClick={() => setWorkspaceTab("standings")}
-              className={`flex items-center gap-2 rounded-sm px-3 py-1.5 font-label-md text-label-md transition-colors ${
+              className={`pw-tab flex items-center gap-2 rounded-lg px-3 py-1.5 font-label-md text-[13px] font-medium ${
                 workspaceTab === "standings"
-                  ? "border border-primary/20 bg-primary/20 text-primary shadow-sm"
-                  : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                  ? "pw-tab-active bg-white/5 text-primary"
+                  : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">
@@ -661,17 +862,11 @@ export default function CompetitionRoom() {
           </div>
         </div>
 
-        {actionError && (
-          <p className="border-b border-hard/20 bg-hard/5 px-gutter py-2 text-sm text-hard">
-            {actionError}
-          </p>
-        )}
-
         {workspaceTab === "standings" ? (
-          <div className="flex-1 overflow-auto p-6 md:p-8">
-            <div className="glass-panel overflow-hidden rounded-xl">
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            <div className="pw-panel overflow-hidden rounded-2xl">
               <table className="w-full text-left text-sm">
-                <thead className="border-b border-outline-variant/20 bg-surface-container-low text-xs tracking-wider text-on-surface-variant uppercase">
+                <thead className="border-b border-white/5 bg-white/5 text-xs tracking-wider text-on-surface-variant uppercase">
                   <tr>
                     <th className="px-4 py-3">Rank</th>
                     <th className="px-4 py-3">User</th>
@@ -693,7 +888,7 @@ export default function CompetitionRoom() {
                     board.map((row) => (
                       <tr
                         key={row.userId}
-                        className="border-b border-outline-variant/10 hover:bg-surface-container/40"
+                        className="border-b border-white/5 hover:bg-white/5"
                       >
                         <td className="mono px-4 py-3 text-primary">
                           #{row.rank}
@@ -718,215 +913,279 @@ export default function CompetitionRoom() {
             </div>
           </div>
         ) : (
-          <div ref={splitRef} className="relative flex min-h-0 flex-1">
-            <div
-              className="flex min-h-0 flex-col border-r border-outline-variant/20 bg-surface"
-              style={{ width: `${splitPct}%` }}
+          <div
+            ref={splitRef}
+            className="pw-workspace-frame flex min-h-0 flex-1 flex-col md:flex-row"
+          >
+            {/* Left: statement */}
+            <section
+              className="pw-panel relative flex min-h-0 min-w-0 flex-col overflow-hidden"
+              style={{
+                flexBasis: `${splitPct}%`,
+                flexGrow: 0,
+                flexShrink: 0,
+              }}
             >
-              <div className="flex-1 overflow-y-auto p-6 md:p-8">
+              <div className="pw-toolbar flex shrink-0 items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                    <span className="material-symbols-outlined text-[18px]">
+                      menu_book
+                    </span>
+                  </span>
+                  <span className="font-label-md text-[13px] font-semibold tracking-wide text-on-background">
+                    Description
+                  </span>
+                </div>
+              </div>
+
+              <div className="pw-scroll min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
                 {!problem ? (
                   <p className="text-on-surface-variant">
                     Select a problem to begin.
                   </p>
                 ) : (
                   <>
-                    <div className="mb-2 flex items-center gap-3">
-                      <span className="font-label-md text-xs tracking-widest text-on-surface-variant uppercase">
-                        Problem Statement
-                      </span>
-                    </div>
-                    <div className="mb-8 flex items-start justify-between gap-4">
-                      <h2 className="font-headline-lg-mobile text-headline-lg-mobile font-bold text-on-surface">
-                        {PROBLEM_LETTERS[activeIdx] || activeIdx + 1}.{" "}
+                    <div>
+                      <h2 className="font-headline-lg mb-3 text-[26px] leading-tight font-semibold tracking-tight text-white md:text-[30px]">
+                        <span className="text-primary">
+                          {PROBLEM_LETTERS[activeIdx] || activeIdx + 1}.
+                        </span>{" "}
                         {problem.title}
                       </h2>
-                      <span
-                        className={`rounded-sm border px-2 py-1 font-label-md text-xs font-bold ${difficultyClass(problem.difficulty)}`}
-                      >
-                        {problem.difficulty}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full border px-3 py-1 font-label-md text-[12px] ${difficultyClass(problem.difficulty)}`}
+                        >
+                          {problem.difficulty}
+                        </span>
+                      </div>
                     </div>
-                    <div className="prose prose-invert max-w-none">
-                      <p className="mb-6 whitespace-pre-wrap font-body-md leading-relaxed text-on-surface-variant">
-                        {problem.description}
-                      </p>
-                      {examples.map((ex, i) => (
-                        <div key={i} className="mb-8">
-                          <h3 className="mb-3 border-b border-outline-variant/20 pb-2 font-label-md text-label-md font-bold text-on-surface">
-                            Example {i + 1}
-                          </h3>
-                          <div className="rounded-sm border border-outline-variant/10 bg-surface-container-low p-4 font-code-sm text-code-sm">
-                            <div className="mb-2">
-                              <span className="font-bold text-on-surface-variant">
-                                Input:
-                              </span>{" "}
-                              <IoPre className="mt-1 text-primary-fixed">
-                                {formatExample(ex.input) || "(empty)"}
-                              </IoPre>
-                            </div>
-                            <div>
-                              <span className="font-bold text-on-surface-variant">
-                                Output:
-                              </span>{" "}
-                              <IoPre className="mt-1 text-primary-fixed">
-                                {formatExample(ex.output) || "(empty)"}
-                              </IoPre>
+
+                    <div className="font-body-md whitespace-pre-wrap text-[15px] leading-relaxed text-on-surface-variant/90">
+                      {problem.description}
+                    </div>
+
+                    {examples.length > 0 && (
+                      <div className="space-y-4">
+                        {examples.map((ex, i) => (
+                          <div
+                            key={i}
+                            className="rounded-2xl border border-white/5 bg-black/25 p-4 transition-colors hover:border-primary/20"
+                          >
+                            <p className="mb-3 font-label-md text-[13px] font-semibold text-white">
+                              Example {i + 1}
+                            </p>
+                            <div className="space-y-2.5">
+                              <div>
+                                <p className="mb-1 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
+                                  Input
+                                </p>
+                                <IoPre>
+                                  {formatExample(ex.input) || "(empty)"}
+                                </IoPre>
+                              </div>
+                              <div>
+                                <p className="mb-1 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
+                                  Output
+                                </p>
+                                <IoPre tone="ok">
+                                  {formatExample(ex.output) || "(empty)"}
+                                </IoPre>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                      {problem.constraints && (
-                        <div className="mb-8">
-                          <h3 className="mb-3 border-b border-outline-variant/20 pb-2 font-label-md text-label-md font-bold text-on-surface">
-                            Constraints
-                          </h3>
-                          <pre className="whitespace-pre-wrap font-code-sm text-code-sm text-on-surface-variant">
-                            {problem.constraints}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {problem.constraints && (
+                      <div>
+                        <p className="font-label-md mb-2 text-[13px] font-semibold text-white">
+                          Constraints
+                        </p>
+                        <pre className="font-code-sm whitespace-pre-wrap text-on-surface-variant">
+                          {problem.constraints}
+                        </pre>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
-            </div>
+            </section>
 
             <div
               role="separator"
               aria-orientation="vertical"
-              onMouseDown={() => {
+              aria-label="Resize statement and editor"
+              onMouseDown={(e) => {
+                e.preventDefault();
                 draggingRef.current = true;
                 document.body.style.cursor = "col-resize";
                 document.body.style.userSelect = "none";
               }}
-              className="absolute top-0 bottom-0 z-20 flex w-1 -translate-x-1/2 cursor-col-resize items-center justify-center bg-outline-variant/20 hover:bg-primary/50"
-              style={{ left: `${splitPct}%` }}
-            >
-              <div className="h-8 w-1 rounded-full bg-outline-variant/50" />
-            </div>
-
+              className="pw-resize pw-resize-col hidden md:flex"
+            />
             <div
-              ref={editorSplitRef}
-              className="flex min-h-0 flex-1 flex-col bg-surface-container-lowest"
-            >
-              <div className="flex flex-shrink-0 items-center justify-between border-b border-outline-variant/20 bg-surface-container-low px-4 py-2">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setLangOpen((o) => !o)}
-                    className="flex items-center gap-2 rounded-sm border border-outline-variant/20 bg-surface px-3 py-1.5 transition-colors hover:bg-surface-container-high"
-                  >
-                    <span className="font-code-sm text-code-sm text-on-surface">
-                      {language?.name || "Language"}
-                    </span>
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
-                      expand_more
-                    </span>
-                  </button>
-                  {langOpen && (
-                    <div className="absolute top-full left-0 z-30 mt-1 max-h-56 w-48 overflow-auto rounded-sm border border-outline-variant/30 bg-surface-container shadow-xl">
-                      {languages.map((l) => (
-                        <button
-                          key={l.slug}
-                          type="button"
-                          onClick={() => handleLanguageChange(l.slug)}
-                          className="block w-full px-3 py-2 text-left font-code-sm text-sm hover:bg-primary/10"
-                        >
-                          {l.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={running || !problem}
-                    onClick={() => void handleRun()}
-                    className="flex items-center gap-2 rounded-sm border border-outline-variant/50 px-4 py-1.5 font-label-md text-label-md text-on-surface-variant transition-all hover:border-primary hover:bg-primary/5 hover:text-primary disabled:opacity-40"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      play_arrow
-                    </span>
-                    {running ? "Running…" : "Run"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={submitting || busy || !problem}
-                    onClick={() => void handleSubmit()}
-                    className="flex items-center gap-2 rounded-sm border border-transparent bg-primary px-4 py-1.5 font-label-md text-label-md font-bold text-on-primary transition-all hover:bg-primary-fixed disabled:opacity-40"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      cloud_upload
-                    </span>
-                    {submitting ? "Submitting…" : "Submit"}
-                  </button>
-                </div>
-              </div>
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Resize statement and editor"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                draggingRef.current = true;
+                document.body.style.cursor = "row-resize";
+                document.body.style.userSelect = "none";
+              }}
+              className="pw-resize pw-resize-row flex md:hidden"
+            />
 
+            {/* Right: IDE shell */}
+            <section
+              ref={editorSplitRef}
+              className="pw-ide-shell flex min-h-0 min-w-0 flex-1 flex-col"
+            >
               <div
-                className="relative min-h-0 overflow-hidden border-b border-outline-variant/20 bg-[#09040D]"
-                style={{ height: `${editorPct}%` }}
+                className="flex min-h-[160px] flex-col overflow-hidden"
+                style={{ flex: `0 0 ${editorPct}%` }}
               >
-                <Editor
-                  height="100%"
-                  theme={CODEIT_THEME}
-                  language={
-                    language ? MONACO_LANG[language.slug] || "plaintext" : "plaintext"
-                  }
-                  value={code}
-                  onChange={(v) => setCode(v ?? "")}
-                  beforeMount={defineCodeitTheme}
-                  options={{
-                    fontSize: 14,
-                    fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    padding: { top: 16 },
-                    automaticLayout: true,
-                  }}
-                />
+                <div className="pw-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5">
+                  <div className="relative flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLangOpen((o) => !o)}
+                      className="pw-lang-trigger font-code-sm flex items-center gap-2 rounded-xl px-3.5 py-2 text-[12px] font-medium text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-[16px] text-primary">
+                        code
+                      </span>
+                      {language?.name || "Language"}
+                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                        expand_more
+                      </span>
+                    </button>
+                    {langOpen && (
+                      <div className="pw-lang-menu absolute top-full left-0 z-30 mt-2 max-h-60 min-w-[12rem] overflow-y-auto py-1.5">
+                        {languages.map((l) => (
+                          <button
+                            key={l.slug}
+                            type="button"
+                            onClick={() => handleLanguageChange(l.slug)}
+                            className={`flex w-full items-center justify-between px-3.5 py-2 text-left font-code-sm text-[12px] transition-colors hover:bg-primary/10 ${
+                              l.slug === language?.slug
+                                ? "bg-primary/10 text-primary"
+                                : "text-on-surface"
+                            }`}
+                          >
+                            {l.name}
+                            {l.slug === language?.slug && (
+                              <span className="material-symbols-outlined text-[14px]">
+                                check
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      disabled={running || !problem}
+                      onClick={() => void handleRun()}
+                      className="pw-btn-run font-label-md flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        play_arrow
+                      </span>
+                      {running ? "Running…" : "Run"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={submitting || busy || !problem}
+                      onClick={() => void handleSubmit()}
+                      className="pw-btn-submit font-label-md flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        cloud_upload
+                      </span>
+                      {submitting ? "Submitting…" : "Submit"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative min-h-0 flex-1 overflow-hidden bg-[#0a0610]">
+                  <Editor
+                    height="100%"
+                    theme={CODEIT_THEME}
+                    language={
+                      language
+                        ? MONACO_LANG[language.slug] || "plaintext"
+                        : "plaintext"
+                    }
+                    value={code}
+                    onChange={(v) => setCode(v ?? "")}
+                    beforeMount={defineCodeitTheme}
+                    options={{
+                      fontSize: 14,
+                      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      padding: { top: 16 },
+                      automaticLayout: true,
+                    }}
+                  />
+                </div>
               </div>
 
               <div
                 role="separator"
-                onMouseDown={() => {
+                aria-orientation="horizontal"
+                aria-label="Resize editor and test panel"
+                onMouseDown={(e) => {
+                  e.preventDefault();
                   draggingEditorRef.current = true;
                   document.body.style.cursor = "row-resize";
                   document.body.style.userSelect = "none";
                 }}
-                className="h-1 cursor-row-resize bg-outline-variant/20 hover:bg-primary/40"
+                className="pw-resize pw-resize-row"
               />
 
-              <div className="flex min-h-0 flex-1 flex-col bg-surface-container-low">
-                <div className="flex items-center border-b border-outline-variant/20 bg-surface px-2 pt-2">
+              <div className="flex min-h-[140px] min-w-0 flex-1 flex-col overflow-hidden border-t border-white/5">
+                <div className="pw-toolbar flex shrink-0 items-center gap-1 px-2 py-1.5">
                   <button
                     type="button"
                     onClick={() => setBottomTab("testcase")}
-                    className={`rounded-t-sm px-4 py-2 font-label-md text-label-md ${
+                    className={`pw-tab font-label-md flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-medium ${
                       bottomTab === "testcase"
-                        ? "border-b-2 border-primary bg-primary/5 text-primary"
-                        : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                        ? "pw-tab-active bg-white/5 text-primary"
+                        : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
                     }`}
                   >
+                    <span className="material-symbols-outlined text-[15px]">
+                      fact_check
+                    </span>
                     Testcase
                   </button>
                   <button
                     type="button"
                     onClick={() => setBottomTab("result")}
-                    className={`rounded-t-sm px-4 py-2 font-label-md text-label-md ${
+                    className={`pw-tab font-label-md flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-medium ${
                       bottomTab === "result"
-                        ? "border-b-2 border-primary bg-primary/5 text-primary"
-                        : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                        ? "pw-tab-active bg-white/5 text-primary"
+                        : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
                     }`}
                   >
+                    <span className="material-symbols-outlined text-[15px]">
+                      terminal
+                    </span>
                     Test Result
                   </button>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-surface-container-lowest p-4">
+
+                <div className="pw-scroll min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-black/20 to-transparent p-4">
                   {bottomTab === "testcase" && (
-                    <>
-                      <div className="mb-4 flex gap-2">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
                         {(examples.length
                           ? examples
                           : [{ input: "", output: "" }]
@@ -935,34 +1194,36 @@ export default function CompetitionRoom() {
                             key={i}
                             type="button"
                             onClick={() => setActiveCaseIdx(i)}
-                            className={`rounded-sm px-3 py-1 font-code-sm text-xs transition-colors ${
+                            className={`pw-case-chip rounded-full px-3.5 py-1.5 font-label-md text-[12px] font-medium ${
                               activeCaseIdx === i
-                                ? "border border-outline-variant/30 bg-surface-container text-on-surface"
-                                : "border border-transparent text-on-surface-variant hover:bg-surface-container/50"
+                                ? "pw-case-chip-active bg-primary/20 text-primary"
+                                : "bg-white/5 text-on-surface-variant hover:bg-white/10 hover:text-on-surface"
                             }`}
                           >
                             Case {i + 1}
                           </button>
                         ))}
                       </div>
-                      <label className="mb-1 block font-code-sm text-xs text-on-surface-variant">
-                        stdin
-                      </label>
-                      <textarea
-                        value={caseStdins[activeCaseIdx] ?? ""}
-                        onChange={(e) => {
-                          const next = [...caseStdins];
-                          next[activeCaseIdx] = e.target.value;
-                          setCaseStdins(next);
-                        }}
-                        className="min-h-[100px] w-full rounded-sm border border-outline-variant/30 bg-surface-container px-3 py-2 font-code-sm text-sm text-primary-fixed outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                      />
-                    </>
+                      <div>
+                        <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
+                          stdin
+                        </p>
+                        <textarea
+                          value={caseStdins[activeCaseIdx] ?? ""}
+                          onChange={(e) => {
+                            const next = [...caseStdins];
+                            next[activeCaseIdx] = e.target.value;
+                            setCaseStdins(next);
+                          }}
+                          className="mono min-h-[5rem] w-full resize-y rounded-2xl border border-white/8 bg-black/30 p-3.5 text-[13px] leading-[1.55] tracking-wide text-on-surface outline-none transition-shadow focus:border-primary/50 focus:shadow-[0_0_0_3px_rgba(183,109,255,0.15)]"
+                        />
+                      </div>
+                    </div>
                   )}
                   {bottomTab === "result" && (
                     <div className="space-y-3 font-code-sm text-sm">
                       {verdict && (
-                        <div className="rounded-sm border border-outline-variant/20 bg-surface-container p-4">
+                        <div className="rounded-2xl border border-white/6 bg-white/4 p-4">
                           <p
                             className={`font-bold ${
                               /ac|accepted/i.test(verdict.verdict) ||
@@ -990,7 +1251,7 @@ export default function CompetitionRoom() {
                           {runSession.cases.map((r) => (
                             <div
                               key={r.index}
-                              className="rounded-sm border border-outline-variant/20 bg-surface-container p-3"
+                              className="rounded-2xl border border-white/6 bg-white/4 p-3"
                             >
                               <p className="font-bold text-on-surface">
                                 Case {r.index + 1}: {r.status}
@@ -1013,8 +1274,10 @@ export default function CompetitionRoom() {
                   )}
                 </div>
               </div>
-            </div>
+            </section>
           </div>
+        )}
+          </>
         )}
       </main>
     </div>

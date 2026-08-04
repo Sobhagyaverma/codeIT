@@ -35,6 +35,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("role", user.getRole() != null ? user.getRole() : "USER");
+        claims.put("tv", user.getTokenVersion() != null ? user.getTokenVersion() : 0);
 
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
@@ -82,6 +83,20 @@ public class JwtService {
 
     public String extractRole(String token) {
         return parseClaims(token).get("role", String.class);
+    }
+
+    public int extractTokenVersion(String token) {
+        Object value = parseClaims(token).get("tv");
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String str) {
+            return Integer.parseInt(str);
+        }
+        return 0;
     }
 
     public long getExpirationMs() {

@@ -42,35 +42,35 @@ Login identifier, passwords (login / register / change-password) are encrypted i
 
 ## Screen map
 
-| Area | Route | Notes |
-| --- | --- | --- |
-| Home | `/` | Landing |
-| Login / Register | `/login`, `/register` | JWT auth |
-| Problems | `/problems` | Catalog |
-| Problem workspace | `/problems/:id` | Monaco, run/submit |
-| Problem collab | `/problems/:id/room/:roomId` | Shared room |
-| DSA Sheet | `/dsa-sheet`, `/dsa-sheet/:sectionId/:slug` | Lessons + practice |
-| CodeRoom | `/coderoom`, `/coderoom/:roomId` | Freeform collab |
-| Competitions | `/competitions`, `/competitions/:id` | Contests + room |
-| Profile | `/profile`, `/users/:username` | Public/own profile |
-| Settings | `/settings/profile` | Edit profile (all roles) |
-| Admin Command Center | `/admin` | ADMIN only |
-| Competition repository | `/admin/competitions` | ADMIN list UI |
-| Competition studio | `/admin/competitions/create` | ADMIN create |
-| Meta | `/about`, `/contact`, `/help`, `/privacy`, `/terms` | Static |
-| Catalog | `/screens` | Screen index |
+| Area                   | Route                                               | Notes                    |
+| ---------------------- | --------------------------------------------------- | ------------------------ |
+| Home                   | `/`                                                 | Landing                  |
+| Login / Register       | `/login`, `/register`                               | JWT auth                 |
+| Problems               | `/problems`                                         | Catalog                  |
+| Problem workspace      | `/problems/:id`                                     | Monaco, run/submit       |
+| Problem collab         | `/problems/:id/room/:roomId`                        | Shared room              |
+| DSA Sheet              | `/dsa-sheet`, `/dsa-sheet/:sectionId/:slug`         | Lessons + practice       |
+| CodeRoom               | `/coderoom`, `/coderoom/:roomId`                    | Freeform collab          |
+| Competitions           | `/competitions`, `/competitions/:id`                | Contests + room          |
+| Profile                | `/profile`, `/users/:username`                      | Public/own profile       |
+| Settings               | `/settings/profile`                                 | Edit profile (all roles) |
+| Admin Command Center   | `/admin`                                            | ADMIN only               |
+| Competition repository | `/admin/competitions`                               | ADMIN list UI            |
+| Competition studio     | `/admin/competitions/create`                        | ADMIN create             |
+| Meta                   | `/about`, `/contact`, `/help`, `/privacy`, `/terms` | Static                   |
+| Catalog                | `/screens`                                          | Screen index             |
 
 Nav: **Settings** (gear, rightmost) opens `/settings/profile` for every logged-in user. **Admin** appears only for `ADMIN`.
 
 ## Admin Command Center
 
-| View | Entry | Backend |
-| --- | --- | --- |
-| Overview | `/admin` | Problem + competition lists |
-| Problem repository | sidebar → Problems | `GET /api/problems` |
-| Problem Studio | Create Problem | `POST /api/problems` |
-| Competition repository | `/admin/competitions` | `GET …/getAllCompetitions` |
-| Competition Studio | `/admin/competitions/create` | `POST …/create` + `addProblemsTo` |
+| View                   | Entry                        | Backend                           |
+| ---------------------- | ---------------------------- | --------------------------------- |
+| Overview               | `/admin`                     | Problem + competition lists       |
+| Problem repository     | sidebar → Problems           | `GET /api/problems`               |
+| Problem Studio         | Create Problem               | `POST /api/problems`              |
+| Competition repository | `/admin/competitions`        | `GET …/getAllCompetitions`        |
+| Competition Studio     | `/admin/competitions/create` | `POST …/create` + `addProblemsTo` |
 
 Studio drafts autosave to **localStorage** (no draft API). Publish/create uses existing endpoints only — no invented backend fields.
 

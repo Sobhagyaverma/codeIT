@@ -82,6 +82,48 @@ function toIsoLocal(datetimeLocal: string): string {
   return new Date(datetimeLocal).toISOString();
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Format a Date as `YYYY-MM-DDTHH:mm` for local datetime fields. */
+function formatLocalDateTime(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function addMinutesLocal(datetimeLocal: string, minutes: number): string {
+  if (!datetimeLocal || !Number.isFinite(minutes) || minutes <= 0) return "";
+  const d = new Date(datetimeLocal);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setMinutes(d.getMinutes() + minutes);
+  return formatLocalDateTime(d);
+}
+
+function splitDateTime(datetimeLocal: string): { date: string; time: string } {
+  if (!datetimeLocal.includes("T")) return { date: "", time: "" };
+  const [date, rest] = datetimeLocal.split("T");
+  return { date: date || "", time: (rest || "").slice(0, 5) };
+}
+
+function joinDateTime(date: string, time: string): string {
+  if (!date) return "";
+  return `${date}T${time || "00:00"}`;
+}
+
+function formatDisplayLocal(datetimeLocal: string): string {
+  if (!datetimeLocal) return "Set a start time and duration";
+  const d = new Date(datetimeLocal);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function parseTopics(topics: string[] | string | undefined): string[] {
   if (!topics) return [];
   if (Array.isArray(topics)) return topics.map(String).filter(Boolean);
@@ -112,7 +154,16 @@ type Props = {
 };
 
 export default function AdminCompetitionStudio({ onBack, onPublished }: Props) {
-  const [draft, setDraft] = useState<StudioDraft>(() => loadDraft());
+  const [draft, setDraft] = useState<StudioDraft>(() => {
+    const loaded = loadDraft();
+    if (loaded.startTime && loaded.durationMinutes > 0) {
+      loaded.endTime = addMinutesLocal(
+        loaded.startTime,
+        loaded.durationMinutes
+      );
+    }
+    return loaded;
+  });
   const [problems, setProblems] = useState<ProblemPublicDTO[]>([]);
   const [loadingProblems, setLoadingProblems] = useState(true);
   const [librarySearch, setLibrarySearch] = useState("");
@@ -137,6 +188,15 @@ export default function AdminCompetitionStudio({ onBack, onPublished }: Props) {
       const next = { ...prev, ...partial };
       if (partial.title !== undefined && !prev.slug) {
         next.slug = slugify(partial.title);
+      }
+      if (
+        partial.startTime !== undefined ||
+        partial.durationMinutes !== undefined
+      ) {
+        next.endTime = addMinutesLocal(
+          next.startTime,
+          next.durationMinutes
+        );
       }
       return next;
     });
@@ -233,12 +293,32 @@ export default function AdminCompetitionStudio({ onBack, onPublished }: Props) {
     circumference - (checklist.pct / 100) * circumference;
 
   const durationPreview = useMemo(() => {
-    if (!draft.startTime || !draft.endTime) return draft.durationMinutes;
+    if (draft.durationMinutes > 0) return draft.durationMinutes;
+    if (!draft.startTime || !draft.endTime) return 0;
     const ms =
       new Date(draft.endTime).getTime() - new Date(draft.startTime).getTime();
-    if (Number.isNaN(ms) || ms <= 0) return draft.durationMinutes;
+    if (Number.isNaN(ms) || ms <= 0) return 0;
     return Math.round(ms / 60000);
   }, [draft.startTime, draft.endTime, draft.durationMinutes]);
+
+  const startParts = useMemo(
+    () => splitDateTime(draft.startTime),
+    [draft.startTime]
+  );
+
+  const setStartDate = (date: string) => {
+    patch({ startTime: joinDateTime(date, startParts.time || "09:00") });
+  };
+
+  const setStartTime = (time: string) => {
+    if (!startParts.date) {
+      // Default to today if time picked first
+      const today = formatLocalDateTime(new Date()).slice(0, 10);
+      patch({ startTime: joinDateTime(today, time) });
+      return;
+    }
+    patch({ startTime: joinDateTime(startParts.date, time) });
+  };
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -485,39 +565,50 @@ export default function AdminCompetitionStudio({ onBack, onPublished }: Props) {
             <div className="relative space-y-10 border-l-2 border-outline-variant/20 pl-8">
               <div className="relative">
                 <span className="absolute -left-[41px] top-0 h-4 w-4 rounded-full bg-primary ring-4 ring-primary/20" />
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase text-primary">
-                      Competition Start
-                    </p>
-                    <input
-                      type="datetime-local"
-                      className="w-full rounded-lg border border-outline-variant/20 bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-                      value={draft.startTime}
-                      onChange={(e) => patch({ startTime: e.target.value })}
-                    />
-                    {fieldErrors.startTime && (
-                      <p className="text-xs text-error">
-                        {fieldErrors.startTime}
-                      </p>
-                    )}
+                <div className="space-y-1">
+                  <p className="text-xs font-bold uppercase text-primary">
+                    Competition Start
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="comp-datetime-field group relative block">
+                      <span className="mb-1.5 block text-[10px] font-semibold tracking-wider text-on-surface-variant uppercase">
+                        Date
+                      </span>
+                      <span className="pointer-events-none absolute right-3 bottom-2.5 text-primary/80 group-focus-within:text-primary">
+                        <span className="material-symbols-outlined text-[20px]">
+                          calendar_month
+                        </span>
+                      </span>
+                      <input
+                        type="date"
+                        className="comp-input comp-datetime-input w-full rounded-xl border border-outline-variant/20 bg-surface-container-lowest py-2.5 pr-10 pl-3 text-sm outline-none"
+                        value={startParts.date}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                    </label>
+                    <label className="comp-datetime-field group relative block">
+                      <span className="mb-1.5 block text-[10px] font-semibold tracking-wider text-on-surface-variant uppercase">
+                        Time
+                      </span>
+                      <span className="pointer-events-none absolute right-3 bottom-2.5 text-primary/80 group-focus-within:text-primary">
+                        <span className="material-symbols-outlined text-[20px]">
+                          schedule
+                        </span>
+                      </span>
+                      <input
+                        type="time"
+                        className="comp-input comp-datetime-input w-full rounded-xl border border-outline-variant/20 bg-surface-container-lowest py-2.5 pr-10 pl-3 text-sm outline-none"
+                        value={startParts.time}
+                        onChange={(e) => setStartTime(e.target.value)}
+                      />
+                    </label>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase text-on-surface-variant">
-                      Competition End
-                    </p>
-                    <input
-                      type="datetime-local"
-                      className="w-full rounded-lg border border-outline-variant/20 bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-                      value={draft.endTime}
-                      onChange={(e) => patch({ endTime: e.target.value })}
-                    />
-                    {fieldErrors.endTime && (
-                      <p className="text-xs text-error">{fieldErrors.endTime}</p>
-                    )}
-                  </div>
+                  {fieldErrors.startTime && (
+                    <p className="text-xs text-error">{fieldErrors.startTime}</p>
+                  )}
                 </div>
               </div>
+
               <div className="relative">
                 <span className="absolute -left-[41px] top-0 h-4 w-4 rounded-full bg-secondary-container ring-4 ring-secondary-container/20" />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -528,8 +619,9 @@ export default function AdminCompetitionStudio({ onBack, onPublished }: Props) {
                     <input
                       type="number"
                       min={1}
-                      className="w-full rounded-lg border border-outline-variant/20 bg-surface-container-lowest px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-                      value={draft.durationMinutes}
+                      step={5}
+                      className="comp-input w-full rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-3 py-2.5 text-sm outline-none"
+                      value={draft.durationMinutes || ""}
                       onChange={(e) =>
                         patch({
                           durationMinutes: Number(e.target.value) || 0,
@@ -541,19 +633,51 @@ export default function AdminCompetitionStudio({ onBack, onPublished }: Props) {
                         {fieldErrors.duration}
                       </p>
                     )}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {[30, 60, 90, 120, 180, 240].map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => patch({ durationMinutes: m })}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
+                            draft.durationMinutes === m
+                              ? "border-primary/40 bg-primary/15 text-primary"
+                              : "border-outline-variant/25 text-on-surface-variant hover:border-primary/30 hover:text-primary"
+                          }`}
+                        >
+                          {m}m
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs font-bold uppercase text-on-surface-variant">
-                      Computed window
+                      Competition End
+                      <span className="ml-2 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[9px] tracking-wider text-primary normal-case">
+                        Auto
+                      </span>
                     </p>
-                    <p className="rounded-lg border border-outline-variant/20 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface-variant">
-                      {durationPreview}m from start→end
+                    <div className="flex min-h-[42px] items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-on-surface">
+                      <span className="material-symbols-outlined text-[18px] text-primary">
+                        event_available
+                      </span>
+                      <span className="font-medium">
+                        {formatDisplayLocal(draft.endTime)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-on-surface-variant">
+                      {durationPreview > 0
+                        ? `${durationPreview} minutes after start`
+                        : "Calculated from start + duration"}
                     </p>
+                    {fieldErrors.endTime && (
+                      <p className="text-xs text-error">{fieldErrors.endTime}</p>
+                    )}
                   </div>
                 </div>
                 <p className="mt-3 text-[10px] text-outline">
                   Registration open/close &amp; timezone are not on the
-                  Competition API.
+                  Competition API. Times use your local timezone.
                 </p>
               </div>
             </div>

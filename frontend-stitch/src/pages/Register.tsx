@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ApiError, register } from "../lib/api";
+import { ApiError, register, resendVerifyEmail, verifyEmail } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import TurnstileWidget from "../components/TurnstileWidget";
+
+type Step = "details" | "otp";
 
 const LEFT_BG =
   "https://lh3.googleusercontent.com/aida/AP1WRLusNcBWUpNqhzrTCqukp5VIWg3_gbicBOVjiaXKLiondMCNDefJU921z66mx_wjp_AS2eUFlEulC5ysqSjnNHKgfPrMz7EfXNrWLD9HhEIXCyEKyDmJIPBXS-whExu_xrb6etcyApbA28omMAOVC_r6K1i96PJm7WpzkFxTM_ehmxFzRt4LqboqiEp_BOHqH8WL5jjFTDRW-2KINEgeZLvKqA7W7p3j9wLZWRO6x7axCSUE7HficH7nnw";
@@ -65,15 +68,21 @@ function passwordStrength(password: string): Strength {
 export default function Register() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [step, setStep] = useState<Step>("details");
   const [fullName, setFullName] = useState("");
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [btnLabel, setBtnLabel] = useState("Create account");
   const [successStyle, setSuccessStyle] = useState(false);
+  const [otpHint, setOtpHint] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
   const [toast, setToast] = useState<{ open: boolean; exiting: boolean; message: string }>({
     open: false,
     exiting: false,
@@ -98,8 +107,49 @@ export default function Register() {
     }, 300);
   };
 
+  const bumpCaptcha = (err: unknown) => {
+    if (err instanceof ApiError && err.code === "CAPTCHA_FAILED") {
+      setCaptchaReset((n) => n + 1);
+      setCaptchaToken(null);
+    }
+  };
+
+  const goToOtpStep = () => {
+    setStep("otp");
+    setOtp("");
+    setOtpHint(`We sent a 6-digit code to ${email.trim()}.`);
+    setBtnLabel("Verify email");
+    setSuccessStyle(false);
+    setCaptchaReset((n) => n + 1);
+    setCaptchaToken(null);
+  };
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (step === "otp") {
+      if (otp.trim().length !== 6) {
+        showToast("Enter the 6-digit code from your email.");
+        return;
+      }
+      setLoading(true);
+      setBtnLabel("Verifying…");
+      try {
+        await verifyEmail(email.trim(), otp.trim(), captchaToken || undefined);
+        setBtnLabel("Verified");
+        setSuccessStyle(true);
+        setOtpHint("Email verified. Redirecting to sign in…");
+        window.setTimeout(() => navigate("/login", { replace: true }), 700);
+      } catch (err) {
+        bumpCaptcha(err);
+        showToast(err instanceof ApiError ? err.message : "Verification failed.");
+        setBtnLabel("Verify email");
+        setSuccessStyle(false);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     if (!fullName.trim() || !userId.trim() || !email.trim() || !password || !confirmPassword) {
       showToast("Please fill in all fields.");
@@ -122,11 +172,13 @@ export default function Register() {
         uniqueUserId: userId.trim(),
         email: email.trim(),
         password,
+        captchaToken: captchaToken || undefined,
       });
       setBtnLabel("Account created");
       setSuccessStyle(true);
-      window.setTimeout(() => navigate("/login"), 600);
+      window.setTimeout(() => goToOtpStep(), 500);
     } catch (err) {
+      bumpCaptcha(err);
       const message =
         err instanceof ApiError
           ? err.message
@@ -136,6 +188,26 @@ export default function Register() {
       setSuccessStyle(false);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onResend = async () => {
+    if (!email.trim()) {
+      showToast("Email is missing.");
+      return;
+    }
+    setResending(true);
+    setOtpHint("");
+    try {
+      const res = await resendVerifyEmail(email.trim(), captchaToken || undefined);
+      setOtpHint(res.message || "If an account exists, a new code was sent.");
+      setCaptchaReset((n) => n + 1);
+      setCaptchaToken(null);
+    } catch (err) {
+      bumpCaptcha(err);
+      showToast(err instanceof ApiError ? err.message : "Could not resend code.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -222,14 +294,18 @@ export default function Register() {
           <div className="relative my-auto w-full max-w-md rounded-2xl border border-outline-variant/30 bg-surface-container-low/80 p-8 shadow-[0_0_40px_rgba(132,43,210,0.05)] backdrop-blur-xl">
             <div className="mb-8 text-center">
               <h2 className="font-headline-lg text-headline-lg mb-2 text-on-surface lg:font-headline-xl lg:text-headline-xl">
-                Create account
+                {step === "otp" ? "Verify your email" : "Create account"}
               </h2>
               <p className="font-body-md text-body-md text-on-surface-variant">
-                Join CodeIT to practice, compete, and collaborate.
+                {step === "otp"
+                  ? "Enter the 6-digit code we sent to finish signup."
+                  : "Join CodeIT to practice, compete, and collaborate."}
               </p>
             </div>
 
             <form className="space-y-5" onSubmit={onSubmit} noValidate>
+              {step === "details" ? (
+                <>
               <div className="space-y-1.5">
                 <label
                   className="font-label-md text-label-md block text-on-surface-variant"
@@ -362,6 +438,67 @@ export default function Register() {
                   />
                 </div>
               </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <label
+                      className="font-label-md text-label-md block text-on-surface-variant"
+                      htmlFor="verifyEmail"
+                    >
+                      Email
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute top-1/2 left-4 -translate-y-1/2 text-outline">
+                        mail
+                      </span>
+                      <input
+                        id="verifyEmail"
+                        type="email"
+                        value={email}
+                        readOnly
+                        className="glow-input font-body-md h-12 w-full rounded-lg border border-outline-variant bg-surface-container/70 pr-4 pl-12 text-on-surface-variant focus:ring-0 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      className="font-label-md text-label-md block text-on-surface-variant"
+                      htmlFor="otp"
+                    >
+                      Verification code
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute top-1/2 left-4 -translate-y-1/2 text-outline">
+                        pin
+                      </span>
+                      <input
+                        id="otp"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        required
+                        placeholder="000000"
+                        value={otp}
+                        onChange={(e) =>
+                          setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        className="glow-input font-code-sm h-12 w-full rounded-lg border border-outline-variant bg-surface-container pr-4 pl-12 tracking-[0.35em] text-on-surface transition-all placeholder:tracking-[0.35em] placeholder:text-outline/50 focus:ring-0 focus:outline-none"
+                      />
+                    </div>
+                    {otpHint && (
+                      <p className="font-body-md text-sm text-on-surface-variant">{otpHint}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <TurnstileWidget
+                onToken={setCaptchaToken}
+                resetKey={captchaReset}
+              />
 
               <button
                 type="submit"
@@ -379,6 +516,17 @@ export default function Register() {
                   </span>
                 )}
               </button>
+
+              {step === "otp" && (
+                <button
+                  type="button"
+                  onClick={onResend}
+                  disabled={resending || loading}
+                  className="font-label-md w-full text-sm text-primary underline-offset-4 hover:underline disabled:opacity-70"
+                >
+                  {resending ? "Sending…" : "Resend code"}
+                </button>
+              )}
             </form>
 
             <div className="mt-6 text-center">
@@ -421,7 +569,9 @@ export default function Register() {
               error
             </span>
             <div className="flex flex-col">
-              <span className="font-label-md text-label-md font-bold">Registration Failed</span>
+              <span className="font-label-md text-label-md font-bold">
+                {step === "otp" ? "Verification Failed" : "Registration Failed"}
+              </span>
               <span className="font-body-md text-sm opacity-90">{toast.message}</span>
             </div>
             <button
