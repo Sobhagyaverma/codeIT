@@ -105,18 +105,29 @@ class CompileOnceJudgeServiceIntegrationTests {
         CloseableHttpClient httpClient =
                 config.judgeHttpClient(3000, 60000, 8, 8);
         RestTemplate restTemplate = config.restTemplate(httpClient);
+        JudgeExecutionLimits limits = new JudgeExecutionLimits(
+                1_048_576,
+                65_536,
+                2_097_152,
+                5.0,
+                10.0,
+                262_144,
+                1024,
+                64);
         Judge0Service judge0Service = new Judge0Service(
                 restTemplate,
                 new ObjectMapper(),
+                limits,
                 "http://localhost:2358",
-                200,
-                60000);
+                200L,
+                60_000L);
         CompileOnceJudgeService service = new CompileOnceJudgeService(
                 judge0Service,
                 new OutputComparator(),
+                limits,
                 3,
-                30,
-                45);
+                30.0,
+                45.0);
         return new LiveJudge(service, httpClient);
     }
 

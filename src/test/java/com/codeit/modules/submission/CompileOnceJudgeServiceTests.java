@@ -80,12 +80,22 @@ class CompileOnceJudgeServiceTests {
     }
 
     private CompileOnceJudgeService service(Judge0Service judge0Service) {
+        JudgeExecutionLimits limits = new JudgeExecutionLimits(
+                1_048_576,
+                65_536,
+                2_097_152,
+                5.0,
+                10.0,
+                262_144,
+                1024,
+                64);
         return new CompileOnceJudgeService(
                 judge0Service,
                 new OutputComparator(),
+                limits,
                 3,
-                30,
-                45);
+                30.0,
+                45.0);
     }
 
     private List<TestCaseDTO> testCases(int count) {

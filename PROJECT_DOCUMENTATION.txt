@@ -1,0 +1,1158 @@
+================================================================================
+  CodeIT — COMPLETE PROJECT DOCUMENTATION
+  Generated from the codebase (README, schema, Flyway, modules, frontends)
+  Date reference: August 2026
+================================================================================
+
+TABLE OF CONTENTS
+-----------------
+  1.  What is CodeIT
+  2.  Product positioning & audiences
+  3.  High-level architecture
+  4.  Tech stack (every layer)
+  5.  Repository layout
+  6.  Default ports & local services
+  7.  Features — complete catalog
+  8.  User roles & permissions
+  9.  Authentication & security
+ 10.  Judging pipeline (Judge0)
+ 11.  Supported languages
+ 12.  Database schema (full)
+ 13.  Flyway migrations
+ 14.  Redis usage & cache keys
+ 15.  REST API reference
+ 16.  WebSocket / STOMP topics
+ 17.  Collaboration (Yjs sync-server)
+ 18.  Frontend apps (Stitch + legacy)
+ 19.  Configuration reference
+ 20.  Environment variables
+ 21.  Local setup checklist
+ 22.  Testing
+ 23.  Known limitations & roadmap
+ 24.  Related docs in the repo
+
+
+================================================================================
+1. WHAT IS CodeIT
+================================================================================
+
+CodeIT is a full-stack competitive programming / coding practice platform.
+
+Tagline (landing): "Master Competitive Programming, Together."
+
+Core loop:
+  learn DSA  ->  practice problems (real judge)  ->  AI coach when stuck
+  ->  Quick Clash with friends  ->  timed competitions  ->  collaborate in rooms
+
+It is similar in spirit to LeetCode / HackerRank, with extra campus-friendly
+capabilities: private friend battles (Quick Clash), realtime CodeRooms,
+problem collaboration, and a Groq-backed AI learning coach.
+
+Project status (as of docs):
+  - Core coding, judging, submissions, competitions, profile: implemented
+  - AI learning coach (Groq): implemented
+  - Collaboration (CodeRoom + Problem Collab): implemented
+  - Friends, notifications, Quick Clash: implemented
+  - ADMIN Command Center (problem + competition studios): implemented
+  - Primary UI: frontend-stitch/ (active migration)
+  - Legacy UI: frontend/ (still available)
+
+
+================================================================================
+2. PRODUCT POSITIONING & AUDIENCES
+================================================================================
+
+2.1 Students / self-learners
+  - Practice multi-language problems with real compile/run feedback
+  - Follow DSA sheet lessons
+  - Get gated AI hints instead of dumping full solutions
+  - Clash with friends privately; join scheduled contests
+  - Pair-program or whiteboard in CodeRooms
+
+2.2 Faculty / trainers (workflow mapping)
+  - Product roles today are USER and ADMIN only (no dedicated faculty role)
+  - Faculty workflows map onto: ADMIN (author problems/contests) + room HOST
+  - Use competitions as timed labs; CodeRooms for office hours
+  - AI coach scales first-line "I'm stuck" questions
+
+2.3 Colleges / institutes
+  - One arena for placement prep + coding fest tracks
+  - Live leaderboards and profiles as measurable activity
+  - Reduces tool sprawl (OJ + Discord + Docs + judge)
+
+2.4 Platform operators
+  - ADMIN Command Center to author problems and schedule contests
+
+
+================================================================================
+3. HIGH-LEVEL ARCHITECTURE
+================================================================================
+
+  Browser (React)
+       |  REST + JWT
+       v
+  Spring Boot API (port 9091)
+       |-- PostgreSQL
+       |-- Redis (OTP, rate limits, cache-aside)
+       |-- Judge0 (code execution)
+       |-- Groq LLM (AI coach)
+       |-- STOMP/SockJS broker (/ws)  <--> Browser realtime events
+       |
+  Browser <--> Yjs sync-server (port 1234)  [editor + whiteboard CRDT]
+       sync-server validates short-lived JWT sync tokens minted by the API
+
+Flow summary:
+  1. Register / login -> JWT
+  2. Browse problems / languages
+  3. RUN = sample/custom Judge0 execution (not saved)
+  4. SUBMIT = all hidden tests, saved verdict
+  5. Competition submits update live leaderboard over STOMP
+  6. Rooms: Spring owns membership/chat/run/submit; Yjs owns shared docs
+  7. Admins use /admin in Stitch UI
+
+
+================================================================================
+4. TECH STACK (EVERY LAYER)
+================================================================================
+
+4.1 Backend API
+  Language:           Java 21
+  Framework:          Spring Boot 4.0.6
+  Web:                spring-boot-starter-webmvc
+  Security:           spring-boot-starter-security
+  JWT:                JJWT 0.11.5 (api + impl + jackson)
+  Data access:        JDBC (spring-boot-starter-jdbc) — not JPA/Hibernate
+  Migrations:         Flyway + flyway-database-postgresql
+  WebSocket:          spring-boot-starter-websocket (STOMP over SockJS)
+  Validation:         spring-boot-starter-validation
+  Mail:               spring-boot-starter-mail + Jakarta Mail / Angus Mail
+  Redis:              spring-boot-starter-data-redis
+  HTTP client:        Apache HttpClient 5 (Judge0 / Groq / Turnstile)
+  JSON:               Jackson 2.17
+  Lombok:             optional annotation processing
+  Build:              Maven (mvnw wrapper included)
+  Artifact:           com:codeit:0.0.1-SNAPSHOT
+
+4.2 Database
+  Engine:             PostgreSQL
+  Bootstrap SQL:      schema/schema.sql (fresh install)
+  Incremental:        Flyway V1..V8 under src/main/resources/db/migration/
+  Types used:         SERIAL/BIGSERIAL, UUID, JSONB, BYTEA, TIMESTAMPTZ
+
+4.3 Cache / ephemeral store
+  Redis 7+
+  Uses: OTP storage, rate-limit counters, optional cache-aside
+
+4.4 Code execution
+  Judge0 (external; default URL https://judge0.ktatva.com)
+  Multi-file language ID 89 used for compile-once engine
+  Progressive batch engine for C#
+
+4.5 AI
+  Groq LLM API (codeit.ai.* / GROQ_API_KEY)
+  Prompt templates under src/main/resources/ai/prompts/
+
+4.6 Email
+  Brevo SMTP (smtp-relay.brevo.com:587 STARTTLS by default)
+  OTP verification + Contact Us inbox delivery
+
+4.7 Captcha (optional)
+  Cloudflare Turnstile
+
+4.8 Crypto (auth payloads)
+  RSA-OAEP SHA-256 for sensitive fields in transit (defense-in-depth)
+  Private key file: data/codeit-rsa-private.pem (gitignored, auto-generated)
+
+4.9 Primary frontend (frontend-stitch/)
+  React 19.2
+  TypeScript ~6
+  Vite 8
+  Tailwind CSS 4 (+ @tailwindcss/vite)
+  React Router 7
+  Monaco Editor (@monaco-editor/react + monaco-editor)
+  Yjs + y-monaco + y-websocket + lib0
+  STOMP (@stomp/stompjs) + sockjs-client
+  react-markdown + remark-gfm
+  Lint: oxlint
+  Dev port: 5175
+  Auth storage keys: codeit.stitch.*
+
+4.10 Legacy frontend (frontend/)
+  Same general stack family (React/TS/Vite)
+  Dev port: 5173
+  Separate auth storage keys so sessions do not clash with Stitch
+
+4.11 Sync server (sync-server/)
+  Node.js (>=18; project recommends ^20.19 or >=22.12 for frontends)
+  Plain Node WebSocket server (ws)
+  yjs + y-protocols + lib0
+  jsonwebtoken (validates sync JWT)
+  dotenv
+  Port: 1234
+
+4.12 Docker
+  docker-compose.yml currently runs sync-server only (not full stack)
+
+
+================================================================================
+5. REPOSITORY LAYOUT
+================================================================================
+
+CodeIT/
+├── frontend-stitch/              # Primary polished UI (port 5175)
+│   └── src/
+│       ├── components/
+│       ├── context/              # Auth
+│       ├── features/             # ai-coach, collaboration, competitions,
+│       │                         # learn, practice
+│       ├── lib/                  # api, authStorage, monacoTheme
+│       └── pages/                # product + Admin* studios
+├── frontend/                     # Legacy UI (port 5173)
+├── sync-server/                  # Yjs WebSocket sidecar
+├── schema/                       # Base SQL + legacy one-shots
+│   ├── schema.sql
+│   ├── competition_session.sql
+│   ├── profile.sql
+│   └── users_name_uniqueuserid.sql
+├── docs/                         # Architecture & deploy guides
+├── data/                         # Local RSA key (gitignored content)
+├── scripts/
+├── docker-compose.yml
+├── pom.xml
+├── mvnw / mvnw.cmd
+├── README.md
+└── src/main/
+    ├── java/com/codeit/
+    │   ├── config/
+    │   ├── security/             # crypto, captcha, otp, ratelimit, JWT
+    │   └── modules/
+    │       ├── ai/
+    │       ├── auth/
+    │       ├── collaboration/
+    │       ├── competition/
+    │       ├── contact/
+    │       ├── friends/
+    │       ├── mail/
+    │       ├── notifications/
+    │       ├── problems/
+    │       ├── profile/
+    │       ├── quickclash/
+    │       ├── submission/
+    │       └── user/
+    └── resources/
+        ├── application.properties
+        ├── application-local.properties
+        ├── ai/prompts/
+        ├── quickclash.txt        # Quick Clash product design notes
+        └── db/migration/         # Flyway V1–V8
+
+
+================================================================================
+6. DEFAULT PORTS & LOCAL SERVICES
+================================================================================
+
+  Service                         Port
+  --------------------------------------
+  Stitch frontend                 5175
+  Legacy frontend                 5173
+  Spring Boot API                 9091
+  Yjs sync-server                 1234
+  PostgreSQL                      5432
+  Redis                           6379
+  Judge0 (typical)                2358
+
+
+================================================================================
+7. FEATURES — COMPLETE CATALOG
+================================================================================
+
+7.1 Authentication & account
+  - Register: name, uniqueUserId, email, password (always role USER)
+  - Email OTP verification (Redis + Brevo); login blocked until verified
+  - Resend verification OTP
+  - Login with email OR unique user ID
+  - Forgot-password: request OTP -> verify -> reset
+  - JWT token_version bumped on password reset (invalidates old sessions)
+  - RSA-OAEP encryption of sensitive auth fields before POST
+  - Optional Cloudflare Turnstile on auth/contact
+  - BCrypt password hashing
+  - Contact Us form (DB row + email to inbox)
+
+7.2 Profile & progress
+  - Own profile (/api/profile/me) and public profile by username
+  - Edit bio, avatar, location, show_email, display name settings
+  - Change password
+  - Bookmarks (add/remove/list)
+  - Recent problem views (track + list)
+  - Submission history on profile
+  - Contest history on profile
+  - Stats: solved count, acceptance, difficulty breakdown, streaks,
+    contest best rank, friend count (rating may be placeholder)
+
+7.3 Problems & coding workspace
+  - Browse / search / filter by difficulty / topic
+  - Monaco editor with starter templates
+  - Run against sample or custom stdin (not persisted as submission)
+  - Submit against hidden tests (persisted)
+  - Verdict, runtime, memory, passed cases, judge engine name
+  - Hidden tests stripped from public problem payloads
+  - Admin create problem (statement, examples, constraints, tests, topics)
+
+7.4 Submissions history
+  - List by user
+  - List by problem
+  - submission_diagnostics for richer failure metadata (AI analyze)
+
+7.5 Scheduled competitions
+  - Admin create contest (title, description, start/end, duration)
+  - Assign ordered/set of problems
+  - Global status: UPCOMING / ACTIVE / ENDED (from times)
+  - Join; personal session JOINED / IN_PROGRESS / ENDED
+  - Personal deadline = min(session start + duration, global end)
+  - Contest submit
+  - Live leaderboard: accepted count DESC, then runtime ASC
+  - Patch contest times (ADMIN)
+  - STOMP topics for leaderboard / status / session
+
+7.6 Quick Clash (private friend contests)
+  - Create lobby: name, difficulty tier EASY/MEDIUM/HARD,
+    duration 15–120 min, max players 2–10
+  - Auto-pick random problems by tier
+  - Invite friends; join / ready / leave
+  - Host start / cancel
+  - LIVE solve + submit + leaderboard
+  - History
+  - States: LOBBY -> LIVE -> ENDED / CANCELLED
+  - Designed NOT to affect global rating / profile solved stats
+  - AI coach disabled during Quick Clash (product rule)
+  - Notifications for invite / starting / ended
+
+7.7 Friends
+  - List friends
+  - Search users by unique user ID
+  - Send friend request
+  - Respond accept / reject
+  - Remove friend
+  - Undirected friendship edges stored with user_id_low < user_id_high
+
+7.8 Notifications inbox
+  - List notifications
+  - Unread count
+  - Mark one read / mark all read
+  - Types include: FRIEND_REQUEST, FRIEND_ACCEPTED,
+    QUICK_CONTEST_INVITE, QUICK_CONTEST_STARTING, QUICK_CONTEST_ENDED
+  - STOMP push via NotificationEventPublisher
+
+7.9 Collaboration rooms
+  Two room types:
+    A) PROBLEM_COLLAB — bound to a problem; shared run + submit
+    B) CODEROOM — freeform; shared run; whiteboard supported; no shared submit
+
+  Shared capabilities:
+    - Invite token join
+    - Members with roles HOST / EDITOR / VIEWER
+    - Transfer host, kick/change member role
+    - Chat (rate-limited, max 2000 chars)
+    - Presence / last_seen
+    - Shared Monaco editor via Yjs (room:{id}:code)
+    - Workspace switch CODE <-> WHITEBOARD (CodeRoom)
+    - Host note (up to 280 chars)
+    - Sync-token mint for sync-server
+    - Leave / end room
+    - Caps: max 10 members/room; whiteboard element/stroke limits
+
+7.10 AI learning coach (Groq)
+  Actions:
+    - coach (general)
+    - explain problem
+    - constraints explain
+    - chat
+    - hints (gated levels 0–3 via ai_hint_progress)
+    - analyze code
+    - analyze-failure (uses submission diagnostics)
+    - review accepted solution
+    - editorial
+    - history + hint progress GET endpoints
+  Strict rate limits (LLM cost)
+
+7.11 DSA Learn path (frontend)
+  - /dsa-sheet lessons: Start Here, Control Flow, Operators,
+    Pattern Basics, Proving Grounds / practice roadmap
+  - Client-side lesson progress + language preference
+  - Not a full LMS with college course entities
+
+7.12 Admin Command Center (Stitch /admin)
+  - Dashboard KPIs + recent items
+  - Problem repository + Problem Studio (create)
+  - Competition repository + Competition Studio (create + add problems)
+  - Draft autosave = localStorage only (no draft API)
+  - Some UI-only fields not yet on backend DTOs
+
+7.13 Security / ops features
+  - Multi-tier rate limits (auth, run/submit, AI, rooms, friends, admin, problems read)
+  - Redis health endpoint
+  - Judge payload / CPU / memory / process caps
+  - Optional captcha
+  - CORS tuned for local frontend origins
+
+
+================================================================================
+8. USER ROLES & PERMISSIONS
+================================================================================
+
+8.1 Application roles (users.role)
+  USER   — default on register; all learner features
+  ADMIN  — promoted via SQL:
+             UPDATE users SET role = 'ADMIN' WHERE email = '...';
+           Can create problems, manage competitions, list/delete users,
+           access Admin Command Center
+
+8.2 Room roles (room_members.role)
+  HOST   — invite/kick, transfer host, workspace switch, host note, end room
+  EDITOR — edit code, run, submit when allowed
+  VIEWER — watch + chat
+
+8.3 Quick Clash participant roles
+  HOST / PLAYER
+  Participant status: INVITED / JOINED / LEFT
+
+8.4 Not implemented as first-class roles
+  Faculty, college-admin, trainer, organization membership, campus SSO
+
+
+================================================================================
+9. AUTHENTICATION & SECURITY
+================================================================================
+
+9.1 Session model
+  - Stateless JWT after login
+  - Claims include role and token_version
+  - Password reset increments token_version -> old JWTs rejected
+
+9.2 Email verification
+  - OTP stored in Redis (pepper: CODEIT_OTP_PEPPER)
+  - Without Redis: OTP flows fail closed (EMAIL_TEMPORARILY_UNAVAILABLE)
+
+9.3 RSA-OAEP for sensitive fields
+  - Frontend fetches GET /api/crypto/public-key
+  - Encrypts login id / passwords before POST
+  - Backend decrypts then bcrypt-verifies
+  - Still requires HTTPS in production
+
+9.4 Captcha
+  - GET /api/captcha/config exposes whether enabled + site key
+  - When CODEIT_CAPTCHA_ENABLED=true, Turnstile required on public spam surfaces
+
+9.5 Rate limiting (defaults; see application.properties)
+  Login:            5 / 15 min / IP
+  Register:         limited per IP (see props)
+  Forgot-password:  1 / day / email AND 1 / day / IP
+  Run:              burst 3/10s, sustained 8/60s, daily 300
+  Submit:           burst 2/10s, sustained 5/60s, daily 150
+  AI:               burst 1/10s, sustained 5/60s, daily 40
+  Room invite:      10 / 60s
+  Room chat:        30 / 60s
+  Room join:        10 / 60s
+  Sync-token:       20 / 60s
+  Transfer host:    3 / 60s
+  Problems read:    90 / 60s / IP
+  Admin write:      15 / 60s
+
+9.6 STOMP auth
+  - SockJS /ws handshake is public
+  - STOMP CONNECT requires JWT (StompAuthChannelInterceptor)
+
+
+================================================================================
+10. JUDGING PIPELINE (Judge0)
+================================================================================
+
+Pipeline:
+  SubmissionService
+      -> TestCaseJudgeService
+          -> CompileOnceJudgeService      (all langs except C#)
+          -> ProgressiveBatchJudgeService (C#)
+              -> Judge0Service
+
+RUN  (POST /api/submissions/run)
+  - One Judge0 submission with wait=true
+  - Not saved to submissions table
+
+SUBMIT (POST /api/submissions/submit)
+  - Evaluates all hidden tests in problems.test_cases JSONB
+  - Stores row in submissions (+ diagnostics when applicable)
+
+Compile-once engine:
+  - Uses Judge0 multi-file language ID 89
+  - Compile once, run per input
+  - Stop on terminal failure
+  - Defaults: 3s per case; 30s CPU / 45s wall aggregate
+
+Progressive batch (C#):
+  - First batch 3 cases, then batches of 6
+  - Stop after first failing batch
+  - Poll every 200 ms; 60s timeout
+
+Output comparison:
+  - Trailing whitespace per line ignored; other differences matter
+
+Programs must read stdin and write stdout.
+
+
+================================================================================
+11. SUPPORTED LANGUAGES
+================================================================================
+
+  Language      Slug          Judge0 ID   Submit engine
+  -------------------------------------------------------
+  C             c             50          Compile once
+  C#            csharp        51          Progressive batch
+  C++           cpp           54          Compile once
+  Go            go            60          Compile once
+  Java          java          62          Compile once
+  JavaScript    javascript    63          Compile once
+  PHP           php           68          Compile once
+  Python        python        71          Compile once
+  Ruby          ruby          72          Compile once
+  Rust          rust          73          Compile once
+  TypeScript    typescript    74          Compile once
+
+Endpoint: GET /api/submissions/languages  (JWT)
+
+
+================================================================================
+12. DATABASE SCHEMA (FULL)
+================================================================================
+
+Fresh install:
+  CREATE DATABASE codeit;
+  psql -U postgres -d codeit -f schema/schema.sql
+  Then start API so Flyway applies V1–V8 (schema.sql already embeds some
+  AI/collab tables; Flyway uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS).
+
+----------------------------------------------------------------------
+12.1 users
+----------------------------------------------------------------------
+  id              SERIAL PK
+  name            VARCHAR(100) NOT NULL
+  uniqueuserid    VARCHAR(100) NOT NULL UNIQUE
+  email           VARCHAR(255) NOT NULL UNIQUE
+  password        VARCHAR(255) NOT NULL          -- bcrypt hash
+  role            VARCHAR(20) NOT NULL DEFAULT 'USER'
+  bio             TEXT
+  avatar_url      TEXT
+  location        TEXT
+  show_email      BOOLEAN NOT NULL DEFAULT FALSE
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
+  -- V4:
+  email_verified  BOOLEAN NOT NULL DEFAULT false
+  token_version   INTEGER NOT NULL DEFAULT 0
+
+----------------------------------------------------------------------
+12.2 problems
+----------------------------------------------------------------------
+  id                SERIAL PK
+  title             VARCHAR(255) NOT NULL
+  description       TEXT NOT NULL
+  difficulty        VARCHAR(50) NOT NULL
+  topics            JSONB NOT NULL DEFAULT '[]'
+  examples          JSONB NOT NULL DEFAULT '[]'
+  constraints_data  JSONB NOT NULL DEFAULT '[]'
+  test_cases        JSONB NOT NULL DEFAULT '[]'
+    -- format: [ { "stdin": "...", "stdout": "..." }, ... ]
+
+----------------------------------------------------------------------
+12.3 competitions
+----------------------------------------------------------------------
+  id                SERIAL PK
+  title             VARCHAR(255) NOT NULL
+  description       TEXT
+  start_time        TIMESTAMP NOT NULL
+  end_time          TIMESTAMP NOT NULL
+  created_by        INTEGER NOT NULL REFERENCES users(id)
+  status            VARCHAR(20) NOT NULL DEFAULT 'UPCOMING'
+  duration_minutes  INTEGER NOT NULL DEFAULT 120
+
+----------------------------------------------------------------------
+12.4 competition_problems
+----------------------------------------------------------------------
+  competition_id  INTEGER FK competitions ON DELETE CASCADE
+  problem_id      INTEGER FK problems ON DELETE CASCADE
+  PRIMARY KEY (competition_id, problem_id)
+
+----------------------------------------------------------------------
+12.5 competition_participants
+----------------------------------------------------------------------
+  id              SERIAL PK
+  competition_id  INTEGER FK competitions ON DELETE CASCADE
+  user_id         INTEGER FK users ON DELETE CASCADE
+  joined_at       TIMESTAMP NOT NULL DEFAULT NOW()
+  started_at      TIMESTAMP
+  session_status  VARCHAR(20) NOT NULL DEFAULT 'JOINED'
+                  -- JOINED | IN_PROGRESS | ENDED
+  UNIQUE (competition_id, user_id)
+
+----------------------------------------------------------------------
+12.6 submissions
+----------------------------------------------------------------------
+  id              SERIAL PK
+  user_id         INTEGER FK users ON DELETE CASCADE
+  problem_id      INTEGER FK problems ON DELETE CASCADE
+  language        VARCHAR(50) NOT NULL
+  code            TEXT NOT NULL
+  status          VARCHAR(50) NOT NULL     -- e.g. Accepted, Wrong Answer, ...
+  runtime         DOUBLE PRECISION
+  memory          REAL
+  competition_id  INTEGER FK competitions ON DELETE SET NULL
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+
+  Indexes: user_id, problem_id, competition_id,
+           (user_id, created_at DESC),
+           partial (user_id, problem_id) WHERE status = 'Accepted'
+
+----------------------------------------------------------------------
+12.7 user_problem_bookmarks
+----------------------------------------------------------------------
+  user_id     INTEGER FK users
+  problem_id  INTEGER FK problems
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  PRIMARY KEY (user_id, problem_id)
+
+----------------------------------------------------------------------
+12.8 user_problem_recent_views
+----------------------------------------------------------------------
+  user_id         INTEGER FK users
+  problem_id      INTEGER FK problems
+  last_viewed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  view_count      INTEGER NOT NULL DEFAULT 1 CHECK (view_count >= 1)
+  PRIMARY KEY (user_id, problem_id)
+
+----------------------------------------------------------------------
+12.9 competition_results
+----------------------------------------------------------------------
+  competition_id  INTEGER FK competitions
+  user_id         INTEGER FK users
+  rank            INTEGER NOT NULL CHECK (rank >= 1)
+  solved          INTEGER NOT NULL DEFAULT 0
+  score           DOUBLE PRECISION
+  finalized_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  PRIMARY KEY (competition_id, user_id)
+
+----------------------------------------------------------------------
+12.10 AI tables (V1 / also in schema.sql)
+----------------------------------------------------------------------
+  ai_sessions
+    id BIGSERIAL PK
+    user_id, problem_id FKs
+    created_at, updated_at
+    UNIQUE (user_id, problem_id)
+
+  ai_messages
+    id BIGSERIAL PK
+    session_id FK ai_sessions
+    role VARCHAR(20)
+    action VARCHAR(64)
+    content TEXT
+    created_at
+
+  ai_hint_progress
+    user_id, problem_id PK
+    max_unlocked_level INTEGER 0..3
+    updated_at
+
+  submission_diagnostics
+    submission_id PK FK submissions
+    verdict, passed_count, total_count, failed_index
+    compile_output, stderr_summary, judge_engine
+    created_at
+
+----------------------------------------------------------------------
+12.11 Collaboration tables (V2 + V3)
+----------------------------------------------------------------------
+  rooms
+    id UUID PK
+    type VARCHAR(20)              -- PROBLEM_COLLAB | CODEROOM
+    problem_id (nullable FK)
+    host_user_id FK users
+    invite_token VARCHAR(64) UNIQUE
+    active_workspace VARCHAR(20)  -- CODE | WHITEBOARD
+    language VARCHAR(32) DEFAULT 'java'
+    status VARCHAR(20)            -- ACTIVE | ARCHIVED
+    host_note VARCHAR(280)        -- V3
+    created_at, updated_at
+
+  room_members
+    room_id UUID, user_id PK
+    role HOST|EDITOR|VIEWER
+    joined_at, last_seen_at
+
+  room_messages
+    id BIGSERIAL PK
+    room_id, user_id, content, created_at
+
+  room_snapshots
+    id BIGSERIAL PK
+    room_id, workspace, snapshot_data BYTEA (Yjs state)
+    updated_by, updated_at
+    UNIQUE (room_id, workspace)
+
+  room_events
+    id BIGSERIAL PK
+    room_id, user_id, event_type, payload JSONB, created_at
+
+----------------------------------------------------------------------
+12.12 contact_messages (V5)
+----------------------------------------------------------------------
+  id BIGSERIAL PK
+  username, user_id (nullable), user_email, subject, message
+  status DEFAULT 'PENDING'
+  client_ip, user_agent, attempt_count, last_error
+  created_at, sent_at
+
+----------------------------------------------------------------------
+12.13 friends (V6)
+----------------------------------------------------------------------
+  friend_requests
+    id BIGSERIAL PK
+    from_user_id, to_user_id
+    status PENDING|ACCEPTED|REJECTED|IGNORED
+    created_at, responded_at
+    CHECK not self
+    Unique PENDING pair index
+
+  friends
+    user_id_low, user_id_high PK
+    created_at
+    CHECK user_id_low < user_id_high
+
+----------------------------------------------------------------------
+12.14 notifications (V7)
+----------------------------------------------------------------------
+  id BIGSERIAL PK
+  user_id FK
+  type VARCHAR(64)
+  payload JSONB DEFAULT '{}'
+  read_at TIMESTAMPTZ NULL
+  created_at
+  Indexes: user+created, partial unread
+
+----------------------------------------------------------------------
+12.15 Quick Clash (V8)
+----------------------------------------------------------------------
+  quick_contests
+    id BIGSERIAL PK
+    host_user_id FK
+    name, description
+    difficulty_tier EASY|MEDIUM|HARD
+    duration_minutes 15..120
+    max_players 2..10 DEFAULT 4
+    status LOBBY|LIVE|ENDED|CANCELLED
+    invite_token UNIQUE
+    started_at, ends_at, created_at
+
+  quick_contest_participants
+    id BIGSERIAL PK
+    contest_id, user_id UNIQUE
+    role HOST|PLAYER
+    status INVITED|JOINED|LEFT
+    ready BOOLEAN
+    joined_at, created_at
+
+  quick_contest_problems
+    contest_id, problem_id PK
+    ordinal SMALLINT UNIQUE per contest
+
+  quick_contest_submissions
+    id BIGSERIAL PK
+    contest_id, user_id, problem_id
+    language, language_id, code
+    verdict, runtime_ms, memory_kb, created_at
+
+  quick_contest_results
+    contest_id, user_id PK
+    placement, solved_count, penalty
+
+
+ENTITY RELATIONSHIP (simplified)
+--------------------------------
+  users 1--* submissions *--1 problems
+  users 1--* competition_participants *--1 competitions
+  competitions *--* problems (competition_problems)
+  users 1--* ai_sessions *--1 problems
+  users *--* users (friends)
+  users 1--* friend_requests
+  users 1--* notifications
+  users 1--* rooms (as host) ; rooms *--* users (room_members)
+  users 1--* quick_contests (host)
+  quick_contests *--* problems ; *--* users (participants)
+
+
+================================================================================
+13. FLYWAY MIGRATIONS
+================================================================================
+
+  V1__ai_coach_tables.sql
+  V2__collaboration_rooms.sql
+  V3__room_host_note.sql
+  V4__email_verified_and_token_version.sql
+  V5__contact_messages.sql
+  V6__friends.sql
+  V7__notifications.sql
+  V8__quick_clash.sql
+
+Location: src/main/resources/db/migration/
+
+
+================================================================================
+14. REDIS USAGE & CACHE KEYS
+================================================================================
+
+Required for: OTP, forgot-password, rate limits (when enabled).
+Cache-aside optional but codeit.redis.enabled defaults to true.
+
+Cache keys (when Redis up):
+  problem:public:{id} / problem:judge:{id} / problem:all     TTL ~30 min
+  testcases:problem:{id}                                     TTL ~30 min
+  competitions:all / competition:{id}                        TTL ~2 min
+  leaderboard:competition:{id}                               TTL ~60 s
+
+Health: GET /api/health/redis
+
+
+================================================================================
+15. REST API REFERENCE
+================================================================================
+
+Auth legend: Public | JWT | ADMIN
+
+---------- Auth (/api/auth) ----------
+  POST /login
+  POST /verify-email
+  POST /verify-email/resend
+  POST /forgot-password
+  POST /forgot-password/verify
+  POST /forgot-password/reset
+
+---------- Users (/api/user) ----------
+  POST /register                         Public
+  GET  /getUsers                         ADMIN
+  GET  /getUser/{id}                     ADMIN
+  DELETE /deleteUser/{id}                ADMIN
+
+---------- Problems (/api/problems) ----------
+  GET  /                                 JWT (list; hidden tests stripped)
+  GET  /{id}                             JWT
+  GET  /difficulty/{difficulty}          JWT
+  GET  /topic/{topic}                    JWT
+  GET  /search?keyword=                  JWT
+  POST /                                 ADMIN
+
+---------- Submissions (/api/submissions) ----------
+  GET  /languages                        JWT
+  POST /run                              JWT
+  POST /submit                           JWT
+  GET  /user/{userId}                    JWT (own or admin)
+  GET  /problem/{problemId}              JWT
+
+---------- Competitions (/api/competitions) ----------
+  POST /create                           ADMIN
+  GET  /getAllCompetitions               JWT
+  GET  /get/{id}                         JWT
+  POST /addProblemsTo/{id}/problems      ADMIN
+  GET  /getProblemsOf/{id}/problems      JWT
+  POST /{id}/join                        JWT
+  POST /{id}/start                       JWT
+  POST /{id}/end                         JWT
+  GET  /{id}/session                     JWT
+  GET  /{id}/participants                JWT
+  POST /{id}/submit                      JWT
+  GET  /{id}/leaderboard                 JWT
+  PATCH /{id}/times                      ADMIN
+
+---------- Quick Clash (/api/quick-clash) ----------
+  POST /                                 JWT create
+  GET  /history                          JWT
+  GET  /{id}                             JWT
+  POST /{id}/invite                      JWT
+  POST /{id}/join                        JWT
+  POST /{id}/ready                       JWT
+  POST /{id}/leave                       JWT
+  POST /{id}/start                       JWT
+  POST /{id}/cancel                      JWT
+  POST /{id}/submit                      JWT
+  GET  /{id}/leaderboard                 JWT
+
+---------- Friends (/api/friends) ----------
+  GET  /                                 JWT
+  GET  /search                           JWT
+  POST /request                          JWT
+  POST /requests/{id}/respond            JWT
+  DELETE /{userId}                       JWT
+
+---------- Notifications (/api/notifications) ----------
+  GET  /                                 JWT
+  GET  /unread-count                     JWT
+  POST /{id}/read                        JWT
+  POST /read-all                         JWT
+
+---------- Rooms (/api/rooms) ----------
+  POST /                                 JWT create
+  POST /join/{inviteToken}               JWT
+  GET  /mine                             JWT
+  GET  /{roomId}                         JWT
+  POST /{roomId}/end                     JWT
+  POST /{roomId}/leave                   JWT
+  PATCH /{roomId}/members/{targetUserId} JWT
+  DELETE /{roomId}/members/{targetUserId} JWT
+  POST /{roomId}/transfer-host           JWT
+  PATCH /{roomId}/workspace              JWT
+  PATCH /{roomId}/note                   JWT
+  GET|POST /{roomId}/messages            JWT
+  GET  /{roomId}/sync-token              JWT
+  POST /{roomId}/run                     JWT
+  POST /{roomId}/submit                  JWT
+
+---------- AI (/api/ai) ----------
+  POST /coach, /explain, /constraints, /chat, /hints
+  POST /analyze, /analyze-failure, /review, /editorial
+  GET  /history, /hints/progress
+
+---------- Profile (/api/profile) ----------
+  GET  /me, /{username}
+  PATCH /me
+  POST /me/password
+  GET|POST|DELETE bookmarks
+  GET|POST recent-problems
+  GET  /me/submissions, /me/contests
+
+---------- Misc ----------
+  POST /api/contact                      Public (captcha when on)
+  GET  /api/captcha/config               Public
+  GET  /api/crypto/public-key            Public
+  GET  /api/health/redis                 Public
+
+
+================================================================================
+16. WEBSOCKET / STOMP TOPICS
+================================================================================
+
+  Endpoint:            http://localhost:9091/ws  (SockJS)
+  Broker prefix:       /topic
+  Application prefix:  /app
+  Auth:                JWT on STOMP CONNECT
+
+Competition:
+  /topic/competitions/{id}/leaderboard
+  /topic/competitions/{id}/status
+  /topic/competitions/{id}/users/{userId}/session
+
+Collaboration:
+  /topic/rooms/...   (presence, chat, run/submit events — see
+                      docs/COLLABORATION_ARCHITECTURE.md)
+
+Notifications / Quick Clash:
+  Published via NotificationEventPublisher / QuickContestEventPublisher
+
+
+================================================================================
+17. COLLABORATION (YJS SYNC-SERVER)
+================================================================================
+
+Split of responsibility:
+  Spring API  = room authority (members, roles, chat, run, submit, tokens)
+  sync-server = CRDT sync for editor + whiteboard documents
+
+Yjs document names (typical):
+  room:{id}:code
+  room:{id}:whiteboard
+
+Client flow:
+  1. Join room via API
+  2. GET /api/rooms/{id}/sync-token
+  3. Connect ws://localhost:1234 with token
+  4. sync-server validates JWT (shared CODEIT_JWT_SECRET with API)
+
+Caps (application.properties):
+  max-members-per-room=10
+  max-chat-message-chars=2000
+  max-stomp-sessions-per-user-per-room=2
+  max-whiteboard-elements=2000
+  max-whiteboard-strokes=500
+  max-stroke-points=400
+  max-undo-steps=50
+
+Start:
+  cd sync-server && cp .env.example .env && npm ci && npm start
+  or: docker compose up sync-server --build
+
+
+================================================================================
+18. FRONTEND APPS
+================================================================================
+
+18.1 Stitch UI screen map (frontend-stitch)
+  /                                 Landing
+  /login, /register                 Auth
+  /problems                         Catalog
+  /problems/:id                     Workspace (Monaco run/submit)
+  /problems/:id/room/:roomId        Problem Collab
+  /dsa-sheet[/:sectionId/:slug]     Learn
+  /coderoom, /coderoom/:roomId      CodeRoom hub + room
+  /competitions, /competitions/:id  Contests
+  /competitions/quick...            Quick Clash routes
+  /friends, /inbox                  Social
+  /profile, /users/:username        Profiles
+  /settings/profile                 Settings
+  /admin[+ competitions studios]    ADMIN only
+  /about, /contact, /help,
+  /privacy, /terms, /screens        Meta
+
+18.2 Dual frontends note
+  Both talk to API 9091 and sync-server 1234.
+  Auth keys differ so sessions do not clash.
+
+
+================================================================================
+19. CONFIGURATION REFERENCE (application.properties highlights)
+================================================================================
+
+  server.port                              9091
+  spring.datasource.*                     PostgreSQL JDBC
+  judge0.api.url                           Judge0 base URL
+  codeit.redis.enabled                     true
+  spring.data.redis.host/port              localhost:6379
+  codeit.captcha.enabled                   false by default
+  codeit.ratelimit.enabled                 true
+  codeit.ratelimit.*                       see section 9.5
+  codeit.collaboration.*                   room/whiteboard caps
+  codeit.cache.*-ttl-seconds               cache TTLs
+  codeit.judge.*                           batch sizes, timeouts, limits
+  codeit.http.*                            Judge0 HTTP pool/timeouts
+  codeit.crypto.rsa.enabled                true
+  codeit.crypto.rsa.private-key-path       data/codeit-rsa-private.pem
+  codeit.jwt.expiration-ms                 86400000 (24h typical)
+  codeit.ai.enabled                        true
+  codeit.ai.groq.api-key                   ${GROQ_API_KEY:}
+  Mail: spring.mail.* + codeit.mail.*
+
+
+================================================================================
+20. ENVIRONMENT VARIABLES
+================================================================================
+
+  SPRING_DATASOURCE_URL
+  SPRING_DATASOURCE_USERNAME
+  SPRING_DATASOURCE_PASSWORD
+  SPRING_PROFILES_ACTIVE
+  JUDGE0_API_URL
+  CODEIT_JWT_SECRET                 (>= 32 chars; same on sync-server)
+  GROQ_API_KEY
+  SPRING_DATA_REDIS_HOST / PORT
+  CODEIT_MAIL_ENABLED
+  CODEIT_MAIL_FROM
+  CODEIT_MAIL_INBOX
+  SPRING_MAIL_USERNAME
+  BREVO_SMTP_KEY
+  CODEIT_OTP_PEPPER
+  CODEIT_CAPTCHA_ENABLED
+  TURNSTILE_SITE_KEY
+  TURNSTILE_SECRET_KEY
+
+Frontend (optional):
+  VITE_API_URL=http://localhost:9091
+  VITE_SYNC_WS_URL=ws://localhost:1234
+
+Never commit API keys or secrets.
+
+
+================================================================================
+21. LOCAL SETUP CHECKLIST
+================================================================================
+
+  Prerequisites:
+    - JDK 21+
+    - Node.js ^20.19 or >=22.12
+    - PostgreSQL
+    - Redis
+    - Judge0 with multi-file language 89
+    - GROQ_API_KEY if using AI
+
+  Steps:
+    1. createdb codeit; psql -f schema/schema.sql
+    2. docker run -d --name codeit-redis -p 6379:6379 redis:7
+    3. Export env vars (DB, JWT, Judge0, mail, Groq, captcha as needed)
+    4. ./mvnw spring-boot:run          -> http://localhost:9091
+    5. cd sync-server && npm ci && npm start  -> :1234
+    6. cd frontend-stitch && npm ci && npm run dev  -> :5175
+    7. Promote admin via SQL; open /admin
+
+Promote admin:
+  UPDATE users SET role = 'ADMIN' WHERE email = 'you@example.com';
+  Then log in again for a JWT with ADMIN role.
+
+
+================================================================================
+22. TESTING
+================================================================================
+
+  Backend:
+    ./mvnw test
+    ./mvnw -Dtest=CompileOnceJudgeServiceTests,TestCaseJudgeServiceTests test
+    RUN_JUDGE0_INTEGRATION=true ./mvnw -Dtest=CompileOnceJudgeServiceIntegrationTests test
+
+  Frontends:
+    cd frontend-stitch && npm ci && npm run lint && npm run build
+    cd frontend && npm ci && npm run lint && npm run build
+
+  Note: No full automated E2E suite yet; backend tests focus on judging.
+
+
+================================================================================
+23. KNOWN LIMITATIONS & ROADMAP
+================================================================================
+
+Limitations:
+  - No automated E2E suite
+  - Judge0 external / not version-pinned by this repo
+  - Base schema still bootstrapped via schema/schema.sql;
+    Flyway for incremental features
+  - CORS tuned for local origins
+  - docker-compose only sync-server (not full stack)
+  - Competition draft/publish/edit APIs incomplete (localStorage drafts)
+  - Dual frontends until Stitch fully replaces legacy
+  - Practice dashboard / rich competition dashboard fields partly backlog
+    (see docs/PRACTICE_API_REQUIREMENTS.md, docs/COMPETITIONS_DASHBOARD_API.md)
+  - No first-class college/faculty org roles yet
+
+Roadmap (from README):
+  - Full cutover to frontend-stitch; retire legacy frontend
+  - Full-stack Docker Compose (Postgres, Redis, Judge0, API, sync, UI)
+  - Broader automated tests
+  - Competition draft / update / publish APIs
+  - Observability (structured logs, metrics)
+
+
+================================================================================
+24. RELATED DOCS IN THE REPO
+================================================================================
+
+  README.md
+  frontend-stitch/README.md
+  frontend/README.md
+  sync-server/README.md
+  docs/COLLABORATION_ARCHITECTURE.md
+  docs/JUDGE0_HOMELAB_DEPLOY.md
+  docs/JUDGE0_DIGITALOCEAN_DEPLOY.md
+  docs/PROFILE_API_INTEGRATION.md
+  docs/PRACTICE_API_REQUIREMENTS.md
+  docs/COMPETITIONS_DASHBOARD_API.md
+  docs/EMAIL_OTP_CONTACT_TEST.md
+  src/main/resources/quickclash.txt
+  schema/schema.sql
+  src/main/resources/db/migration/V1..V8
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================
