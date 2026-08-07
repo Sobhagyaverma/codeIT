@@ -19,8 +19,14 @@ public class RateLimitProperties {
     private final EndpointLimit login = new EndpointLimit(5, 900);
     private final TieredEndpointLimit register = new TieredEndpointLimit(
             new EndpointLimit(2, 30),
-            new EndpointLimit(5, 3600),
+            new EndpointLimit(3, 3600),
             new EndpointLimit(10, 86400));
+    /** Public beta access request — 2 / hour / IP. */
+    private final EndpointLimit betaRequest = new EndpointLimit(2, 3600);
+    /** Invite verify without consume — 5 / 10 min / IP. */
+    private final EndpointLimit betaVerifyInvite = new EndpointLimit(5, 600);
+    /** Admin-triggered invite resend, keyed by invite email — 3 / day. */
+    private final EndpointLimit betaInviteResend = new EndpointLimit(3, 86400);
     private final EndpointLimit changePassword = new EndpointLimit(5, 3600);
     /** Forgot password request — burst / sustained / daily (email + IP). */
     private final TieredEndpointLimit forgotPassword = new TieredEndpointLimit(
@@ -137,6 +143,18 @@ public class RateLimitProperties {
 
     public TieredEndpointLimit getRegister() {
         return register;
+    }
+
+    public EndpointLimit getBetaRequest() {
+        return betaRequest;
+    }
+
+    public EndpointLimit getBetaVerifyInvite() {
+        return betaVerifyInvite;
+    }
+
+    public EndpointLimit getBetaInviteResend() {
+        return betaInviteResend;
     }
 
     public EndpointLimit getChangePassword() {

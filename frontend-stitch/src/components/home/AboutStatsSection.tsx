@@ -1,6 +1,7 @@
 import type { Ref } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useRegistration } from "../../context/RegistrationContext";
 import { useCountUp } from "../../hooks/useCountUp";
 import type { HomeStats } from "../../hooks/useHomeStats";
 
@@ -39,6 +40,17 @@ function MetricCard({
 
 export default function AboutStatsSection({ stats }: { stats: HomeStats }) {
   const { user } = useAuth();
+  const { config } = useRegistration();
+  const ctaTo = user
+    ? "/problems"
+    : config.privateBeta
+      ? "/request-access"
+      : "/register";
+  const ctaLabel = user
+    ? "Start Coding"
+    : config.privateBeta
+      ? "Request Access"
+      : "Sign Up";
 
   return (
     <section className="reveal relative z-20 mx-auto w-full max-w-[1200px] px-6 py-24">
@@ -57,10 +69,10 @@ export default function AboutStatsSection({ stats }: { stats: HomeStats }) {
           </p>
           <div className="flex flex-wrap gap-4">
             <Link
-              to={user ? "/problems" : "/register"}
+              to={ctaTo}
               className="btn-glow font-body-sm rounded-full bg-[#a855f7] px-8 py-3 text-[14px] font-semibold text-white shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all hover:bg-opacity-90"
             >
-              Sign Up
+              {ctaLabel}
             </Link>
             <Link
               to="/about"

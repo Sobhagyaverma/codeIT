@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { useRegistration } from "../../context/RegistrationContext";
 
 const BADGES = [
   "AI Coach",
@@ -11,6 +13,9 @@ const BADGES = [
 /** Stitch hero — mockup, CTAs, badges; preserves float + parallax. */
 export default function HeroSection() {
   const mockupRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { config } = useRegistration();
+  const privateBeta = config.privateBeta;
 
   useEffect(() => {
     const mockup = mockupRef.current;
@@ -42,31 +47,50 @@ export default function HeroSection() {
 
         <div className="landing-hero-content relative z-20 mx-auto mt-12 flex max-w-5xl flex-col items-center gap-6 px-4 text-center">
           <p className="font-code-sm mb-2 text-[12px] font-semibold tracking-[0.2em] text-[#a855f7] uppercase">
-            WELCOME TO CODEIT
+            {privateBeta ? "CodeIT Private Beta" : "Welcome to CodeIT"}
           </p>
           <h1 className="font-headline-lg-mobile text-[48px] leading-[1.1] font-medium tracking-tight text-white drop-shadow-2xl md:font-headline-xl md:text-[84px]">
             Master Competitive <br className="hidden md:block" />
             Programming, Together.
           </h1>
           <p className="font-body-lg mt-4 max-w-3xl text-[16px] font-light text-white/60 md:text-[20px] md:leading-[32px]">
-            Practice coding problems. Learn DSA step by step. Challenge your
-            friends. Compete in live contests. Get AI-powered guidance whenever
-            you&apos;re stuck.
+            {privateBeta
+              ? "We're opening CodeIT to a small group of students first. Request access or sign in if you already have an invite."
+              : "Practice coding problems. Learn DSA step by step. Challenge your friends. Compete in live contests. Get AI-powered guidance whenever you're stuck."}
           </p>
 
           <div className="mt-10 flex flex-col items-center gap-6 sm:flex-row">
-            <Link
-              to="/problems"
-              className="btn-glow font-body-md flex w-full items-center justify-center gap-2 rounded-full bg-[#a855f7] px-10 py-4 text-[15px] font-semibold text-white shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all hover:bg-opacity-90 hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] sm:w-auto"
-            >
-              Start Coding
-            </Link>
-            <Link
-              to="/competitions/quick"
-              className="btn-glow font-body-md flex w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-transparent px-10 py-4 text-[15px] font-semibold text-white transition-all hover:border-white/50 hover:bg-white/5 sm:w-auto"
-            >
-              Quick Clash
-            </Link>
+            {privateBeta && !user ? (
+              <>
+                <Link
+                  to="/request-access"
+                  className="btn-glow font-body-md flex w-full items-center justify-center gap-2 rounded-full bg-[#a855f7] px-10 py-4 text-[15px] font-semibold text-white shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all hover:bg-opacity-90 hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] sm:w-auto"
+                >
+                  Request Beta Access
+                </Link>
+                <Link
+                  to="/login"
+                  className="btn-glow font-body-md flex w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-transparent px-10 py-4 text-[15px] font-semibold text-white transition-all hover:border-white/50 hover:bg-white/5 sm:w-auto"
+                >
+                  Login
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/problems"
+                  className="btn-glow font-body-md flex w-full items-center justify-center gap-2 rounded-full bg-[#a855f7] px-10 py-4 text-[15px] font-semibold text-white shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all hover:bg-opacity-90 hover:shadow-[0_0_40px_rgba(168,85,247,0.5)] sm:w-auto"
+                >
+                  Start Coding
+                </Link>
+                <Link
+                  to="/competitions/quick"
+                  className="btn-glow font-body-md flex w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-transparent px-10 py-4 text-[15px] font-semibold text-white transition-all hover:border-white/50 hover:bg-white/5 sm:w-auto"
+                >
+                  Quick Clash
+                </Link>
+              </>
+            )}
           </div>
 
           <div className="mt-12 flex flex-wrap justify-center gap-4">

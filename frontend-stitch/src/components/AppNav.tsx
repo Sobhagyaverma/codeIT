@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationsContext";
+import { useRegistration } from "../context/RegistrationContext";
 
 const NAV_LINKS = [
   { to: "/dsa-sheet", label: "DSA Sheet" },
@@ -24,7 +25,9 @@ type AppNavProps = {
 export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
   const { user, logout } = useAuth();
   const { unreadCount } = useNotifications();
+  const { config } = useRegistration();
   const location = useLocation();
+  const privateBeta = config.privateBeta;
 
   const isActivePath = (to: string) => {
     if (activeHint && to === activeHint) return true;
@@ -69,6 +72,11 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
           <span className="material-symbols-outlined text-3xl">terminal</span>
           CodeIT
         </Link>
+        {privateBeta && (
+          <span className="hidden rounded border border-primary/40 bg-primary/10 px-2 py-0.5 font-code-sm text-[10px] font-bold tracking-wider text-primary uppercase sm:inline">
+            Private Beta
+          </span>
+        )}
         <div className="ml-2 hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
             <NavLink
@@ -182,12 +190,21 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
             >
               Login
             </Link>
-            <Link
-              to="/register"
-              className="font-label-md text-label-md rounded-DEFAULT bg-primary px-4 py-2 text-on-primary shadow-[0_0_10px_rgba(221,183,255,0.3)] transition-colors hover:bg-primary-fixed"
-            >
-              Register
-            </Link>
+            {privateBeta ? (
+              <Link
+                to="/request-access"
+                className="font-label-md text-label-md rounded-DEFAULT bg-primary px-4 py-2 text-on-primary shadow-[0_0_10px_rgba(221,183,255,0.3)] transition-colors hover:bg-primary-fixed"
+              >
+                Request Beta Access
+              </Link>
+            ) : (
+              <Link
+                to="/register"
+                className="font-label-md text-label-md rounded-DEFAULT bg-primary px-4 py-2 text-on-primary shadow-[0_0_10px_rgba(221,183,255,0.3)] transition-colors hover:bg-primary-fixed"
+              >
+                Register
+              </Link>
+            )}
           </>
         )}
       </div>

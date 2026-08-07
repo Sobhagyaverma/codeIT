@@ -36,12 +36,4 @@ public class RateLimitConfig {
             RateLimitResponseWriter responseWriter) {
         return new ProblemsReadRateLimitFilter(rateLimitService, properties, responseWriter);
     }
-
-    @Bean
-    public AdminWriteRateLimitFilter adminWriteRateLimitFilter(
-            RateLimitService rateLimitService,
-            RateLimitProperties properties,
-            RateLimitResponseWriter responseWriter) {
-        return new AdminWriteRateLimitFilter(rateLimitService, properties, responseWriter);
-    }
 }

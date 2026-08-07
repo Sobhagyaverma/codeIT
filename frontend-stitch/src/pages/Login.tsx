@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ApiError, login } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useRegistration } from "../context/RegistrationContext";
 import TurnstileWidget from "../components/TurnstileWidget";
 
 const LEFT_BG =
@@ -11,6 +12,7 @@ const LEFT_BG =
 export default function Login() {
   const navigate = useNavigate();
   const { user, rememberMe, setRememberMe, establishSession } = useAuth();
+  const { config } = useRegistration();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -327,12 +329,21 @@ export default function Login() {
             <div className="mt-8 text-center">
               <p className="font-body-md text-body-md text-on-surface-variant">
                 Don&apos;t have an account?{" "}
-                <Link
-                  to="/register"
-                  className="font-label-md text-primary underline-offset-4 decoration-primary/50 hover:underline"
-                >
-                  Create an account
-                </Link>
+                {config.privateBeta ? (
+                  <Link
+                    to="/request-access"
+                    className="font-label-md text-primary underline-offset-4 decoration-primary/50 hover:underline"
+                  >
+                    Request Beta Access
+                  </Link>
+                ) : (
+                  <Link
+                    to="/register"
+                    className="font-label-md text-primary underline-offset-4 decoration-primary/50 hover:underline"
+                  >
+                    Create an account
+                  </Link>
+                )}
               </p>
             </div>
           </div>

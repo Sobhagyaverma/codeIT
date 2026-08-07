@@ -29,7 +29,10 @@ public class RateLimitService {
             "forgot-password",
             "verify-email",
             "change-password",
-            "contact");
+            "contact",
+            "beta-request",
+            "beta-verify-invite",
+            "beta-invite-resend");
 
     private final RateLimitProperties properties;
     private final StringRedisTemplate redis;

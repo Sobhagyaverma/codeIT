@@ -2,6 +2,8 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import SoftPageFade from "./components/SoftPageFade";
 import RequireAdmin from "./components/RequireAdmin";
+import PrivateBetaBanner from "./components/PrivateBetaBanner";
+import FeedbackFab from "./components/FeedbackFab";
 import { NotificationsProvider } from "./context/NotificationsContext";
 import { ToastProvider } from "./context/ToastContext";
 import About from "./pages/About";
@@ -25,6 +27,7 @@ import QuickContestCreate from "./pages/QuickContestCreate";
 import QuickContestLobby from "./pages/QuickContestLobby";
 import QuickContestLive from "./pages/QuickContestLive";
 import Register from "./pages/Register";
+import RequestAccess from "./pages/RequestAccess";
 import SubmissionHistory from "./pages/SubmissionHistory";
 import Terms from "./pages/Terms";
 import VerifyEmail from "./pages/VerifyEmail";
@@ -54,12 +57,15 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <NotificationsProvider>
+          <PrivateBetaBanner />
+          <FeedbackFab />
           <SoftPageFade>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/request-access" element={<RequestAccess />} />
                 <Route path="/verify-email" element={<VerifyEmail />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/problems" element={<Problems />} />

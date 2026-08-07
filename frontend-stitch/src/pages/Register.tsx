@@ -1,8 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ApiError, register, resendVerifyEmail, verifyEmail } from "../lib/api";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  ApiError,
+  register,
+  resendVerifyEmail,
+  verifyEmail,
+  verifyInvite,
+} from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useRegistration } from "../context/RegistrationContext";
 import TurnstileWidget from "../components/TurnstileWidget";
 
 type Step = "details" | "otp";
@@ -67,11 +74,19 @@ function passwordStrength(password: string): Strength {
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { config } = useRegistration();
+  const requiresInvite = config.requiresInvite;
   const [step, setStep] = useState<Step>("details");
   const [fullName, setFullName] = useState("");
   const [userId, setUserId] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => searchParams.get("email") || "");
+  const [inviteCode, setInviteCode] = useState(
+    () => searchParams.get("invite") || ""
+  );
+  const [inviteOk, setInviteOk] = useState<boolean | null>(null);
+  const [inviteHint, setInviteHint] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -91,9 +106,35 @@ export default function Register() {
 
   const strength = useMemo(() => passwordStrength(password), [password]);
 
+  useEffect(() => {
+    const qEmail = searchParams.get("email");
+    const qInvite = searchParams.get("invite");
+    if (qEmail) setEmail(qEmail);
+    if (qInvite) setInviteCode(qInvite);
+  }, [searchParams]);
+
   if (user) {
     return <Navigate to="/problems" replace />;
   }
+
+  const checkInvite = async () => {
+    if (!requiresInvite) return;
+    if (!inviteCode.trim() || !email.trim()) {
+      setInviteOk(null);
+      setInviteHint("");
+      return;
+    }
+    try {
+      await verifyInvite(inviteCode.trim(), email.trim());
+      setInviteOk(true);
+      setInviteHint("Invite looks valid for this email.");
+    } catch (err) {
+      setInviteOk(false);
+      setInviteHint(
+        err instanceof ApiError ? err.message : "Invalid invite code."
+      );
+    }
+  };
 
   const showToast = (message: string) => {
     setToast({ open: true, exiting: false, message });
@@ -155,6 +196,10 @@ export default function Register() {
       showToast("Please fill in all fields.");
       return;
     }
+    if (requiresInvite && !inviteCode.trim()) {
+      showToast("Invite code is required for Private Beta registration.");
+      return;
+    }
     if (password.length < 6) {
       showToast("Password must be at least 6 characters.");
       return;
@@ -167,12 +212,16 @@ export default function Register() {
     setLoading(true);
     setBtnLabel("Creating account...");
     try {
+      if (requiresInvite) {
+        await verifyInvite(inviteCode.trim(), email.trim());
+      }
       await register({
         name: fullName.trim(),
         uniqueUserId: userId.trim(),
         email: email.trim(),
         password,
         captchaToken: captchaToken || undefined,
+        inviteCode: requiresInvite ? inviteCode.trim() : undefined,
       });
       setBtnLabel("Account created");
       setSuccessStyle(true);
@@ -299,13 +348,58 @@ export default function Register() {
               <p className="font-body-md text-body-md text-on-surface-variant">
                 {step === "otp"
                   ? "Enter the 6-digit code we sent to finish signup."
-                  : "Join CodeIT to practice, compete, and collaborate."}
+                  : requiresInvite
+                    ? "Private Beta — register with your invite code."
+                    : "Join CodeIT to practice, compete, and collaborate."}
               </p>
             </div>
 
             <form className="space-y-5" onSubmit={onSubmit} noValidate>
               {step === "details" ? (
                 <>
+              {requiresInvite && (
+              <div className="space-y-1.5">
+                <label
+                  className="font-label-md text-label-md block text-on-surface-variant"
+                  htmlFor="inviteCode"
+                >
+                  Invite code
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute top-1/2 left-4 -translate-y-1/2 text-outline">
+                    vpn_key
+                  </span>
+                  <input
+                    id="inviteCode"
+                    type="text"
+                    required
+                    placeholder="CODEIT-…"
+                    value={inviteCode}
+                    onChange={(e) => {
+                      setInviteCode(e.target.value);
+                      setInviteOk(null);
+                    }}
+                    onBlur={() => void checkInvite()}
+                    className="glow-input font-body-md h-12 w-full rounded-lg border border-outline-variant bg-surface-container pr-4 pl-12 text-on-surface transition-all placeholder:text-outline/50 focus:ring-0 focus:outline-none"
+                  />
+                </div>
+                {inviteHint && (
+                  <p
+                    className={`text-xs ${
+                      inviteOk ? "text-secondary" : "text-error"
+                    }`}
+                  >
+                    {inviteHint}
+                  </p>
+                )}
+                <p className="text-xs text-on-surface-variant">
+                  Need an invite?{" "}
+                  <Link to="/request-access" className="text-primary underline">
+                    Request beta access
+                  </Link>
+                </p>
+              </div>
+              )}
               <div className="space-y-1.5">
                 <label
                   className="font-label-md text-label-md block text-on-surface-variant"
@@ -369,7 +463,11 @@ export default function Register() {
                     required
                     placeholder="Email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setInviteOk(null);
+                    }}
+                    onBlur={() => void checkInvite()}
                     className="glow-input font-body-md h-12 w-full rounded-lg border border-outline-variant bg-surface-container pr-4 pl-12 text-on-surface transition-all placeholder:text-outline/50 focus:ring-0 focus:outline-none"
                   />
                 </div>

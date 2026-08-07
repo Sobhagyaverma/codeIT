@@ -11,13 +11,15 @@ import AdminCompetitions from "./AdminCompetitions";
 import AdminCompetitionStudio from "./AdminCompetitionStudio";
 import AdminProblems from "./AdminProblems";
 import AdminProblemStudio from "./AdminProblemStudio";
+import AdminPrivateBeta from "./AdminPrivateBeta";
 
 type View =
   | "overview"
   | "problems"
   | "create-problem"
   | "competitions"
-  | "create-competition";
+  | "create-competition"
+  | "private-beta";
 
 function formatContestWhen(c: Competition): string {
   try {
@@ -145,7 +147,12 @@ export default function AdminDashboard() {
     if (next === "competitions") navigate("/admin/competitions");
     else if (next === "create-competition")
       navigate("/admin/competitions/create");
-    else if (next === "overview" || next === "problems" || next === "create-problem")
+    else if (
+      next === "overview" ||
+      next === "problems" ||
+      next === "create-problem" ||
+      next === "private-beta"
+    )
       navigate("/admin");
   };
 
@@ -237,13 +244,23 @@ export default function AdminDashboard() {
           <span className="material-symbols-outlined">list_alt</span>
           <span className="font-body-md text-body-md">DSA Sheet</span>
         </Link>
-        <span
-          className="flex cursor-not-allowed items-center gap-3 px-4 py-3 font-body-md text-on-surface-variant/40"
-          title="Users admin UI not available yet"
+        <button
+          type="button"
+          onClick={() => goView("private-beta")}
+          className={`w-full text-left ${navItemClass(view === "private-beta")}`}
         >
-          <span className="material-symbols-outlined">group</span>
-          <span className="font-body-md text-body-md">Users</span>
-        </span>
+          <span
+            className="material-symbols-outlined"
+            style={
+              view === "private-beta"
+                ? { fontVariationSettings: "'FILL' 1" }
+                : undefined
+            }
+          >
+            key
+          </span>
+          <span className="font-body-md text-body-md">Private Beta</span>
+        </button>
         <Link
           to="/settings/profile"
           className={navItemClass(false)}
@@ -941,6 +958,13 @@ export default function AdminDashboard() {
                 goView("competitions");
               });
             }}
+          />
+        )}
+
+        {view === "private-beta" && (
+          <AdminPrivateBeta
+            onMessage={setMessage}
+            onError={setError}
           />
         )}
 

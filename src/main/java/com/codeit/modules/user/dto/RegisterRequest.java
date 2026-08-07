@@ -23,4 +23,7 @@ public class RegisterRequest {
 
     /** Cloudflare Turnstile token (required when captcha enabled). */
     private String captchaToken;
+
+    /** Required when registration mode requires an invite (INVITE_ONLY / COLLEGE_ONLY). */
+    private String inviteCode;
 }

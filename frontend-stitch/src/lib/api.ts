@@ -169,6 +169,7 @@ export const register = async (data: {
   email: string;
   password: string;
   captchaToken?: string;
+  inviteCode?: string;
 }) => {
   const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
   const encrypted = await isRsaEnabled();
@@ -181,6 +182,7 @@ export const register = async (data: {
       : data.password,
     encrypted,
     captchaToken: data.captchaToken || undefined,
+    inviteCode: data.inviteCode || undefined,
   };
   return request<{ message: string; needsVerification?: boolean; email?: string }>(
     "/api/user/register",
@@ -251,6 +253,132 @@ export const submitContact = (data: {
     method: "POST",
     body: JSON.stringify(data),
   });
+
+export type RegistrationConfig = {
+  mode: "OPEN" | "INVITE_ONLY" | "COLLEGE_ONLY" | string;
+  requiresInvite: boolean;
+  privateBeta: boolean;
+  inviteTtlDays?: number;
+};
+
+export const getRegistrationConfig = () =>
+  request<RegistrationConfig>("/api/registration/config");
+
+export const requestBetaAccess = (data: {
+  fullName: string;
+  email: string;
+  college: string;
+  year: string;
+  reason?: string;
+  captchaToken?: string;
+}) =>
+  request<{ id: number; status: string; message: string }>(
+    "/api/beta/request-access",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+
+export const verifyInvite = (inviteCode: string, email: string) =>
+  request<{ valid: boolean; email: string; expiresAt?: string }>(
+    "/api/beta/verify-invite",
+    {
+      method: "POST",
+      body: JSON.stringify({ inviteCode, email }),
+    }
+  );
+
+export type BetaAccessRequest = {
+  id: number;
+  fullName: string;
+  email: string;
+  college: string;
+  year: string;
+  reason?: string | null;
+  status: string;
+  createdAt?: string | null;
+  reviewedAt?: string | null;
+  rejectReason?: string | null;
+};
+
+export type BetaInviteRow = {
+  id: number;
+  codePrefix: string;
+  email: string;
+  requestId?: number | null;
+  status: string;
+  expiresAt?: string | null;
+  createdAt?: string | null;
+  usedAt?: string | null;
+};
+
+export type BetaAnalytics = {
+  registeredUsers: number;
+  pendingRequests: number;
+  approvedRequests: number;
+  rejectedRequests: number;
+  activeInvites: number;
+  usedInvites: number;
+  expiredInvites: number;
+  dailyActiveUsers: number;
+  problemsSolved: number;
+  quickClashCount: number;
+  competitionCount: number;
+  codeRoomsCreated: number;
+  aiRequests: number;
+};
+
+export const listBetaRequests = (status = "ALL") =>
+  request<BetaAccessRequest[]>(
+    `/api/admin/beta/requests?status=${encodeURIComponent(status)}`
+  );
+
+export const approveBetaRequest = (id: number) =>
+  request<{
+    requestId: number;
+    status: string;
+    inviteId: number;
+    inviteCode: string;
+    expiresAt: string;
+    emailSent: boolean;
+  }>(`/api/admin/beta/requests/${id}/approve`, { method: "POST" });
+
+export const rejectBetaRequest = (id: number, reason?: string) =>
+  request<{ requestId: number; status: string }>(
+    `/api/admin/beta/requests/${id}/reject`,
+    {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || undefined }),
+    }
+  );
+
+export const generateBetaInvite = (email: string, fullName?: string) =>
+  request<{
+    inviteId: number;
+    inviteCode: string;
+    email: string;
+    expiresAt: string;
+    emailSent: boolean;
+  }>("/api/admin/beta/invites", {
+    method: "POST",
+    body: JSON.stringify({ email, fullName: fullName || undefined }),
+  });
+
+export const listBetaInvites = () =>
+  request<BetaInviteRow[]>("/api/admin/beta/invites");
+
+export const resendBetaInvite = (id: number) =>
+  request<{
+    inviteId: number;
+    inviteCode: string;
+    email: string;
+    expiresAt: string;
+    emailSent: boolean;
+  }>(`/api/admin/beta/invites/${id}/resend`, { method: "POST" });
+
+export const getBetaAnalytics = () =>
+  request<BetaAnalytics>("/api/admin/beta/analytics");
 
 export const getProblems = () => request<ProblemPublicDTO[]>("/api/problems");
 
