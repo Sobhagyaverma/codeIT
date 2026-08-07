@@ -1,6 +1,6 @@
 package com.codeit.security.ratelimit;
 
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -14,39 +14,45 @@ import org.springframework.stereotype.Service;
 /**
  * Fixed-window counter rate limiter.
  *
- * Algorithm (per key):
- * 1. INCR the counter for the current window bucket
- * 2. On first hit (count == 1), set TTL = windowSeconds
- * 3. If count > limit → deny
- *
- * Storage:
- * - Prefer Redis when codeit.redis.enabled=true and StringRedisTemplate exists
- * - Otherwise fall back to an in-memory map (so local/dev still works)
- *
- * Fail-open: if Redis throws, we log and allow the request (VM stays up).
+ * Storage: Redis when enabled, otherwise in-memory.
+ * Auth policies can fail-closed on Redis errors (production default).
  */
 @Service
 public class RateLimitService {
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitService.class);
 
+    /** Policies that must not fail-open under Redis outage when fail-closed is on. */
+    private static final Set<String> AUTH_FAIL_CLOSED_POLICIES = Set.of(
+            "login",
+            "register",
+            "forgot-password",
+            "verify-email",
+            "change-password",
+            "contact");
+
     private final RateLimitProperties properties;
     private final StringRedisTemplate redis;
     private final boolean redisEnabled;
+    private final boolean failClosedOnRedisError;
     private final ConcurrentHashMap<String, MemoryWindow> memory = new ConcurrentHashMap<>();
 
     public RateLimitService(
             RateLimitProperties properties,
             ObjectProvider<StringRedisTemplate> redisProvider,
-            @Value("${codeit.redis.enabled:false}") boolean redisEnabled) {
+            @Value("${codeit.redis.enabled:false}") boolean redisEnabled,
+            @Value("${codeit.ratelimit.fail-closed-on-redis-error:false}") boolean failClosedOnRedisError) {
         this.properties = properties;
         this.redis = redisProvider.getIfAvailable();
         this.redisEnabled = redisEnabled && this.redis != null;
+        this.failClosedOnRedisError = failClosedOnRedisError;
         if (this.redisEnabled) {
-            log.info("RateLimitService using Redis backend");
+            log.info(
+                    "RateLimitService using Redis backend (authFailClosed={})",
+                    failClosedOnRedisError);
         } else {
             log.info(
-                    "RateLimitService using in-memory backend (enable Redis with codeit.redis.enabled=true and remove Redis autoconfigure exclude)");
+                    "RateLimitService using in-memory backend (enable Redis with codeit.redis.enabled=true)");
         }
     }
 
@@ -72,7 +78,16 @@ public class RateLimitService {
             int remaining = (int) Math.max(0, limit - count);
             return new RateLimitResult(true, limit, remaining, 0, key);
         } catch (Exception ex) {
-            // Fail-open: never take down login/API because Redis hiccuped
+            if (redisEnabled
+                    && failClosedOnRedisError
+                    && AUTH_FAIL_CLOSED_POLICIES.contains(policy)) {
+                log.error(
+                        "Rate limit Redis failure for auth policy={} key={} — DENYING request: {}",
+                        policy,
+                        key,
+                        ex.toString());
+                return new RateLimitResult(false, limit, 0, Math.max(1, retryAfter), key);
+            }
             log.warn("Rate limit check failed for key={} — allowing request: {}", key, ex.toString());
             return RateLimitResult.allowUnlimited();
         }
@@ -122,7 +137,6 @@ public class RateLimitService {
             }
             return existing;
         });
-        // Opportunistic cleanup of a few expired keys to protect RAM on small VM
         if (memory.size() > 10_000) {
             pruneExpiredMemory();
         }

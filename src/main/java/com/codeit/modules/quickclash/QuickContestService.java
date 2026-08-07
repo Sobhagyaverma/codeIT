@@ -105,7 +105,18 @@ public class QuickContestService {
         int me = SecurityUtils.currentUserId();
         Map<String, Object> contest = requireVisible(contestId, me);
         Map<String, Object> body = new HashMap<>(contest);
-        body.put("problems", repository.listProblems(contestId));
+        // Invite token is host-only (same hygiene as CodeRoom invites)
+        Integer hostId = contest.get("host_user_id") instanceof Number n ? n.intValue() : null;
+        if (hostId == null || hostId != me) {
+            body.remove("invite_token");
+        }
+        String status = String.valueOf(contest.get("status"));
+        // Hide problem set until the host starts (LIVE). Reveal for LIVE/ENDED review.
+        if ("LIVE".equals(status) || "ENDED".equals(status)) {
+            body.put("problems", repository.listProblems(contestId));
+        } else {
+            body.put("problems", List.of());
+        }
         body.put("participants", repository.listParticipants(contestId));
         body.put("joinedCount", repository.countJoined(contestId));
         body.put("leaderboard", repository.leaderboard(contestId));
@@ -142,7 +153,9 @@ public class QuickContestService {
                             "contestName",
                             contestName,
                             "hostName",
-                            host != null ? host.getName() : "Host",
+                            host != null && host.getName() != null && !host.getName().isBlank()
+                                    ? host.getName()
+                                    : "Host",
                             "message",
                             "You have been invited to Quick Contest."));
             invited++;
@@ -152,13 +165,14 @@ public class QuickContestService {
         return Map.of("invited", invited, "contest", getContest(contestId));
     }
 
+    @Transactional
     public Map<String, Object> join(long contestId) {
         int me = SecurityUtils.currentUserId();
         rateLimitService.checkTieredOrThrow(
                 "quick-contest-join", String.valueOf(me), rateLimitProperties.getQuickContestJoin());
 
         Map<String, Object> contest = repository
-                .findContest(contestId)
+                .lockContestForUpdate(contestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contest not found"));
         String status = String.valueOf(contest.get("status"));
         // Lobby join + rejoin after an accidental leave while LIVE.
@@ -208,6 +222,9 @@ public class QuickContestService {
         Map<String, Object> contest = repository
                 .findContest(contestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contest not found"));
+        repository
+                .findParticipant(contestId, me)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a participant"));
         if (((Number) contest.get("host_user_id")).intValue() == me
                 && "LOBBY".equals(String.valueOf(contest.get("status")))) {
             throw new ResponseStatusException(
@@ -225,13 +242,18 @@ public class QuickContestService {
                 "quick-contest-start", String.valueOf(me), rateLimitProperties.getQuickContestStart());
 
         Map<String, Object> contest = requireHostLobby(contestId, me);
+        // Serialize start against concurrent join/start
+        repository.lockContestForUpdate(contestId);
         int joined = repository.countJoined(contestId);
         if (joined < 2) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Need at least 2 joined players");
         }
         int duration = ((Number) contest.get("duration_minutes")).intValue();
         Instant endsAt = Instant.now().plusSeconds(duration * 60L);
-        repository.startContest(contestId, endsAt);
+        int updated = repository.startContest(contestId, endsAt);
+        if (updated != 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Contest already started");
+        }
 
         for (Map<String, Object> p : repository.listParticipants(contestId)) {
             if ("JOINED".equals(String.valueOf(p.get("status")))) {

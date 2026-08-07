@@ -118,6 +118,13 @@ public class QuickContestRepository {
         return rows.stream().findFirst();
     }
 
+    /** Row lock for capacity-safe join (call inside @Transactional). */
+    public Optional<Map<String, Object>> lockContestForUpdate(long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT * FROM quick_contests WHERE id = ? FOR UPDATE", id);
+        return rows.stream().findFirst();
+    }
+
     public Optional<Map<String, Object>> findByInviteToken(String token) {
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT * FROM quick_contests WHERE invite_token = ?", token);
@@ -228,8 +235,8 @@ public class QuickContestRepository {
                 userId);
     }
 
-    public void startContest(long contestId, Instant endsAt) {
-        jdbc.update(
+    public int startContest(long contestId, Instant endsAt) {
+        return jdbc.update(
                 """
                         UPDATE quick_contests
                         SET status = 'LIVE', started_at = NOW(), ends_at = ?

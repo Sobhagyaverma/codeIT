@@ -1,9 +1,131 @@
+# CodeIT production stack (Cloudflare → Nginx:80 → api/sync)
+# Judge0 is external: set JUDGE0_API_URL (e.g. http://host.docker.internal:2358 or LAN IP).
+#
+# Usage:
+#   cp .env.example .env   # fill secrets
+#   docker compose up -d --build
+
 services:
-  sync-server:
-    build: ./sync-server
-    ports:
-      - "1234:1234"
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-codeit}
+      POSTGRES_USER: ${POSTGRES_USER:-codeit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codeit} -d ${POSTGRES_DB:-codeit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--save",
+        "",
+        "--appendonly",
+        "no",
+        "--requirepass",
+        "${REDIS_PASSWORD:?set REDIS_PASSWORD}",
+      ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 128m
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 9091
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-codeit}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-codeit}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CODEIT_JWT_SECRET: ${CODEIT_JWT_SECRET:?set CODEIT_JWT_SECRET}
+      CODEIT_OTP_PEPPER: ${CODEIT_OTP_PEPPER:?set CODEIT_OTP_PEPPER}
+      CODEIT_CORS_ORIGINS: ${CODEIT_CORS_ORIGINS:-http://localhost}
+      CODEIT_TRUST_FORWARDED_HEADERS: "true"
+      CODEIT_CAPTCHA_ENABLED: "true"
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?set TURNSTILE_SITE_KEY}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?set TURNSTILE_SECRET_KEY}
+      # Judge0 must NOT be published on the internet. Only this API container should reach it
+      # over a private LAN/VPN. Never put Judge0 behind Nginx/Cloudflare on this stack.
+      JUDGE0_API_URL: ${JUDGE0_API_URL:-http://host.docker.internal:2358}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      CODEIT_MAIL_ENABLED: ${CODEIT_MAIL_ENABLED:-false}
+      CODEIT_MAIL_FROM: ${CODEIT_MAIL_FROM:-}
+      CODEIT_MAIL_INBOX: ${CODEIT_MAIL_INBOX:-}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      BREVO_SMTP_KEY: ${BREVO_SMTP_KEY:-}
+      JAVA_OPTS: ${API_JAVA_OPTS:--XX:MaxRAMPercentage=75.0 -Xmx512m}
+      CODEIT_CRYPTO_RSA_PRIVATE_KEY_PATH: /data/codeit-rsa-private.pem
+      CODEIT_CRYPTO_RSA_GENERATE_IF_MISSING: "true"
+      CODEIT_SYNC_BASE_URL: http://sync:1234
+      SYNC_INTERNAL_SECRET: ${SYNC_INTERNAL_SECRET:?set SYNC_INTERNAL_SECRET}
+    volumes:
+      - api_data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9091/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 5
+    mem_limit: 768m
+
+  sync:
+    build:
+      context: ./sync-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
       PORT: 1234
-      CODEIT_JWT_SECRET: ${CODEIT_JWT_SECRET:-1234567891011121314151617181920212223242526272829303132}
+      CODEIT_JWT_SECRET: ${CODEIT_JWT_SECRET}
+      SYNC_INTERNAL_SECRET: ${SYNC_INTERNAL_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:1234/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+    mem_limit: 256m
+
+  nginx:
+    build:
+      context: .
+      dockerfile: deploy/nginx/Dockerfile
     restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      sync:
+        condition: service_started
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    mem_limit: 128m
+
+volumes:
+  postgres_data:
+  api_data:

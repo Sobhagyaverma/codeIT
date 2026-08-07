@@ -20,16 +20,20 @@ npm run preview  # preview build
 npm run lint
 ```
 
-Backend must be on **9091** (`./mvnw spring-boot:run` from repo root). Dev proxies `/api` → `http://localhost:9091`.
+Backend must be on **9091** (`./mvnw spring-boot:run` from repo root). Dev proxies `/api` and `/ws` → `http://localhost:9091`, and `/sync/*` → sync-server `:1234` (path prefix stripped).
 
-Optional env:
+Optional env ([`.env.example`](./.env.example)):
 
 ```properties
-VITE_API_URL=http://localhost:9091
-VITE_SYNC_WS_URL=ws://localhost:1234
+# Empty = same-origin (Vite proxy locally; Nginx /api+/ws+/sync in production)
+VITE_API_URL=
+# Empty = ws(s)://{host}/sync  (y-websocket connects to /sync/{doc})
+VITE_SYNC_WS_URL=
 ```
 
 Auth tokens use `codeit.stitch.*` keys (separate from the legacy frontend).
+
+**Nginx note (Module 3):** proxy `/sync/` to the sync-server with the `/sync` prefix stripped so paths become `/{doc}` as the sync-server expects.
 
 ## Sensitive auth (RSA-OAEP)
 
@@ -58,7 +62,6 @@ Login identifier, passwords (login / register / change-password) are encrypted i
 | Competition repository | `/admin/competitions`                               | ADMIN list UI            |
 | Competition studio     | `/admin/competitions/create`                        | ADMIN create             |
 | Meta                   | `/about`, `/contact`, `/help`, `/privacy`, `/terms` | Static                   |
-| Catalog                | `/screens`                                          | Screen index             |
 
 Nav: **Settings** (gear, rightmost) opens `/settings/profile` for every logged-in user. **Admin** appears only for `ADMIN`.
 

@@ -81,20 +81,24 @@ public class FriendService {
                     HttpStatus.CONFLICT, "They already sent you a request — accept it instead.");
         }
 
-        long requestId = friendRepository.insertRequest(me, toId);
-        User meUser = userRepository.getUserById(me).orElse(null);
-        String senderName = meUser != null ? meUser.getName() : "Someone";
+        try {
+            long requestId = friendRepository.insertRequest(me, toId);
+            User meUser = userRepository.getUserById(me).orElse(null);
+            String senderName = meUser != null ? meUser.getName() : "Someone";
 
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("requestId", requestId);
-        payload.put("fromUserId", me);
-        payload.put("fromName", senderName);
-        payload.put("fromUniqueUserId", meUser != null ? meUser.getUniqueUserId() : "");
-        payload.put("fromAvatarUrl", meUser != null ? meUser.getAvatarUrl() : null);
-        payload.put("message", senderName + " sent you a friend request.");
-        notificationService.notify(toId, NotificationService.TYPE_FRIEND_REQUEST, payload);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("requestId", requestId);
+            payload.put("fromUserId", me);
+            payload.put("fromName", senderName);
+            payload.put("fromUniqueUserId", meUser != null ? meUser.getUniqueUserId() : "");
+            payload.put("fromAvatarUrl", meUser != null ? meUser.getAvatarUrl() : null);
+            payload.put("message", senderName + " sent you a friend request.");
+            notificationService.notify(toId, NotificationService.TYPE_FRIEND_REQUEST, payload);
 
-        return Map.of("requestId", requestId, "status", "PENDING");
+            return Map.of("requestId", requestId, "status", "PENDING");
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Friend request already sent.");
+        }
     }
 
     /** Transactional so a request is never marked ACCEPTED without the friendship row. */
@@ -131,7 +135,18 @@ public class FriendService {
         String normalized = action == null ? "" : action.trim().toUpperCase();
         return switch (normalized) {
             case "ACCEPT" -> {
-                friendRepository.updateRequestStatus(requestId, "ACCEPTED");
+                int updated = friendRepository.updateRequestStatus(requestId, "ACCEPTED");
+                if (updated == 0) {
+                    notificationService.dismissFriendRequest(me, requestId, "ACCEPTED");
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("status", "ACCEPTED");
+                    body.put("alreadyHandled", true);
+                    body.put("friends", true);
+                    body.put("userId", senderId);
+                    body.put("name", senderName);
+                    body.put("uniqueUserId", sender != null ? sender.getUniqueUserId() : "");
+                    yield body;
+                }
                 friendRepository.insertFriendship(senderId, me);
                 notificationService.dismissFriendRequest(me, requestId, "ACCEPTED");
 
@@ -160,12 +175,20 @@ public class FriendService {
                 yield body;
             }
             case "REJECT" -> {
-                friendRepository.updateRequestStatus(requestId, "REJECTED");
+                int updated = friendRepository.updateRequestStatus(requestId, "REJECTED");
+                if (updated == 0) {
+                    notificationService.dismissFriendRequest(me, requestId, "REJECTED");
+                    yield Map.of("status", "REJECTED", "alreadyHandled", true, "userId", senderId);
+                }
                 notificationService.dismissFriendRequest(me, requestId, "REJECTED");
                 yield Map.of("status", "REJECTED", "userId", senderId, "name", senderName);
             }
             case "IGNORE" -> {
-                friendRepository.updateRequestStatus(requestId, "IGNORED");
+                int updated = friendRepository.updateRequestStatus(requestId, "IGNORED");
+                if (updated == 0) {
+                    notificationService.dismissFriendRequest(me, requestId, "IGNORED");
+                    yield Map.of("status", "IGNORED", "alreadyHandled", true, "userId", senderId);
+                }
                 notificationService.dismissFriendRequest(me, requestId, "IGNORED");
                 yield Map.of("status", "IGNORED", "userId", senderId, "name", senderName);
             }

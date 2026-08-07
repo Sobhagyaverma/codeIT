@@ -66,6 +66,15 @@ public class RoomRepository {
         return rooms.stream().findFirst();
     }
 
+    /** Row lock for capacity-safe join (call inside @Transactional). */
+    public Optional<Room> lockById(UUID id) {
+        List<Room> rooms = jdbcTemplate.query(
+                "SELECT " + ROOM_COLUMNS + " FROM rooms WHERE id = ? FOR UPDATE",
+                (rs, rowNum) -> mapRoom(rs),
+                id);
+        return rooms.stream().findFirst();
+    }
+
     public Optional<Room> findByInviteToken(String inviteToken) {
         List<Room> rooms = jdbcTemplate.query(
                 "SELECT " + ROOM_COLUMNS + " FROM rooms WHERE invite_token = ?",
@@ -139,7 +148,18 @@ public class RoomRepository {
 
     /** Archives every ACTIVE room hosted by this user (stale leftovers / Invite replace). */
     public int archiveAllActiveByHostUserId(Integer hostUserId) {
-        return jdbcTemplate.update(
+        List<UUID> ids = jdbcTemplate.query(
+                """
+                        SELECT id FROM rooms
+                        WHERE host_user_id = ?
+                          AND status = 'ACTIVE'
+                        """,
+                (rs, rowNum) -> (UUID) rs.getObject("id"),
+                hostUserId);
+        if (ids.isEmpty()) {
+            return 0;
+        }
+        int archived = jdbcTemplate.update(
                 """
                         UPDATE rooms
                         SET status = 'ARCHIVED', updated_at = ?
@@ -148,6 +168,10 @@ public class RoomRepository {
                         """,
                 Timestamp.from(Instant.now()),
                 hostUserId);
+        for (UUID id : ids) {
+            jdbcTemplate.update("DELETE FROM room_members WHERE room_id = ?", id);
+        }
+        return archived;
     }
 
     private Room mapRoom(ResultSet rs) throws SQLException {

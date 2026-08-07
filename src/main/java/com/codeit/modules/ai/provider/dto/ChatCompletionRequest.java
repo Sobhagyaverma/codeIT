@@ -11,4 +11,11 @@ import lombok.NoArgsConstructor;
 public class ChatCompletionRequest {
     private String model;
     private List<ChatMessage> messages;
+    private Integer max_tokens;
+
+    public ChatCompletionRequest(String model, List<ChatMessage> messages) {
+        this.model = model;
+        this.messages = messages;
+        this.max_tokens = null;
+    }
 }

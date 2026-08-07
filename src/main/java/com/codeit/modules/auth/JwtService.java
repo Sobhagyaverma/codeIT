@@ -99,18 +99,39 @@ public class JwtService {
         return 0;
     }
 
+    /**
+     * Yjs sync tokens are room-scoped and must never authenticate REST or STOMP sessions.
+     */
+    public boolean isSyncToken(String token) {
+        try {
+            String typ = parseClaims(token).get("typ", String.class);
+            return "sync".equalsIgnoreCase(typ);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** True when the JWT may be used as a login session (not a sync token). */
+    public boolean isSessionToken(String token) {
+        return isValid(token) && !isSyncToken(token);
+    }
+
     public long getExpirationMs() {
         return expirationMs;
     }
 
-    /** Short-lived token for the Yjs sync-server (scoped to one room). */
-    public String generateSyncToken(Integer userId, String email, java.util.UUID roomId) {
+    /** Short-lived token for the Yjs sync-server (scoped to one room + edit capability). */
+    public String generateSyncToken(
+            Integer userId, String email, java.util.UUID roomId, String roomRole, boolean canEdit) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("typ", "sync");
         claims.put("roomId", roomId.toString());
         claims.put("userId", userId);
+        claims.put("roomRole", roomRole != null ? roomRole : "VIEWER");
+        claims.put("canEdit", canEdit);
+        claims.put("jti", java.util.UUID.randomUUID().toString());
 
-        long ttlMs = 5 * 60 * 1000L;
+        long ttlMs = getSyncTokenTtlMs();
         Date now = new Date();
         return Jwts.builder()
                 .setClaims(claims)
@@ -122,6 +143,6 @@ public class JwtService {
     }
 
     public long getSyncTokenTtlMs() {
-        return 5 * 60 * 1000L;
+        return 30 * 60 * 1000L;
     }
 }

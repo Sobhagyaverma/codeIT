@@ -65,14 +65,16 @@ public class RoomPresenceTracker {
         return Optional.ofNullable(displaced);
     }
 
-    /** @return userId that left, or null if session was unknown */
-    public Integer leave(String sessionId) {
+    /** @return userId that left, or null if session was unknown.
+     *  Also returns whether this was the user's last session in the room. */
+    public LeaveResult leaveWithResult(String sessionId) {
         UUID roomId = sessionRoom.remove(sessionId);
         Integer userId = sessionUser.remove(sessionId);
         if (roomId == null || userId == null) {
             return null;
         }
 
+        boolean lastSession = true;
         Map<Integer, LinkedHashSet<String>> byUser = roomUserSessions.get(roomId);
         if (byUser != null) {
             LinkedHashSet<String> sessions = byUser.get(userId);
@@ -85,25 +87,82 @@ public class RoomPresenceTracker {
                         if (users != null) {
                             users.remove(userId);
                             if (users.isEmpty()) {
-                                roomUsers.remove(roomId);
+                                roomUsers.remove(roomId, users);
                             }
                         }
+                    } else {
+                        lastSession = false;
                     }
                 }
             }
-            if (byUser.isEmpty()) {
-                roomUserSessions.remove(roomId);
-            }
+            // Atomic empty-map removal to avoid races with concurrent join
+            roomUserSessions.compute(roomId, (id, map) -> {
+                if (map == null || map.isEmpty()) {
+                    return null;
+                }
+                return map;
+            });
         } else {
             Set<Integer> users = roomUsers.get(roomId);
             if (users != null) {
                 users.remove(userId);
                 if (users.isEmpty()) {
-                    roomUsers.remove(roomId);
+                    roomUsers.remove(roomId, users);
                 }
             }
         }
-        return userId;
+        return new LeaveResult(roomId, userId, lastSession);
+    }
+
+    /** @return userId that left, or null if session was unknown */
+    public Integer leave(String sessionId) {
+        LeaveResult result = leaveWithResult(sessionId);
+        return result == null ? null : result.userId();
+    }
+
+    /** Drop all presence for a room (after end/archive). */
+    public void clearRoom(UUID roomId) {
+        Map<Integer, LinkedHashSet<String>> byUser = roomUserSessions.remove(roomId);
+        roomUsers.remove(roomId);
+        if (byUser == null) {
+            return;
+        }
+        for (LinkedHashSet<String> sessions : byUser.values()) {
+            synchronized (sessions) {
+                for (String sid : sessions) {
+                    sessionRoom.remove(sid, roomId);
+                    sessionUser.remove(sid);
+                }
+            }
+        }
+    }
+
+    /** Drop one user's presence in a room (kick/leave). */
+    public void clearUser(UUID roomId, Integer userId) {
+        Map<Integer, LinkedHashSet<String>> byUser = roomUserSessions.get(roomId);
+        if (byUser == null) {
+            return;
+        }
+        LinkedHashSet<String> sessions = byUser.remove(userId);
+        Set<Integer> users = roomUsers.get(roomId);
+        if (users != null) {
+            users.remove(userId);
+            if (users.isEmpty()) {
+                roomUsers.remove(roomId, users);
+            }
+        }
+        if (sessions != null) {
+            synchronized (sessions) {
+                for (String sid : sessions) {
+                    sessionRoom.remove(sid, roomId);
+                    sessionUser.remove(sid);
+                }
+            }
+        }
+        roomUserSessions.compute(roomId, (id, map) -> (map == null || map.isEmpty()) ? null : map);
+    }
+
+    public record LeaveResult(UUID roomId, Integer userId, boolean lastSession) {
     }
 
     public UUID getRoomId(String sessionId) {

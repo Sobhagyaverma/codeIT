@@ -125,6 +125,7 @@ export default function AdminDashboard() {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  // Role gate also enforced by <RequireAdmin>; keep as defense in depth.
   if (user.role !== "ADMIN") {
     return <Navigate to="/" replace />;
   }

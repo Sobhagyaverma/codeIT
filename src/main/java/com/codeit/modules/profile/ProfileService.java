@@ -219,12 +219,12 @@ public class ProfileService {
         response.setAchievements(List.of());
         response.setPersonalBests(buildPersonalBests(userId));
         response.setActiveContest(buildActiveContest(userId));
-        response.setContinueProblem(buildContinueProblem(userId));
-
         if (includePrivate) {
+            response.setContinueProblem(buildContinueProblem(userId));
             response.setBookmarked(profileRepository.getBookmarks(userId));
             response.setRecentlyViewed(profileRepository.getRecentViews(userId, 20));
         } else {
+            response.setContinueProblem(null);
             response.setBookmarked(List.of());
             response.setRecentlyViewed(List.of());
         }

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.codeit.modules.auth.SecurityUtils;
 import com.codeit.modules.collaboration.dto.CreateRoomRequest;
+import com.codeit.modules.collaboration.dto.JoinRoomRequest;
 import com.codeit.modules.collaboration.dto.RoomMessageResponse;
 import com.codeit.modules.collaboration.dto.RoomResponse;
 import com.codeit.modules.collaboration.dto.RoomRunRequest;
@@ -46,10 +47,11 @@ public class CollaborationController {
         return collaborationService.createRoom(userId, request);
     }
 
-    @PostMapping("/join/{inviteToken}")
-    public RoomResponse joinRoom(@PathVariable String inviteToken) {
+    /** Preferred join: token in JSON body (avoids invite secrets in access-log URIs). */
+    @PostMapping("/join")
+    public RoomResponse joinRoom(@RequestBody JoinRoomRequest request) {
         Integer userId = SecurityUtils.currentUserId();
-        return collaborationService.joinByInviteToken(userId, inviteToken);
+        return collaborationService.joinByInviteToken(userId, request.getInviteToken());
     }
 
     @PostMapping("/{roomId}/end")

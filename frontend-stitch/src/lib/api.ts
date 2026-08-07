@@ -1,8 +1,25 @@
 import { getAuthToken, type ProblemPublicDTO, type Submission, type User } from "./authStorage";
+import { notifyUnauthorized } from "./authEvents";
+import { resolveApiBase } from "./runtimeConfig";
 
-/** Empty = same-origin Vite proxy → Spring Boot */
-export const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "";
+/** Empty = same-origin (Vite proxy in dev, Nginx in prod). */
+export const API_BASE = resolveApiBase();
+
+const AUTH_FLOW_PATHS = [
+  "/api/auth/login",
+  "/api/user/register",
+  "/api/auth/verify-email",
+  "/api/auth/verify-email/resend",
+  "/api/auth/forgot-password",
+  "/api/auth/forgot-password/verify",
+  "/api/auth/forgot-password/reset",
+];
+
+function isAuthFlowPath(path: string): boolean {
+  return AUTH_FLOW_PATHS.some(
+    (p) => path === p || path.startsWith(`${p}?`) || path.startsWith(`${p}/`)
+  );
+}
 
 export class ApiError extends Error {
   status: number;
@@ -69,6 +86,9 @@ export async function request<T>(
   const body = isJson ? await res.json().catch(() => null) : await res.text();
 
   if (!res.ok) {
+    if (res.status === 401 && !isAuthFlowPath(path)) {
+      notifyUnauthorized();
+    }
     const message =
       (isJson && body && (body.message || body.error)) ||
       (typeof body === "string" && body) ||

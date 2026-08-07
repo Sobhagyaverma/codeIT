@@ -38,6 +38,13 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      // Yjs sync-server: browser uses ws://host/sync/{doc}; strip /sync for the Node server
+      "/sync": {
+        target: "http://localhost:1234",
+        changeOrigin: true,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/sync/, "") || "/",
+      },
     },
   },
 });

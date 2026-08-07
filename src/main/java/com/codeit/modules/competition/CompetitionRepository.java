@@ -62,7 +62,12 @@ public class CompetitionRepository {
 
     public List<Competition> getAllCompetitions() {
         String sql = """
-                SELECT * FROM competitions;
+                SELECT c.*,
+                       (SELECT COUNT(*) FROM competition_problems cp
+                        WHERE cp.competition_id = c.id) AS problem_count,
+                       (SELECT COUNT(*) FROM competition_participants p
+                        WHERE p.competition_id = c.id) AS participant_count
+                FROM competitions c
                 """;
         try {
             return jdbcTemplate.query(sql, (rs, rowNum) -> mapCompetition(rs));
@@ -278,6 +283,22 @@ public class CompetitionRepository {
         competition.setCreatedBy(rs.getInt("created_by"));
         competition.setStatus(rs.getString("status"));
         competition.setDurationMinutes(rs.getInt("duration_minutes"));
+        try {
+            int problemCount = rs.getInt("problem_count");
+            if (!rs.wasNull()) {
+                competition.setProblemCount(problemCount);
+            }
+        } catch (SQLException ignored) {
+            // Column only present on list query
+        }
+        try {
+            int participantCount = rs.getInt("participant_count");
+            if (!rs.wasNull()) {
+                competition.setParticipantCount(participantCount);
+            }
+        } catch (SQLException ignored) {
+            // Column only present on list query
+        }
         return competition;
     }
 

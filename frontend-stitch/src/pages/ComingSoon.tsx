@@ -22,12 +22,6 @@ export default function ComingSoon() {
         >
           Back home
         </Link>
-        <Link
-          to="/screens"
-          className="rounded-full border border-white/20 px-6 py-2.5 text-sm font-semibold text-white"
-        >
-          Screen catalog
-        </Link>
       </div>
     </main>
   );

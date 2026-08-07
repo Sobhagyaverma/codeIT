@@ -96,12 +96,12 @@ public class FriendRepository {
         return count == null ? 0 : count;
     }
 
-    public void updateRequestStatus(long id, String status) {
-        jdbc.update(
+    public int updateRequestStatus(long id, String status) {
+        return jdbc.update(
                 """
                         UPDATE friend_requests
                         SET status = ?, responded_at = ?
-                        WHERE id = ?
+                        WHERE id = ? AND status = 'PENDING'
                         """,
                 status,
                 Timestamp.from(Instant.now()),

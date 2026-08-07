@@ -101,12 +101,13 @@ export function useYjsCodeEditor({
       try {
         const sync = await getSyncToken(roomId);
         if (cancelled) return;
-        const { serverUrl, roomName, params } = buildSyncProviderUrl(
+        const { serverUrl, roomName, params, protocols } = buildSyncProviderUrl(
           sync.codeDocName,
           sync.token
         );
         const provider = new WebsocketProvider(serverUrl, roomName, ydoc, {
           params,
+          protocols,
           connect: true,
         });
         providerRef.current = provider;

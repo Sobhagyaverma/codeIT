@@ -51,7 +51,8 @@ data/
 # Node
 node_modules/
 sync-server/node_modules/
-frontend/node_modules/
+frontend-stitch/node_modules/
+frontend-stitch/dist/
 frontend/dist/
 
 # Local notes / scratch

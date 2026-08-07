@@ -16,4 +16,9 @@ public class Competition {
     private String status;
     private Integer durationMinutes;
 
+    /** Populated on list endpoints; not a DB column on competitions. */
+    private Integer problemCount;
+    /** Populated on list endpoints; not a DB column on competitions. */
+    private Integer participantCount;
+
 }

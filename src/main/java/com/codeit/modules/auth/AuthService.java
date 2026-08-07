@@ -72,6 +72,13 @@ public class AuthService {
                 jwtService.getExpirationMs());
     }
 
+    /** Revoke all outstanding session JWTs for the current principal. */
+    public java.util.Map<String, Object> logout() {
+        Integer userId = SecurityUtils.currentUserId();
+        userService.bumpTokenVersion(userId);
+        return java.util.Map.of("ok", true, "revoked", true);
+    }
+
     private boolean looksLikeEmail(String value) {
         return value.contains("@");
     }

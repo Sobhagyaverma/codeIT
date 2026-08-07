@@ -36,11 +36,18 @@ public class RoomPresenceDisconnectListener {
             return;
         }
 
-        UUID roomId = presenceTracker.getRoomId(sessionId);
-        Integer userId = presenceTracker.leave(sessionId);
-        if (roomId == null || userId == null) {
+        RoomPresenceTracker.LeaveResult left = presenceTracker.leaveWithResult(sessionId);
+        if (left == null) {
             return;
         }
+
+        // Multi-tab: only broadcast LEFT when the last session for this user is gone
+        if (!left.lastSession()) {
+            return;
+        }
+
+        UUID roomId = left.roomId();
+        Integer userId = left.userId();
 
         PresenceEvent presenceEvent = new PresenceEvent();
         presenceEvent.setType("LEFT");

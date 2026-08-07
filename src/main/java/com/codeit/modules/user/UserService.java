@@ -114,4 +114,9 @@ public class UserService {
         return userRepository.getUserById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
+
+    /** Invalidate all session JWTs for this user (logout / force re-auth). */
+    public void bumpTokenVersion(int userId) {
+        userRepository.bumpTokenVersion(userId);
+    }
 }

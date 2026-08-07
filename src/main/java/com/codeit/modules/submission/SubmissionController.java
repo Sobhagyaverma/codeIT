@@ -76,6 +76,8 @@ public class SubmissionController {
     @PostMapping("/submit")
     public JudgeVerdictDTO submit(@RequestBody Submission submission) {
         submission.setUserId(SecurityUtils.currentUserId());
+        // Practice submit must never attach a competitionId (leaderboard IDOR)
+        submission.setCompetitionId(null);
         return submissionService.submit(submission);
     }
 }

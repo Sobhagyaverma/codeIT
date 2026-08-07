@@ -125,12 +125,13 @@ export function useYjsCanvasBoard({
       try {
         const sync = await getSyncToken(roomId);
         if (cancelled) return;
-        const { serverUrl, roomName, params } = buildSyncProviderUrl(
+        const { serverUrl, roomName, params, protocols } = buildSyncProviderUrl(
           sync.whiteboardDocName,
           sync.token
         );
         const provider = new WebsocketProvider(serverUrl, roomName, ydoc, {
           params,
+          protocols,
           connect: true,
         });
         providerRef.current = provider;

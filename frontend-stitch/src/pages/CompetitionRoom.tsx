@@ -98,6 +98,20 @@ function formatPenalty(seconds: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function parseConstraints(raw?: string): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map(String);
+  } catch {
+    /* plain text */
+  }
+  return raw
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export default function CompetitionRoom() {
   const { id } = useParams();
   const competitionId = Number(id);
@@ -152,6 +166,10 @@ export default function CompetitionRoom() {
   const problem = activeProblemId != null ? problems[activeProblemId] : null;
   const examples = useMemo(
     () => parseExamples(problem?.examples as string | undefined),
+    [problem]
+  );
+  const constraints = useMemo(
+    () => parseConstraints(problem?.constraintsData),
     [problem]
   );
 
@@ -999,14 +1017,16 @@ export default function CompetitionRoom() {
                       </div>
                     )}
 
-                    {problem.constraints && (
+                    {constraints.length > 0 && (
                       <div>
                         <p className="font-label-md mb-2 text-[13px] font-semibold text-white">
                           Constraints
                         </p>
-                        <pre className="font-code-sm whitespace-pre-wrap text-on-surface-variant">
-                          {problem.constraints}
-                        </pre>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-on-surface-variant">
+                          {constraints.map((c) => (
+                            <li key={c}>{c}</li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </>

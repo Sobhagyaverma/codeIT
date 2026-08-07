@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -15,6 +16,9 @@ import {
   type AuthSession,
   type User,
 } from "../lib/authStorage";
+import { setUnauthorizedHandler } from "../lib/authEvents";
+import { resolveApiBase } from "../lib/runtimeConfig";
+import { disconnectWs } from "../lib/ws";
 
 type AuthState = {
   user: User | null;
@@ -77,8 +81,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    const session = loadAuthSession();
+    const token = session?.token;
+    // Best-effort server revoke (bumps token_version). Always clear local session.
+    if (token) {
+      const base = resolveApiBase();
+      void fetch(`${base}/api/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {
+        /* ignore network errors on logout */
+      });
+    }
     clearAuthStorage();
     setUserState(null);
+    disconnectWs();
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearAuthStorage();
+      setUserState(null);
+      disconnectWs();
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const value = useMemo(

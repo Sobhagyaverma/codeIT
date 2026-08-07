@@ -63,4 +63,10 @@ public class AuthController {
             @Valid @RequestBody ForgotPasswordResetRequest request, HttpServletRequest http) {
         return emailAuthService.resetPassword(request, http);
     }
+
+    /** Invalidate all session JWTs for the current user (bumps token_version). */
+    @PostMapping("/logout")
+    public Map<String, Object> logout() {
+        return authService.logout();
+    }
 }

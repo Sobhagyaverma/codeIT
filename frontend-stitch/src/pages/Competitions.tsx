@@ -15,35 +15,11 @@ import type {
 import {
   ApiError,
   getAllCompetitions,
-  getCompetitionParticipants,
-  getCompetitionProblems,
   getMyContestHistory,
   joinCompetition,
 } from "../lib/api";
 
 type StatusFilter = "ALL" | "LIVE" | "UPCOMING" | "PAST";
-
-const ENRICH_CONCURRENCY = 4;
-
-async function mapPool<T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let next = 0;
-  async function run() {
-    while (next < items.length) {
-      const index = next;
-      next += 1;
-      results[index] = await worker(items[index]);
-    }
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => run())
-  );
-  return results;
-}
 
 function Chip({ children }: { children: ReactNode }) {
   return (
@@ -84,31 +60,7 @@ export default function Competitions() {
         user ? getMyContestHistory().catch(() => []) : Promise.resolve([]),
       ]);
 
-      const countsEntries = await mapPool(
-        competitions,
-        ENRICH_CONCURRENCY,
-        async (competition) => {
-          const [problems, participants] = await Promise.all([
-            getCompetitionProblems(competition.id).catch(() => null),
-            getCompetitionParticipants(competition.id).catch(() => null),
-          ]);
-          return [
-            competition.id,
-            {
-              problemCount: problems?.length ?? null,
-              participantCount: participants?.length ?? null,
-            },
-          ] as const;
-        }
-      );
-
-      setData(
-        buildContestDashboard(
-          competitions,
-          Object.fromEntries(countsEntries),
-          history
-        )
-      );
+      setData(buildContestDashboard(competitions, {}, history));
     } catch (err) {
       setError(
         err instanceof ApiError

@@ -50,7 +50,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = header.substring(7);
 
         try {
-            if (jwtService.isValid(token)
+            if (jwtService.isSessionToken(token)
                     && SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 Integer userId = jwtService.extractUserId(token);
@@ -62,11 +62,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     return;
                 }
 
+                // Role from DB so demotion takes effect without waiting for JWT expiry
+                String role = userRepository.getUserById(userId)
+                        .map(u -> u.getRole() != null ? u.getRole() : "USER")
+                        .orElse(null);
+                if (role == null) {
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 AuthUserPrincipal principal = new AuthUserPrincipal(
                         userId,
                         jwtService.extractEmail(token),
                         null,
-                        jwtService.extractRole(token));
+                        role);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(

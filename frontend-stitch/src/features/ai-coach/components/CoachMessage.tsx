@@ -5,21 +5,43 @@ interface Props {
   content: string;
 }
 
+function safeHref(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  const trimmed = href.trim();
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.startsWith("https://") ||
+    lower.startsWith("http://") ||
+    lower.startsWith("mailto:") ||
+    lower.startsWith("/")
+  ) {
+    return trimmed;
+  }
+  return undefined;
+}
+
 export default function CoachMessage({ content }: Props) {
   return (
     <div className="prose-coach text-sm leading-relaxed text-on-surface">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              className="text-secondary underline underline-offset-2"
-              rel="noreferrer"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ href, children }) => {
+            const safe = safeHref(href);
+            if (!safe) {
+              return <span>{children}</span>;
+            }
+            return (
+              <a
+                href={safe}
+                className="text-secondary underline underline-offset-2"
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                {children}
+              </a>
+            );
+          },
           code: ({ children, className }) => {
             const inline = !className;
             if (inline) {

@@ -1,8 +1,9 @@
 package com.codeit.config;
 
-import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -37,18 +38,24 @@ public class SecurityConfig {
         private final RegisterRateLimitFilter registerRateLimitFilter;
         private final ProblemsReadRateLimitFilter problemsReadRateLimitFilter;
         private final AdminWriteRateLimitFilter adminWriteRateLimitFilter;
+        private final List<String> allowedOrigins;
 
         public SecurityConfig(
                         JwtAuthFilter jwtAuthFilter,
                         LoginRateLimitFilter loginRateLimitFilter,
                         RegisterRateLimitFilter registerRateLimitFilter,
                         ProblemsReadRateLimitFilter problemsReadRateLimitFilter,
-                        AdminWriteRateLimitFilter adminWriteRateLimitFilter) {
+                        AdminWriteRateLimitFilter adminWriteRateLimitFilter,
+                        @Value("${codeit.cors.allowed-origins}") String corsAllowedOrigins) {
                 this.jwtAuthFilter = jwtAuthFilter;
                 this.loginRateLimitFilter = loginRateLimitFilter;
                 this.registerRateLimitFilter = registerRateLimitFilter;
                 this.problemsReadRateLimitFilter = problemsReadRateLimitFilter;
                 this.adminWriteRateLimitFilter = adminWriteRateLimitFilter;
+                this.allowedOrigins = Arrays.stream(corsAllowedOrigins.split(","))
+                                .map(String::trim)
+                                .filter(s -> !s.isEmpty())
+                                .toList();
         }
 
         @Bean
@@ -59,13 +66,7 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(List.of(
-                                "http://localhost:5173",
-                                "http://127.0.0.1:5173",
-                                "http://localhost:5174",
-                                "http://127.0.0.1:5174",
-                                "http://localhost:5175",
-                                "http://127.0.0.1:5175"));
+                config.setAllowedOrigins(allowedOrigins);
                 config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                 config.setAllowedHeaders(List.of("*"));
                 config.setExposedHeaders(List.of(
@@ -153,7 +154,7 @@ public class SecurityConfig {
                         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                         response.getOutputStream().write(
                                         "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}"
-                                                        .getBytes(StandardCharsets.UTF_8));
+                                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 };
         }
 
@@ -163,7 +164,7 @@ public class SecurityConfig {
                         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                         response.getOutputStream().write(
                                         "{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access denied\"}"
-                                                        .getBytes(StandardCharsets.UTF_8));
+                                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 };
         }
 }

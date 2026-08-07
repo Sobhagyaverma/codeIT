@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.codeit.modules.auth.SecurityUtils;
 import com.codeit.modules.competition.dto.ContestSessionEvent;
@@ -105,6 +107,18 @@ public class CompetitionService {
         if (getCompetitionById(competitionId) == null) {
             throw new RuntimeException("Competition not found");
         }
+        Integer userId = SecurityUtils.currentUserId();
+        Integer joined = competitionRepository.alreadyJoined(competitionId, userId);
+        if ((joined == null || joined == 0) && !SecurityUtils.isAdmin()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Join the competition to view its problems");
+        }
+        Competition competition = getCompetitionById(competitionId);
+        CompetitionStatus status = CompetitionStatusResolver.resolve(competition);
+        if (status != CompetitionStatus.ACTIVE && !SecurityUtils.isAdmin()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Problems are available only while the competition is active");
+        }
         return competitionRepository.getCompetitionProblems(competitionId);
     }
 
@@ -127,13 +141,23 @@ public class CompetitionService {
         if (count > 0) {
             return "User already joined";
         }
-        competitionRepository.joinCompetition(competitionId, userID);
+        try {
+            competitionRepository.joinCompetition(competitionId, userID);
+        } catch (org.springframework.dao.DuplicateKeyException ex) {
+            return "User already joined";
+        }
         return "joined successfully";
     }
 
     public List<Integer> getParticipants(Integer competitionId) {
         if (getCompetitionById(competitionId) == null) {
             throw new RuntimeException("Competition not found");
+        }
+        Integer userId = SecurityUtils.currentUserId();
+        Integer joined = competitionRepository.alreadyJoined(competitionId, userId);
+        if ((joined == null || joined == 0) && !SecurityUtils.isAdmin()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Join the competition to view participants");
         }
         return competitionRepository.getParticipants(competitionId);
     }
@@ -259,6 +283,12 @@ public class CompetitionService {
         if (isSessionExpired(competition, participant)) {
             competitionRepository.endSession(competitionId, userId);
             throw new RuntimeException("Your competition time has ended");
+        }
+
+        List<Integer> contestProblems = competitionRepository.getCompetitionProblems(competitionId);
+        if (request.getProblemId() == null || !contestProblems.contains(request.getProblemId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Problem is not part of this competition");
         }
 
         Submission submission = new Submission();

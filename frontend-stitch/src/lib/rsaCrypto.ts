@@ -1,8 +1,8 @@
 import { getAuthToken } from "./authStorage";
+import { resolveApiBase } from "./runtimeConfig";
 
-/** Empty = same-origin Vite proxy → Spring Boot */
-const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") || "";
+/** Empty = same-origin (Vite proxy in dev, Nginx in prod). */
+const API_BASE = resolveApiBase();
 
 export type PublicKeyResponse = {
   keyId: string;

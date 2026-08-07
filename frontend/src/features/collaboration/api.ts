@@ -15,8 +15,9 @@ export const createRoom = (data: CreateRoomPayload) =>
   });
 
 export const joinRoom = (inviteToken: string) =>
-  request<Room>(`/api/rooms/join/${encodeURIComponent(inviteToken)}`, {
+  request<Room>("/api/rooms/join", {
     method: "POST",
+    body: JSON.stringify({ inviteToken }),
   });
 
 export const endRoom = (roomId: string) =>

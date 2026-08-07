@@ -65,6 +65,7 @@ public class CollaborationService {
     private final CollaborationLimitsProperties collaborationLimits;
     private final RoomPresenceTracker presenceTracker;
     private final RoomExecutionGate roomExecutionGate;
+    private final SyncAccessRevoker syncAccessRevoker;
 
     public CollaborationService(
             RoomRepository roomRepository,
@@ -80,7 +81,8 @@ public class CollaborationService {
             RoomRestRateLimiter roomRestRateLimiter,
             CollaborationLimitsProperties collaborationLimits,
             RoomPresenceTracker presenceTracker,
-            RoomExecutionGate roomExecutionGate) {
+            RoomExecutionGate roomExecutionGate,
+            SyncAccessRevoker syncAccessRevoker) {
         this.roomRepository = roomRepository;
         this.roomMemberRepository = roomMemberRepository;
         this.roomMessageRepository = roomMessageRepository;
@@ -95,6 +97,7 @@ public class CollaborationService {
         this.collaborationLimits = collaborationLimits;
         this.presenceTracker = presenceTracker;
         this.roomExecutionGate = roomExecutionGate;
+        this.syncAccessRevoker = syncAccessRevoker;
     }
 
     @Transactional
@@ -137,7 +140,7 @@ public class CollaborationService {
                             || (existing.getProblemId() != null
                                     && existing.getProblemId().equals(problemId));
             if (sameType && sameProblem) {
-                return toRoomResponse(existing);
+                return toRoomResponse(existing, hostUserId);
             }
             roomRepository.archiveAllActiveByHostUserId(hostUserId);
         }
@@ -171,7 +174,7 @@ public class CollaborationService {
         host.setRole(RoomRole.HOST.name());
         roomMemberRepository.insert(host);
 
-        return toRoomResponse(room);
+        return toRoomResponse(room, hostUserId);
     }
 
     @Transactional
@@ -180,8 +183,13 @@ public class CollaborationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "inviteToken is required");
         }
 
-        Room room = roomRepository
+        Room found = roomRepository
                 .findByInviteToken(inviteToken.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
+
+        // Capacity-safe join under concurrency
+        final Room room = roomRepository
+                .lockById(found.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
 
         if (!RoomStatus.ACTIVE.name().equals(room.getStatus())) {
@@ -194,7 +202,7 @@ public class CollaborationService {
         // Already a member of this room — just refresh presence timestamp
         if (roomMemberRepository.exists(room.getId(), userId)) {
             roomMemberRepository.updateLastSeen(room.getId(), userId);
-            return toRoomResponse(room);
+            return toRoomResponse(room, userId);
         }
 
         // Cannot join another room while hosting an active one
@@ -224,12 +232,11 @@ public class CollaborationService {
         roomMemberRepository.insert(member);
 
         roomMemberRepository.updateLastSeen(room.getId(), userId);
-        return toRoomResponse(room);
+        return toRoomResponse(room, userId);
     }
 
     /**
-     * Host ends (archives) the room. Members are cleared; sync tokens stop working
-     * because createSyncToken requires ACTIVE status.
+     * Host ends (archives) the room. Members are cleared; sync access is revoked immediately.
      */
     @Transactional
     public RoomResponse endRoom(Integer actorUserId, UUID roomId) {
@@ -241,7 +248,9 @@ public class CollaborationService {
         room.setStatus(RoomStatus.ARCHIVED.name());
 
         eventPublisher.publishRoomEnded(roomId, actorUserId);
-        return toRoomResponse(room);
+        presenceTracker.clearRoom(roomId);
+        syncAccessRevoker.revokeRoom(roomId);
+        return toRoomResponse(room, actorUserId);
     }
 
     /**
@@ -261,14 +270,16 @@ public class CollaborationService {
         }
 
         roomMemberRepository.delete(roomId, userId);
-        return toRoomResponse(room);
+        presenceTracker.clearUser(roomId, userId);
+        syncAccessRevoker.revokeUser(roomId, userId);
+        return toRoomResponse(room, userId);
     }
 
     public RoomResponse getRoom(Integer userId, UUID roomId) {
         Room room = requireRoom(roomId);
         requireMember(roomId, userId);
         roomMemberRepository.updateLastSeen(roomId, userId);
-        return toRoomResponse(room);
+        return toRoomResponse(room, userId);
     }
 
     public List<RoomSummaryResponse> listMyRooms(
@@ -328,7 +339,11 @@ public class CollaborationService {
         }
 
         roomMemberRepository.updateRole(roomId, targetUserId, role.name());
-        return toRoomResponse(room);
+        if (role == RoomRole.VIEWER) {
+            // Force reconnect with canEdit=false; drop existing write-capable sockets.
+            syncAccessRevoker.revokeUser(roomId, targetUserId);
+        }
+        return toRoomResponse(room, actorUserId);
     }
 
     @Transactional
@@ -342,7 +357,9 @@ public class CollaborationService {
 
         requireMember(roomId, targetUserId);
         roomMemberRepository.delete(roomId, targetUserId);
-        return toRoomResponse(room);
+        presenceTracker.clearUser(roomId, targetUserId);
+        syncAccessRevoker.revokeUser(roomId, targetUserId);
+        return toRoomResponse(room, actorUserId);
     }
 
     @Transactional
@@ -362,7 +379,7 @@ public class CollaborationService {
         roomRepository.updateHost(roomId, newHostUserId);
 
         room.setHostUserId(newHostUserId);
-        return toRoomResponse(room);
+        return toRoomResponse(room, actorUserId);
     }
 
     @Transactional
@@ -374,7 +391,7 @@ public class CollaborationService {
         roomRepository.updateHostNote(roomId, normalized);
         room.setHostNote(normalized);
         room.setUpdatedAt(new java.sql.Timestamp(System.currentTimeMillis()));
-        return toRoomResponse(room);
+        return toRoomResponse(room, actorUserId);
     }
 
     @Transactional
@@ -398,7 +415,7 @@ public class CollaborationService {
         roomRepository.updateWorkspace(roomId, ws.name());
         room.setActiveWorkspace(ws.name());
         eventPublisher.publishWorkspace(roomId, ws.name());
-        return toRoomResponse(room);
+        return toRoomResponse(room, actorUserId);
     }
 
     public List<RoomMessageResponse> getMessages(Integer userId, UUID roomId, int limit) {
@@ -433,14 +450,20 @@ public class CollaborationService {
     public SyncTokenResponse createSyncToken(Integer userId, UUID roomId) {
         roomRestRateLimiter.checkSyncToken(userId);
         requireActiveRoom(roomId);
-        requireMember(roomId, userId);
+        RoomMember member = roomMemberRepository
+                .findByRoomIdAndUserId(roomId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a room member"));
 
         String email = userRepository
                 .getUserById(userId)
                 .map(User::getEmail)
                 .orElse(String.valueOf(userId));
 
-        String token = jwtService.generateSyncToken(userId, email, roomId);
+        String roomRole = member.getRole() != null ? member.getRole() : RoomRole.VIEWER.name();
+        boolean canEdit = RoomRole.HOST.name().equals(roomRole)
+                || RoomRole.EDITOR.name().equals(roomRole);
+
+        String token = jwtService.generateSyncToken(userId, email, roomId, roomRole, canEdit);
         SyncTokenResponse response = new SyncTokenResponse();
         response.setToken(token);
         response.setExpiresInMs(jwtService.getSyncTokenTtlMs());
@@ -589,13 +612,16 @@ public class CollaborationService {
                 .orElse("user-" + userId);
     }
 
-    private RoomResponse toRoomResponse(Room room) {
+    private RoomResponse toRoomResponse(Room room, Integer viewerUserId) {
         RoomResponse response = new RoomResponse();
         response.setId(room.getId());
         response.setType(room.getType());
         response.setProblemId(room.getProblemId());
         response.setHostUserId(room.getHostUserId());
-        response.setInviteToken(room.getInviteToken());
+        // Invite secrets only for the host — not every member / log scrapes of API bodies
+        boolean viewerIsHost =
+                viewerUserId != null && viewerUserId.equals(room.getHostUserId());
+        response.setInviteToken(viewerIsHost ? room.getInviteToken() : null);
         response.setActiveWorkspace(room.getActiveWorkspace());
         response.setLanguage(room.getLanguage());
         response.setStatus(room.getStatus());
@@ -633,7 +659,8 @@ public class CollaborationService {
         response.setLanguage(row.getLanguage());
         response.setStatus(row.getStatus());
         response.setActiveWorkspace(row.getActiveWorkspace());
-        response.setInviteToken(row.getInviteToken());
+        response.setInviteToken(
+                RoomRole.HOST.name().equals(row.getRole()) ? row.getInviteToken() : null);
         response.setRole(row.getRole());
         response.setJoinedAt(row.getJoinedAt());
         response.setLastSeenAt(row.getLastSeenAt());

@@ -1,7 +1,9 @@
 package com.codeit.modules.competition;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +30,10 @@ public class CompetitionStatusScheduler {
     public void syncStatuses() {
         List<Competition> competitions = competitionRepository.getAllCompetitions();
         boolean statusChanged = false;
+        Set<Integer> seen = new HashSet<>(Math.max(16, competitions.size() * 2));
 
         for (Competition competition : competitions) {
+            seen.add(competition.getId());
             CompetitionStatus current = CompetitionStatusResolver.resolve(competition);
             CompetitionStatus previous = lastKnownStatus.get(competition.getId());
 
@@ -41,6 +45,7 @@ public class CompetitionStatusScheduler {
             }
             lastKnownStatus.put(competition.getId(), current);
         }
+        lastKnownStatus.keySet().removeIf(id -> !seen.contains(id));
 
         if (statusChanged) {
             competitionCacheService.invalidateAll();

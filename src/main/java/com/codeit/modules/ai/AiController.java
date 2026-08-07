@@ -33,49 +33,49 @@ public class AiController {
     }
 
     @PostMapping("/explain")
-    public AiCoachResponse explain(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse explain(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.EXPLAIN_PROBLEM);
         return coach(request);
     }
 
     @PostMapping("/constraints")
-    public AiCoachResponse constraints(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse constraints(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.EXPLAIN_CONSTRAINTS);
         return coach(request);
     }
 
     @PostMapping("/chat")
-    public AiCoachResponse chat(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse chat(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.ASK_AI);
         return coach(request);
     }
 
     @PostMapping("/hints")
-    public AiCoachResponse hints(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse hints(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.REQUEST_HINT);
         return coach(request);
     }
 
     @PostMapping("/analyze")
-    public AiCoachResponse analyze(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse analyze(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.ANALYZE_CODE);
         return coach(request);
     }
 
     @PostMapping("/analyze-failure")
-    public AiCoachResponse analyzeFailure(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse analyzeFailure(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.ANALYZE_FAILURE);
         return coach(request);
     }
 
     @PostMapping("/review")
-    public AiCoachResponse review(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse review(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.REVIEW_ACCEPTED);
         return coach(request);
     }
 
     @PostMapping("/editorial")
-    public AiCoachResponse editorial(@RequestBody AiCoachRequest request) {
+    public AiCoachResponse editorial(@Valid @RequestBody AiCoachRequest request) {
         request.setAction(AiAction.EXPLAIN_EDITORIAL);
         return coach(request);
     }

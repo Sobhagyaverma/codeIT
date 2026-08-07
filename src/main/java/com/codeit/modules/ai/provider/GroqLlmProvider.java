@@ -23,16 +23,19 @@ public class GroqLlmProvider implements LlmProvider {
     private final String baseUrl;
     private final String apiKey;
     private final String model;
+    private final int maxTokens;
 
     public GroqLlmProvider(
             @Qualifier("aiRestTemplate") RestTemplate restTemplate,
             @Value("${codeit.ai.groq.base-url}") String baseUrl,
             @Value("${codeit.ai.groq.api-key}") String apiKey,
-            @Value("${codeit.ai.groq.model}") String model) {
+            @Value("${codeit.ai.groq.model}") String model,
+            @Value("${codeit.ai.groq.max-tokens:1024}") int maxTokens) {
         this.restTemplate = restTemplate;
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
         this.model = model;
+        this.maxTokens = Math.max(64, maxTokens);
     }
 
     @Override
@@ -47,7 +50,8 @@ public class GroqLlmProvider implements LlmProvider {
                 model,
                 List.of(
                         new ChatMessage("system", systemPrompt),
-                        new ChatMessage("user", userPrompt)));
+                        new ChatMessage("user", userPrompt)),
+                maxTokens);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

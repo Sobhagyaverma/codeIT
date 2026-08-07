@@ -1,7 +1,11 @@
-const SYNC_WS_BASE =
-  (import.meta.env.VITE_SYNC_WS_URL as string | undefined) ??
-  "ws://localhost:1234";
+import { resolveSyncWsUrl } from "../../lib/runtimeConfig";
 
+const SYNC_WS_BASE = resolveSyncWsUrl();
+
+/**
+ * Prefer Sec-WebSocket-Protocol bearer.<jwt> so tokens stay out of query strings.
+ * Falls back to ?token= for older proxies; sync-server accepts both.
+ */
 export function buildSyncProviderUrl(
   docName: string,
   syncToken: string
@@ -9,11 +13,14 @@ export function buildSyncProviderUrl(
   serverUrl: string;
   roomName: string;
   params: Record<string, string>;
+  protocols?: string[];
 } {
   return {
     serverUrl: SYNC_WS_BASE.replace(/\/$/, ""),
     roomName: docName,
+    // Query token is fallback when intermediaries strip Sec-WebSocket-Protocol.
     params: { token: syncToken },
+    protocols: [`bearer.${syncToken}`],
   };
 }
 
