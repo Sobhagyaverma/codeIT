@@ -1,14 +1,39 @@
-import type { User } from "./types";
+export type User = {
+  id: number;
+  name: string;
+  uniqueUserId: string;
+  email: string;
+  role: "USER" | "ADMIN";
+  token?: string;
+};
 
-export const AUTH_USER_KEY = "codeit.user";
-export const AUTH_TOKEN_KEY = "token";
-export const AUTH_PERSIST_KEY = "codeit.auth.persist";
+export type ProblemPublicDTO = {
+  id: number;
+  title: string;
+  description: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD" | string;
+  topics: string[] | string;
+  examples?: unknown;
+  constraintsData?: string;
+};
+
+export type Submission = {
+  id?: number;
+  userId?: number;
+  problemId: number;
+  verdict?: string;
+  createdAt?: string;
+};
 
 export type AuthSession = {
   user: User;
   token: string;
   expiresAt: number;
 };
+
+export const AUTH_USER_KEY = "codeit.stitch.user";
+export const AUTH_TOKEN_KEY = "codeit.stitch.token";
+export const AUTH_PERSIST_KEY = "codeit.stitch.auth.persist";
 
 function readPersistPreference(): boolean {
   const raw = localStorage.getItem(AUTH_PERSIST_KEY);
@@ -17,8 +42,7 @@ function readPersistPreference(): boolean {
 }
 
 export function getAuthStorage(persist?: boolean): Storage {
-  const shouldPersist = persist ?? readPersistPreference();
-  return shouldPersist ? localStorage : sessionStorage;
+  return (persist ?? readPersistPreference()) ? localStorage : sessionStorage;
 }
 
 export function setAuthPersistPreference(persist: boolean) {
@@ -45,55 +69,39 @@ export function saveAuthSession(session: AuthSession, persist: boolean) {
 }
 
 export function loadAuthSession(): AuthSession | null {
-  const candidates: Storage[] = [localStorage, sessionStorage];
-
-  for (const storage of candidates) {
+  for (const storage of [localStorage, sessionStorage]) {
     const raw = storage.getItem(AUTH_USER_KEY);
     if (!raw) continue;
-
     try {
-      const parsed = JSON.parse(raw) as AuthSession | User;
+      const parsed = JSON.parse(raw) as AuthSession;
       const token =
-        "token" in parsed && typeof parsed.token === "string"
+        typeof parsed.token === "string"
           ? parsed.token
           : storage.getItem(AUTH_TOKEN_KEY);
-
-      if (!token) {
+      if (!token || !parsed.user) {
         storage.removeItem(AUTH_USER_KEY);
         continue;
       }
-
       const expiresAt =
-        "expiresAt" in parsed && typeof parsed.expiresAt === "number"
+        typeof parsed.expiresAt === "number"
           ? parsed.expiresAt
           : Date.now() + 24 * 60 * 60 * 1000;
-
       if (expiresAt <= Date.now()) {
         storage.removeItem(AUTH_USER_KEY);
         storage.removeItem(AUTH_TOKEN_KEY);
         continue;
       }
-
-      const user: User =
-        "user" in parsed && parsed.user
-          ? (parsed.user as User)
-          : (parsed as User);
-
-      const session: AuthSession = {
-        user: { ...user, token },
+      setAuthPersistPreference(storage === localStorage);
+      return {
+        user: { ...parsed.user, token },
         token,
         expiresAt,
       };
-
-      // Keep preference aligned with where we found the session.
-      setAuthPersistPreference(storage === localStorage);
-      return session;
     } catch {
       storage.removeItem(AUTH_USER_KEY);
       storage.removeItem(AUTH_TOKEN_KEY);
     }
   }
-
   return null;
 }
 

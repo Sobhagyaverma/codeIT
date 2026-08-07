@@ -23,6 +23,7 @@ export interface CoachTool {
   action: AiAction;
   label: string;
   description: string;
+  icon: string;
   requiresCode?: boolean;
   requiresFailed?: boolean;
   requiresAccepted?: boolean;
@@ -35,30 +36,35 @@ export const COACH_TOOLS: CoachTool[] = [
     action: "ASK_AI",
     label: "Ask AI",
     description: "Ask a conceptual question about this problem.",
+    icon: "chat",
   },
   {
     id: "explain",
     action: "EXPLAIN_PROBLEM",
     label: "Explain Problem",
     description: "Beginner-friendly restatement. No algorithm spoilers.",
+    icon: "menu_book",
   },
   {
     id: "constraints",
     action: "EXPLAIN_CONSTRAINTS",
     label: "Explain Constraints",
     description: "Edge cases, complexity bounds, and observations.",
+    icon: "rule",
   },
   {
     id: "hints",
     action: "REQUEST_HINT",
     label: "I'm Stuck",
     description: "Progressive hints — unlock levels voluntarily.",
+    icon: "lightbulb",
   },
   {
     id: "analyze",
     action: "ANALYZE_CODE",
     label: "Analyze My Code",
     description: "Logic review without rewriting your solution.",
+    icon: "code",
     requiresCode: true,
   },
   {
@@ -66,6 +72,7 @@ export const COACH_TOOLS: CoachTool[] = [
     action: "ANALYZE_FAILURE",
     label: "Why Did My Submission Fail?",
     description: "Explain a failed practice submission safely.",
+    icon: "bug_report",
     requiresFailed: true,
   },
   {
@@ -73,6 +80,7 @@ export const COACH_TOOLS: CoachTool[] = [
     action: "REVIEW_ACCEPTED",
     label: "Review Accepted Solution",
     description: "Complexity, strengths, and interview notes.",
+    icon: "rate_review",
     requiresAccepted: true,
   },
   {
@@ -80,6 +88,7 @@ export const COACH_TOOLS: CoachTool[] = [
     action: "EXPLAIN_EDITORIAL",
     label: "Explain Official Solution",
     description: "Available after hint level 3 or Accepted.",
+    icon: "school",
     requiresEditorialGate: true,
   },
 ];

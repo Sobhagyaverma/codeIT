@@ -1,18 +1,50 @@
 # CodeIT production deploy (Docker Compose + Nginx + Cloudflare)
 
+## Profile / properties (homelab VM)
+
+| Layer | What to use |
+| --- | --- |
+| Spring profile | **`prod`** (`SPRING_PROFILES_ACTIVE=prod` — set by Compose) |
+| Property files | `application.properties` + `application-prod.properties` |
+| Do **not** use | `local` profile / `application-local.properties` (dev-only, gitignored) |
+
+All secrets and host-specific values come from **environment** / root `.env` (datasource, Redis, JWT, OTP pepper, Turnstile, CORS, public URL, Judge0 URL, mail). Never commit real secrets.
+
+### Homelab layout (typical)
+
+| Dependency | Where |
+| --- | --- |
+| Postgres | **Supabase** (not compose `postgres`) |
+| Redis | **CodeIT compose `redis`** (not Judge0’s Redis) |
+| Judge0 | Same host: `JUDGE0_API_URL=http://host.docker.internal:2358` |
+| API / sync / nginx / UI | This Compose stack |
+
 ## Services
 
 | Service | Role |
 | --- | --- |
-| `nginx` | Static Stitch UI + reverse proxy `/api`, `/ws`, `/sync` |
+| `nginx` | Static UI (`frontend/`) + reverse proxy `/api`, `/ws`, `/sync` |
 | `api` | Spring Boot (prod profile) |
 | `sync` | Yjs sync-server |
-| `postgres` | Database (init from `schema/schema.sql`, then Flyway) |
+| `postgres` | Optional local DB (skipped with Supabase override) |
 | `redis` | Rate limits / OTP / cache |
 
 Judge0 is **not** in Compose — set `JUDGE0_API_URL` to your homelab.
 
 ## Quick start
+
+### A) Homelab + Supabase (recommended on the VM)
+
+```bash
+cp .env.example .env
+# Required: SPRING_DATASOURCE_URL/USERNAME/PASSWORD (Supabase pooler),
+# REDIS_PASSWORD, CODEIT_JWT_SECRET, CODEIT_OTP_PEPPER, SYNC_INTERNAL_SECRET,
+# TURNSTILE_*, CODEIT_CORS_ORIGINS, CODEIT_PUBLIC_BASE_URL, JUDGE0_API_URL
+
+docker compose -f docker-compose.yml -f docker-compose.supabase.yml up -d --build
+```
+
+### B) Full stack with local Postgres
 
 ```bash
 cp .env.example .env

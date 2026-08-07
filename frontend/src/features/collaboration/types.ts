@@ -43,14 +43,6 @@ export type SyncToken = {
   whiteboardDocName: string;
 };
 
-export type PresenceEvent = {
-  type: "JOINED" | "LEFT" | "SNAPSHOT";
-  roomId: string;
-  userId: number;
-  username: string;
-  onlineUserIds: number[];
-};
-
 export type CreateRoomPayload = {
   type: RoomType;
   problemId?: number | null;
@@ -61,6 +53,7 @@ export type CreateRoomPayload = {
 export type RoomSummary = {
   id: string;
   type: RoomType;
+  problemId?: number | null;
   language: string;
   status: RoomStatus;
   activeWorkspace: WorkspaceType;

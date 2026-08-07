@@ -1,4 +1,4 @@
-import type { RunResult } from "./types";
+import type { RunResult } from "./api";
 
 export type RunVerdictKind =
   | "Accepted"
@@ -9,7 +9,6 @@ export type RunVerdictKind =
   | "Memory Limit Exceeded"
   | "Internal Error";
 
-/** Judge0 status id → verdict kind. */
 const STATUS_BY_ID: Record<number, RunVerdictKind> = {
   3: "Accepted",
   4: "Wrong Answer",
@@ -62,7 +61,9 @@ export function mapJudgeStatus(result: RunResult): RunVerdictKind {
   return "Internal Error";
 }
 
-export function parseTimeSeconds(time: string | number | undefined): number | undefined {
+export function parseTimeSeconds(
+  time: string | number | undefined
+): number | undefined {
   if (time === undefined || time === null || time === "") return undefined;
   const n = typeof time === "number" ? time : Number.parseFloat(time);
   return Number.isFinite(n) ? n : undefined;

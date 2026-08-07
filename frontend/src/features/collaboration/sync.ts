@@ -1,16 +1,26 @@
-const SYNC_WS_BASE =
-  (import.meta.env.VITE_SYNC_WS_URL as string | undefined) ??
-  "ws://localhost:1234";
+import { resolveSyncWsUrl } from "../../lib/runtimeConfig";
 
-export function buildSyncProviderUrl(docName: string, syncToken: string): {
+const SYNC_WS_BASE = resolveSyncWsUrl();
+
+/**
+ * Prefer Sec-WebSocket-Protocol bearer.<jwt> so tokens stay out of query strings.
+ * Falls back to ?token= for older proxies; sync-server accepts both.
+ */
+export function buildSyncProviderUrl(
+  docName: string,
+  syncToken: string
+): {
   serverUrl: string;
   roomName: string;
   params: Record<string, string>;
+  protocols?: string[];
 } {
   return {
     serverUrl: SYNC_WS_BASE.replace(/\/$/, ""),
     roomName: docName,
+    // Query token is fallback when intermediaries strip Sec-WebSocket-Protocol.
     params: { token: syncToken },
+    protocols: [`bearer.${syncToken}`],
   };
 }
 
@@ -21,10 +31,12 @@ export type LocalCodePayload = {
   savedAt?: number;
 };
 
+const codeKey = (roomId: string) => `codeit.stitch:room:${roomId}:code`;
+
 export function persistLocalCode(roomId: string, payload: LocalCodePayload) {
   try {
     localStorage.setItem(
-      `codeit:room:${roomId}:code`,
+      codeKey(roomId),
       JSON.stringify({ ...payload, savedAt: Date.now() })
     );
   } catch {
@@ -34,7 +46,7 @@ export function persistLocalCode(roomId: string, payload: LocalCodePayload) {
 
 export function loadLocalCode(roomId: string): LocalCodePayload | null {
   try {
-    const raw = localStorage.getItem(`codeit:room:${roomId}:code`);
+    const raw = localStorage.getItem(codeKey(roomId));
     if (!raw) return null;
     return JSON.parse(raw) as LocalCodePayload;
   } catch {
@@ -42,71 +54,33 @@ export function loadLocalCode(roomId: string): LocalCodePayload | null {
   }
 }
 
-export function persistLocalWorkspace(roomId: string, workspace: string) {
+export type CanvasStroke = {
+  id: string;
+  points: Array<{ x: number; y: number }>;
+  width: number;
+  color: string;
+  erase: boolean;
+};
+
+const boardKey = (roomId: string) => `codeit.stitch:room:${roomId}:wb`;
+
+export function persistLocalStrokes(roomId: string, strokes: CanvasStroke[]) {
   try {
-    sessionStorage.setItem(`codeit:room:${roomId}:workspace`, workspace);
+    localStorage.setItem(
+      boardKey(roomId),
+      JSON.stringify({ strokes, savedAt: Date.now() })
+    );
   } catch {
     /* ignore */
   }
 }
 
-export function loadLocalWorkspace(roomId: string): string | null {
+export function loadLocalStrokes(roomId: string): CanvasStroke[] | null {
   try {
-    return sessionStorage.getItem(`codeit:room:${roomId}:workspace`);
-  } catch {
-    return null;
-  }
-}
-
-const IDB_NAME = "codeit-whiteboard";
-const IDB_STORE = "boards";
-const idbKey = (roomId: string) => `codeit:room:${roomId}:wb`;
-
-function openWhiteboardDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        db.createObjectStore(IDB_STORE);
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error("IndexedDB open failed"));
-  });
-}
-
-export async function persistLocalWhiteboard(
-  roomId: string,
-  scene: unknown
-): Promise<void> {
-  try {
-    const db = await openWhiteboardDb();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, "readwrite");
-      tx.objectStore(IDB_STORE).put(scene, idbKey(roomId));
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error("IndexedDB write failed"));
-    });
-    db.close();
-  } catch {
-    /* ignore */
-  }
-}
-
-export async function loadLocalWhiteboard(
-  roomId: string
-): Promise<unknown | null> {
-  try {
-    const db = await openWhiteboardDb();
-    const value = await new Promise<unknown | null>((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, "readonly");
-      const req = tx.objectStore(IDB_STORE).get(idbKey(roomId));
-      req.onsuccess = () => resolve(req.result ?? null);
-      req.onerror = () => reject(req.error ?? new Error("IndexedDB read failed"));
-    });
-    db.close();
-    return value;
+    const raw = localStorage.getItem(boardKey(roomId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { strokes?: CanvasStroke[] };
+    return Array.isArray(parsed.strokes) ? parsed.strokes : null;
   } catch {
     return null;
   }

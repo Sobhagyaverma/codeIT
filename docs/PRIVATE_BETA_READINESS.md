@@ -47,7 +47,7 @@ CODEIT_INVITE_PEPPER=...               # optional; falls back to OTP pepper
 ## Build
 
 - `./mvnw -DskipTests compile` — OK
-- `frontend-stitch` `npm run build` — OK
+- `frontend` `npm run build` — OK
 
 ## Residual / follow-ups
 

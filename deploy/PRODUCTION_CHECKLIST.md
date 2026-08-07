@@ -4,7 +4,7 @@ Use with `docker compose` (see [README.md](./README.md) and root `.env.example`)
 
 ## Server
 
-- [ ] Ubuntu 22.04+ VPS, **2 vCPU / 4 GB RAM** recommended (2 GB absolute minimum with Judge0 off-box)
+- [ ] Ubuntu 22.04+ VPS / homelab VM, **2 vCPU / 4 GB RAM** recommended (2 GB absolute minimum with Judge0 off-box)
 - [ ] Docker + Docker Compose plugin installed
 - [ ] Firewall: allow **80/443** (Cloudflare), **22** (your IP only); block public **5432/6379/9091/1234/2358**
 - [ ] Optional: UFW + Fail2Ban on SSH
@@ -17,28 +17,38 @@ Use with `docker compose` (see [README.md](./README.md) and root `.env.example`)
 
 ## Secrets (`.env`)
 
-- [ ] `POSTGRES_PASSWORD` strong, not `ROOT`
-- [ ] `REDIS_PASSWORD` set (compose requires AUTH)
+- [ ] **Supabase path:** `SPRING_DATASOURCE_URL` / `USERNAME` / `PASSWORD` (pooler + `sslmode=require`); use `docker-compose.supabase.yml`
+- [ ] **Local Postgres path:** `POSTGRES_PASSWORD` strong, not `ROOT`
+- [ ] `REDIS_PASSWORD` set (CodeIT compose Redis AUTH — not Judge0 Redis)
 - [ ] `CODEIT_JWT_SECRET` ≥ 32 chars, unique
 - [ ] `CODEIT_OTP_PEPPER` ≥ 16 chars, unique
 - [ ] `SYNC_INTERNAL_SECRET` set (API→sync revoke on kick/leave/archive)
 - [ ] `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` (prod captcha required)
 - [ ] `CODEIT_CORS_ORIGINS=https://your.domain`
-- [ ] `JUDGE0_API_URL` reachable **only** from API host (homelab LAN/VPN). **Never** publish `:2358` publicly or via Cloudflare.
-- [ ] Optional: `GROQ_API_KEY`, Brevo mail vars
+- [ ] `CODEIT_PUBLIC_BASE_URL=https://your.domain` (invite / email links)
+- [ ] `CODEIT_REGISTRATION_MODE` (`INVITE_ONLY` default, or `OPEN` / `COLLEGE_ONLY`)
+- [ ] `JUDGE0_API_URL` reachable **only** from API host (e.g. `http://host.docker.internal:2358`). **Never** publish `:2358` publicly or via Cloudflare.
+- [ ] Optional: `GROQ_API_KEY`, Brevo mail vars (`CODEIT_MAIL_*`, `SPRING_MAIL_USERNAME`, `BREVO_SMTP_KEY`)
 
 ## Boot
 
 ```bash
 cp .env.example .env   # fill values
-docker compose up -d --build
+
+# Homelab + Supabase:
+docker compose -f docker-compose.yml -f docker-compose.supabase.yml up -d --build
+
+# Or local Postgres:
+# docker compose up -d --build
+
 curl -s http://127.0.0.1/healthz
 curl -s http://127.0.0.1/api/health
 ```
 
+- [ ] Spring profile is **`prod`** (Compose sets `SPRING_PROFILES_ACTIVE=prod`)
 - [ ] Flyway applied (check API logs for V1–V9)
-- [ ] Postgres volume persists across restarts
-- [ ] API RSA key volume (`api_data`) persists
+- [ ] API RSA key volume (`api_data`) persists across restarts
+- [ ] Postgres: Supabase project persists (or local `postgres_data` volume if using compose postgres)
 
 ## Smoke test
 
@@ -51,7 +61,7 @@ curl -s http://127.0.0.1/api/health
 
 ## Backups / ops
 
-- [ ] Nightly `pg_dump` of Postgres volume
+- [ ] Nightly backup of Postgres (Supabase backups or `pg_dump`)
 - [ ] Log rotation for Docker (`json-file` max-size) or ship to host journal
 - [ ] Monitor disk; prune unused images
 - [ ] Document Judge0 upgrade/restart separately

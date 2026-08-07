@@ -1,7 +1,7 @@
-const PREFERRED_LANG_KEY = "codeit:preferredLanguage";
+const PREFERRED_LANG_KEY = "codeit.stitch.preferredLanguage";
 
 function draftKey(problemId: number, languageSlug: string): string {
-  return `codeit:draft:${problemId}:${languageSlug}`;
+  return `codeit.stitch.draft:${problemId}:${languageSlug}`;
 }
 
 function contestDraftKey(
@@ -9,7 +9,7 @@ function contestDraftKey(
   problemId: number,
   languageSlug: string
 ): string {
-  return `codeit:contest-draft:${competitionId}:${problemId}:${languageSlug}`;
+  return `codeit.stitch.contest-draft:${competitionId}:${problemId}:${languageSlug}`;
 }
 
 export function getPreferredLanguage(): string | null {
@@ -24,7 +24,7 @@ export function setPreferredLanguage(slug: string): void {
   try {
     localStorage.setItem(PREFERRED_LANG_KEY, slug);
   } catch {
-    /* ignore quota / private mode */
+    /* ignore */
   }
 }
 
@@ -46,17 +46,6 @@ export function saveCodeDraft(
 ): void {
   try {
     localStorage.setItem(draftKey(problemId, languageSlug), code);
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
-
-export function clearCodeDraft(
-  problemId: number,
-  languageSlug: string
-): void {
-  try {
-    localStorage.removeItem(draftKey(problemId, languageSlug));
   } catch {
     /* ignore */
   }
@@ -88,11 +77,10 @@ export function saveContestCodeDraft(
       code
     );
   } catch {
-    /* ignore quota / private mode */
+    /* ignore */
   }
 }
 
-/** Resolve preferred language from a list, falling back to python then first. */
 export function pickPreferredLanguage<T extends { slug: string }>(
   langs: T[]
 ): T | null {

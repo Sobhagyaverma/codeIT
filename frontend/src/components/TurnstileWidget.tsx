@@ -10,7 +10,7 @@ declare global {
           sitekey: string;
           callback: (token: string) => void;
           "expired-callback"?: () => void;
-          "error-callback"?: () => void;
+          "error-callback"?: (errorCode?: string) => void;
           theme?: "dark" | "light" | "auto";
         }
       ) => string;
@@ -102,10 +102,17 @@ export default function TurnstileWidget({ onToken, resetKey = 0 }: Props) {
         widgetIdRef.current = window.turnstile.render(hostRef.current, {
           sitekey: siteKey,
           theme: "dark",
-          callback: (token) => onTokenRef.current(token),
+          callback: (token) => {
+            setError("");
+            onTokenRef.current(token);
+          },
           "expired-callback": () => onTokenRef.current(null),
-          "error-callback": () => {
-            setError("Captcha failed to load.");
+          "error-callback": (code?: string) => {
+            setError(
+              code
+                ? `Captcha failed (${code}). Check site key / hostname.`
+                : "Captcha failed to load."
+            );
             onTokenRef.current(null);
           },
         });
@@ -142,7 +149,7 @@ export default function TurnstileWidget({ onToken, resetKey = 0 }: Props) {
   return (
     <div className="space-y-2">
       <div ref={hostRef} className="flex justify-center" />
-      {error && <p className="text-center text-sm text-[var(--err)]">{error}</p>}
+      {error && <p className="text-center text-sm text-error">{error}</p>}
     </div>
   );
 }

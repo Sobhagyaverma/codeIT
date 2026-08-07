@@ -1,257 +1,82 @@
-# 🚀 CodeIT
+# CodeIT · frontend
 
-CodeIT is a full-stack coding platform inspired by platforms like LeetCode and HackerRank. It allows users to solve programming problems, participate in competitions, and receive automated code evaluation through backend integration.
+Polished Vite + React + TypeScript + Tailwind app (Stitch-based UI).
 
----
+This is the **primary product UI**. Dev server defaults to port **5175**.
 
-## ✨ Features
-
-### 👤 Authentication
-- User Registration
-- User Login
-- JWT Authentication
-- Role-based access (User/Admin)
-- RSA-OAEP encryption for login id / passwords (login, register, change-password) via `GET /api/crypto/public-key` — defense-in-depth; still use HTTPS in production
-
----
-
-### 🧑‍💻 Coding Environment
-- Multi-language code editor
-- Run code against sample test cases
-- Submit solutions for evaluation
-- Execution results with verdicts
-- Hidden test case evaluation
-- JSON input parsing for examples
-
----
-
-### 📚 Problem Management
-- Browse all coding problems
-- Search problems
-- Filter by topic
-- Filter by difficulty
-- View:
-  - Problem Statement
-  - Examples
-  - Constraints
-  - Hidden Test Cases (Admin)
-- Rich example formatting
-
----
-
-### 🏆 Competition System
-- Create coding competitions
-- Schedule competitions with:
-  - Start Date & Time
-  - End Date & Time
-- Assign multiple problems to competitions
-- Search problems while assigning
-- Auto-selected problem list
-- Competition dashboard
-
----
-
-### 🛠️ Admin Panel
-
-#### Problem Management
-- Create new coding problems
-- Quick Create Problem panel
-- Add:
-  - Title
-  - Description
-  - Difficulty
-  - Topics
-  - Examples
-  - Constraints
-  - Hidden Test Cases
-
-#### Competition Management
-- Create competitions
-- Assign multiple problems before creation
-- Live searchable problem list
-- Selected Problems preview
-
----
-
-### 📄 Problem Creation
-
-Supports dynamic creation of:
-
-- Multiple Examples
-- Multiple Constraints
-- Multiple Hidden Test Cases
-
-Example structure:
-
-```text
-Example 1
-Input
-Output
-Explanation
-```
-
-```text
-Constraint 1
-Constraint 2
-Constraint 3
-```
-
-```text
-Hidden Test Case 1
-Input
-Output
-```
-
----
-
-### 📅 Scheduling
-
-Competitions use an interactive date & time picker with:
-
-- Start Date
-- End Date
-- Time Selection
-- End date validation
-
----
-
-## 🛠 Tech Stack
-
-### Frontend
-
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- React Router
-- React Datepicker
-- Axios
-
-### Backend
-
-- Spring Boot
-- Spring Security
-- JWT Authentication
-- JPA / Hibernate
-- PostgreSQL (or configured database)
-
----
-
-## 📂 Project Structure
-
-```
-src/
-│
-├── components/
-├── context/
-├── lib/
-├── pages/
-├── types/
-├── App.tsx
-└── main.tsx
-```
-
----
-
-## 🚀 Installation
-
-Clone the repository
+## Run
 
 ```bash
-git clone <repository-url>
-```
-
-Install dependencies
-
-```bash
-npm install
-```
-
-Run the frontend
-
-```bash
+cd frontend
+npm ci
 npm run dev
 ```
 
----
-
-## 📦 Additional Packages
+Opens at **http://localhost:5175**.
 
 ```bash
-npm install react-datepicker
-npm install date-fns
+npm run build    # production build
+npm run preview  # preview build
+npm run lint
 ```
 
----
+Backend must be on **9091** (`./mvnw spring-boot:run` from repo root). Dev proxies `/api` and `/ws` → `http://localhost:9091`, and `/sync/*` → sync-server `:1234` (path prefix stripped).
 
-## 🔒 Roles
+Optional env ([`.env.example`](./.env.example)):
 
-### User
+```properties
+# Empty = same-origin (Vite proxy locally; Nginx /api+/ws+/sync in production)
+VITE_API_URL=
+# Empty = ws(s)://{host}/sync  (y-websocket connects to /sync/{doc})
+VITE_SYNC_WS_URL=
+```
 
-- Register
-- Login
-- Solve Problems
-- Submit Solutions
-- Participate in Competitions
+Auth tokens use `codeit.stitch.*` localStorage keys.
 
-### Admin
+**Nginx / Compose:** `deploy/nginx/Dockerfile` builds this app and serves it same-origin with proxies for `/api`, `/ws`, `/sync`.
 
-- Create Problems
-- Manage Competitions
-- Assign Problems
-- Configure Test Cases
+## Sensitive auth (RSA-OAEP)
 
----
+Login identifier, passwords (login / register / change-password) are encrypted in the browser with the server’s RSA public key (`GET /api/crypto/public-key`) before POST. Backend decrypts with the private key, then bcrypt as usual.
 
-## 📌 Current Progress
+- Algorithm: RSA-OAEP SHA-256
+- Config (Spring): `codeit.crypto.rsa.*` in `application.properties`
+- Private key file (gitignored): `data/codeit-rsa-private.pem` (auto-generated locally)
+- This is defense-in-depth for plaintext JSON; **use HTTPS in production**
 
-### ✅ Completed
+## Screen map
 
-- Authentication
-- Role-based access
-- Problem listing
-- Problem details
-- Code editor
-- Code execution
-- Submission workflow
-- Competition creation
-- Problem assignment
-- Search functionality
-- Dynamic examples
-- Dynamic constraints
-- Dynamic hidden test cases
-- Date & time scheduling
-- Admin dashboard
+| Area                   | Route                                               | Notes                    |
+| ---------------------- | --------------------------------------------------- | ------------------------ |
+| Home                   | `/`                                                 | Landing                  |
+| Login / Register       | `/login`, `/register`                               | JWT auth                 |
+| Problems               | `/problems`                                         | Catalog                  |
+| Problem workspace      | `/problems/:id`                                     | Monaco, run/submit       |
+| Problem collab         | `/problems/:id/room/:roomId`                        | Shared room              |
+| DSA Sheet              | `/dsa-sheet`, `/dsa-sheet/:sectionId/:slug`         | Lessons + practice       |
+| CodeRoom               | `/coderoom`, `/coderoom/:roomId`                    | Freeform collab          |
+| Competitions           | `/competitions`, `/competitions/:id`                | Contests + room          |
+| Profile                | `/profile`, `/users/:username`                      | Public/own profile       |
+| Settings               | `/settings/profile`                                 | Edit profile (all roles) |
+| Admin Command Center   | `/admin`                                            | ADMIN only               |
+| Competition repository | `/admin/competitions`                               | ADMIN list UI            |
+| Competition studio     | `/admin/competitions/create`                        | ADMIN create             |
+| Meta                   | `/about`, `/contact`, `/help`, `/privacy`, `/terms` | Static                   |
 
----
+Nav: **Settings** (gear, rightmost) opens `/settings/profile` for every logged-in user. **Admin** appears only for `ADMIN`.
 
-## 🚧 Upcoming Features
+## Admin Command Center
 
-- User Profile
-- Profile Picture Upload
-- Edit Profile
-- Username/Email Login
-- Leaderboard
-- Contest Rankings
-- Discussion Section
-- User Statistics
-- Problem Bookmarking
-- Theme Customization
-- Notifications
-- Code History
-- Contest Analytics
-- Custom Test Case Runner
-- AI Code Review
+| View                   | Entry                        | Backend                           |
+| ---------------------- | ---------------------------- | --------------------------------- |
+| Overview               | `/admin`                     | Problem + competition lists       |
+| Problem repository     | sidebar → Problems           | `GET /api/problems`               |
+| Problem Studio         | Create Problem               | `POST /api/problems`              |
+| Competition repository | `/admin/competitions`        | `GET …/getAllCompetitions`        |
+| Competition Studio     | `/admin/competitions/create` | `POST …/create` + `addProblemsTo` |
 
----
+Studio drafts autosave to **localStorage** (no draft API). Publish/create uses existing endpoints only — no invented backend fields.
 
-## 👥 Contributors
+## Structure
 
-- **Frontend:** Manya Katakol
-- **Backend:** Sobhagya Verma
-
----
-
-## 📜 License
-
-This project is developed for educational and learning purposes.
+See repo root [`README.md`](../README.md) and `src/` for pages, features, and lib helpers.

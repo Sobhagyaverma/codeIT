@@ -1,35 +1,61 @@
-import type {
-  AiAction,
-  AiCoachRequest,
-  AiCoachResponse,
-  Competition,
-  ContestSession,
-  JudgeVerdictDTO,
-  LanguageDTO,
-  LeaderboardEntry,
-  ProblemPublicDTO,
-  RunRequest,
-  RunResult,
-  Submission,
-  SubmitRequest,
-  User,
-} from "./types";
-import { getAuthToken } from "./authStorage";
+import { getAuthToken, type ProblemPublicDTO, type Submission, type User } from "./authStorage";
+import { notifyUnauthorized } from "./authEvents";
+import { resolveApiBase } from "./runtimeConfig";
 
-export const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ||
-  "http://localhost:9091";
+/** Empty = same-origin (Vite proxy in dev, Nginx in prod). */
+export const API_BASE = resolveApiBase();
+
+const AUTH_FLOW_PATHS = [
+  "/api/auth/login",
+  "/api/user/register",
+  "/api/auth/verify-email",
+  "/api/auth/verify-email/resend",
+  "/api/auth/forgot-password",
+  "/api/auth/forgot-password/verify",
+  "/api/auth/forgot-password/reset",
+];
+
+function isAuthFlowPath(path: string): boolean {
+  return AUTH_FLOW_PATHS.some(
+    (p) => path === p || path.startsWith(`${p}?`) || path.startsWith(`${p}/`)
+  );
+}
 
 export class ApiError extends Error {
   status: number;
   code?: string;
+  /** Seconds until a rate-limited call may be retried (429 responses only). */
+  retryAfter?: number;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    retryAfter?: number
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
+}
+
+/** Human-readable failure text, with a cooldown hint when rate limited. */
+export function describeApiError(err: unknown, fallback: string): string {
+  if (!(err instanceof ApiError)) return fallback;
+  if (err.status === 429) {
+    const seconds = err.retryAfter ?? 0;
+    if (seconds > 0) {
+      const wait =
+        seconds >= 60
+          ? `${Math.ceil(seconds / 60)} minute${seconds >= 120 ? "s" : ""}`
+          : `${seconds} second${seconds === 1 ? "" : "s"}`;
+      return `Slow down — try again in ${wait}.`;
+    }
+    return "Slow down — you're doing that too often.";
+  }
+  return err.message || fallback;
 }
 
 export async function request<T>(
@@ -50,19 +76,19 @@ export async function request<T>(
     });
   } catch {
     throw new ApiError(
-      "Unable to reach the server. Check your connection and try again.",
+      "Unable to reach the server. Is the backend running on port 9091?",
       0
     );
   }
 
   const contentType = res.headers.get("content-type") || "";
   const isJson = contentType.includes("application/json");
-
-  const body = isJson
-    ? await res.json().catch(() => null)
-    : await res.text();
+  const body = isJson ? await res.json().catch(() => null) : await res.text();
 
   if (!res.ok) {
+    if (res.status === 401 && !isAuthFlowPath(path)) {
+      notifyUnauthorized();
+    }
     const message =
       (isJson && body && (body.message || body.error)) ||
       (typeof body === "string" && body) ||
@@ -70,26 +96,29 @@ export async function request<T>(
     const code =
       isJson && body && typeof body.code === "string"
         ? body.code
-        : isJson &&
-            body &&
-            typeof body.error === "string" &&
-            /^[A-Z][A-Z0-9_]+$/.test(body.error)
+        : isJson && body && typeof body.error === "string" && /^[A-Z][A-Z0-9_]+$/.test(body.error)
           ? body.error
           : undefined;
-
+    const retryAfterBody =
+      isJson && body && typeof body.retryAfter === "number"
+        ? body.retryAfter
+        : undefined;
+    const retryAfterHeader = Number(res.headers.get("retry-after"));
     throw new ApiError(
       typeof message === "string" ? message : `Request failed (${res.status})`,
       res.status,
-      code
+      code,
+      retryAfterBody ??
+        (Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+          ? retryAfterHeader
+          : undefined)
     );
   }
 
   return body as T;
 }
 
-/* ---------------- Auth ---------------- */
-
-export interface LoginResponse {
+export type LoginResponse = {
   token: string;
   userId: number;
   name: string;
@@ -97,7 +126,7 @@ export interface LoginResponse {
   email: string;
   role: "USER" | "ADMIN";
   expiresIn: number;
-}
+};
 
 export type CaptchaConfig = {
   enabled: boolean;
@@ -140,6 +169,7 @@ export const register = async (data: {
   email: string;
   password: string;
   captchaToken?: string;
+  inviteCode?: string;
 }) => {
   const { encryptRsaOaep, isRsaEnabled } = await import("./rsaCrypto");
   const encrypted = await isRsaEnabled();
@@ -152,6 +182,7 @@ export const register = async (data: {
       : data.password,
     encrypted,
     captchaToken: data.captchaToken || undefined,
+    inviteCode: data.inviteCode || undefined,
   };
   return request<{ message: string; needsVerification?: boolean; email?: string }>(
     "/api/user/register",
@@ -223,19 +254,195 @@ export const submitContact = (data: {
     body: JSON.stringify(data),
   });
 
-export const getUsers = () =>
-  request<User[]>("/api/user/getUsers");
+export type RegistrationConfig = {
+  mode: "OPEN" | "INVITE_ONLY" | "COLLEGE_ONLY" | string;
+  requiresInvite: boolean;
+  privateBeta: boolean;
+  inviteTtlDays?: number;
+};
 
-export const getUser = (id: number) =>
-  request<User>(`/api/user/getUser/${id}`);
+export const getRegistrationConfig = () =>
+  request<RegistrationConfig>("/api/registration/config");
 
-export const deleteUser = (id: number) =>
-  request<void>(
-    `/api/user/deleteUser/${id}`,
+export const requestBetaAccess = (data: {
+  fullName: string;
+  email: string;
+  college: string;
+  year: string;
+  reason?: string;
+  captchaToken?: string;
+}) =>
+  request<{ id: number; status: string; message: string }>(
+    "/api/beta/request-access",
     {
-      method: "DELETE",
+      method: "POST",
+      body: JSON.stringify(data),
     }
   );
+
+export const verifyInvite = (inviteCode: string, email: string) =>
+  request<{ valid: boolean; email: string; expiresAt?: string }>(
+    "/api/beta/verify-invite",
+    {
+      method: "POST",
+      body: JSON.stringify({ inviteCode, email }),
+    }
+  );
+
+export type BetaAccessRequest = {
+  id: number;
+  fullName: string;
+  email: string;
+  college: string;
+  year: string;
+  reason?: string | null;
+  status: string;
+  createdAt?: string | null;
+  reviewedAt?: string | null;
+  rejectReason?: string | null;
+};
+
+export type BetaInviteRow = {
+  id: number;
+  codePrefix: string;
+  email: string;
+  requestId?: number | null;
+  status: string;
+  expiresAt?: string | null;
+  createdAt?: string | null;
+  usedAt?: string | null;
+};
+
+export type BetaAnalytics = {
+  registeredUsers: number;
+  pendingRequests: number;
+  approvedRequests: number;
+  rejectedRequests: number;
+  activeInvites: number;
+  usedInvites: number;
+  expiredInvites: number;
+  dailyActiveUsers: number;
+  problemsSolved: number;
+  quickClashCount: number;
+  competitionCount: number;
+  codeRoomsCreated: number;
+  aiRequests: number;
+};
+
+export const listBetaRequests = (status = "ALL") =>
+  request<BetaAccessRequest[]>(
+    `/api/admin/beta/requests?status=${encodeURIComponent(status)}`
+  );
+
+export const approveBetaRequest = (id: number) =>
+  request<{
+    requestId: number;
+    status: string;
+    inviteId: number;
+    inviteCode: string;
+    expiresAt: string;
+    emailSent: boolean;
+  }>(`/api/admin/beta/requests/${id}/approve`, { method: "POST" });
+
+export const rejectBetaRequest = (id: number, reason?: string) =>
+  request<{ requestId: number; status: string }>(
+    `/api/admin/beta/requests/${id}/reject`,
+    {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || undefined }),
+    }
+  );
+
+export const generateBetaInvite = (email: string, fullName?: string) =>
+  request<{
+    inviteId: number;
+    inviteCode: string;
+    email: string;
+    expiresAt: string;
+    emailSent: boolean;
+  }>("/api/admin/beta/invites", {
+    method: "POST",
+    body: JSON.stringify({ email, fullName: fullName || undefined }),
+  });
+
+export const listBetaInvites = () =>
+  request<BetaInviteRow[]>("/api/admin/beta/invites");
+
+export const resendBetaInvite = (id: number) =>
+  request<{
+    inviteId: number;
+    inviteCode: string;
+    email: string;
+    expiresAt: string;
+    emailSent: boolean;
+  }>(`/api/admin/beta/invites/${id}/resend`, { method: "POST" });
+
+export const getBetaAnalytics = () =>
+  request<BetaAnalytics>("/api/admin/beta/analytics");
+
+export const getProblems = () => request<ProblemPublicDTO[]>("/api/problems");
+
+export const getProblem = (id: number) =>
+  request<ProblemPublicDTO>(`/api/problems/${id}`);
+
+export type LanguageDTO = {
+  slug: string;
+  name: string;
+  languageId: number;
+};
+
+export type RunRequest = {
+  source_code: string;
+  language_id: number;
+  stdin?: string;
+};
+
+export type RunResult = {
+  stdout?: string;
+  stderr?: string;
+  compile_output?: string;
+  status?: { id: number; description: string };
+  time?: string | number;
+  memory?: number;
+};
+
+export type SubmitRequest = {
+  userId: number;
+  problemId: number;
+  languageId: number;
+  language: string;
+  code: string;
+};
+
+export type JudgeVerdictDTO = {
+  submissionId?: number;
+  verdict: string;
+  passed?: boolean;
+  failedTestIndex?: number | null;
+  passedCount?: number;
+  totalCount?: number;
+  time?: number;
+  memory?: number;
+  engine?: string;
+};
+
+export const getLanguages = () =>
+  request<LanguageDTO[]>("/api/submissions/languages");
+
+export const runCode = (data: RunRequest) =>
+  request<RunResult>("/api/submissions/run", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const submitCode = (data: SubmitRequest) =>
+  request<JudgeVerdictDTO>("/api/submissions/submit", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const getUserSubmissions = (userId: number) =>
+  request<Submission[]>(`/api/submissions/user/${userId}`);
 
 /* ---------------- Profile ---------------- */
 
@@ -250,7 +457,7 @@ export type ProfileSubmissionRow = {
   id: number;
   problemId: number;
   problemTitle: string;
-  difficulty: string;
+  difficulty?: string;
   verdict: string;
   language: string;
   runtime: number | null;
@@ -300,6 +507,7 @@ export type ProfileResponse = {
     longestStreak: number;
     contestBestRank: number | null;
     rating: number | null;
+    friendCount: number;
   };
   topics: Array<{ topic: string; solved: number; total: number }>;
   languages: Array<{ language: string; count: number; percent: number }>;
@@ -336,13 +544,10 @@ export type ProfileSubmissionsPage = {
   nextCursor: number | null;
 };
 
-export const getMyProfile = () =>
-  request<ProfileResponse>("/api/profile/me");
+export const getMyProfile = () => request<ProfileResponse>("/api/profile/me");
 
 export const getPublicProfile = (username: string) =>
-  request<ProfileResponse>(
-    `/api/profile/${encodeURIComponent(username)}`
-  );
+  request<ProfileResponse>(`/api/profile/${encodeURIComponent(username)}`);
 
 export const updateMyProfile = (data: {
   bio: string | null;
@@ -374,31 +579,7 @@ export const changeMyPassword = async (data: {
   });
 };
 
-export const getMyBookmarks = () =>
-  request<ProfileProblemSummary[]>("/api/profile/me/bookmarks");
-
-export const addMyBookmark = (problemId: number) =>
-  request<string>(`/api/profile/me/bookmarks/${problemId}`, {
-    method: "POST",
-  });
-
-export const removeMyBookmark = (problemId: number) =>
-  request<string>(`/api/profile/me/bookmarks/${problemId}`, {
-    method: "DELETE",
-  });
-
-export const getMyRecentProblems = () =>
-  request<ProfileProblemSummary[]>("/api/profile/me/recent-problems");
-
-export const recordRecentProblem = (problemId: number) =>
-  request<string>(`/api/profile/me/recent-problems/${problemId}`, {
-    method: "POST",
-  });
-
-export const getMyProfileSubmissions = (
-  limit = 20,
-  cursor?: number
-) => {
+export const getMyProfileSubmissions = (limit = 20, cursor?: number) => {
   const params = new URLSearchParams({ limit: String(limit) });
   if (cursor !== undefined) params.set("cursor", String(cursor));
   return request<ProfileSubmissionsPage>(
@@ -407,225 +588,145 @@ export const getMyProfileSubmissions = (
 };
 
 export const getMyContestHistory = () =>
-  request<ProfileContestHistory[]>("/api/profile/me/contests");
+  request<
+    Array<{
+      competitionId: number;
+      title: string;
+      rank: number | null;
+      solved: number;
+      score: number | null;
+      date: string | null;
+      ratingDelta: number | null;
+    }>
+  >("/api/profile/me/contests");
 
-/* ---------------- Problems ---------------- */
+export const createProblem = (data: Record<string, unknown>) =>
+  request<ProblemPublicDTO>("/api/problems", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 
-export const getProblems = () =>
-  request<ProblemPublicDTO[]>("/api/problems");
+/* ---------------- Competitions ---------------- */
 
-export const getProblem = (id: number) =>
-  request<ProblemPublicDTO>(
-    `/api/problems/${id}`
-  );
+export type Competition = {
+  id: number;
+  title?: string;
+  name?: string;
+  description?: string;
+  createdBy?: number;
+  startTime: string;
+  endTime: string;
+  status: "UPCOMING" | "ACTIVE" | "ENDED";
+  durationMinutes?: number;
+  contestType?: string;
+  difficulty?: string;
+  isFeatured?: boolean;
+  problemCount?: number;
+  participantCount?: number;
+  [key: string]: unknown;
+};
 
-export const getProblemsByDifficulty = (
-  difficulty: string
-) =>
-  request<ProblemPublicDTO[]>(
-    `/api/problems/difficulty/${difficulty}`
-  );
+export type ContestSession = {
+  competitionId?: number;
+  userId?: number;
+  sessionStatus: "JOINED" | "IN_PROGRESS" | "ENDED";
+  startedAt?: string | null;
+  deadlineAt?: string | null;
+  serverTime?: string | null;
+  remainingSeconds?: number | null;
+  [key: string]: unknown;
+};
 
-export const getProblemsByTopic = (
-  topic: string
-) =>
-  request<ProblemPublicDTO[]>(
-    `/api/problems/topic/${topic}`
-  );
-
-export const searchProblems = (
-  keyword: string
-) =>
-  request<ProblemPublicDTO[]>(
-    `/api/problems/search?keyword=${encodeURIComponent(
-      keyword
-    )}`
-  );
-
-export const createProblem = (
-  data: Record<string, unknown>
-) =>
-  request<ProblemPublicDTO>(
-    "/api/problems",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
-
-/* ---------------- Submissions ---------------- */
-
-export const getLanguages = () =>
-  request<LanguageDTO[]>(
-    "/api/submissions/languages"
-  );
-
-export const runCode = (
-  data: RunRequest
-) =>
-  request<RunResult>(
-    "/api/submissions/run",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
-
-export const submitCode = (
-  data: SubmitRequest
-) =>
-  request<JudgeVerdictDTO>(
-    "/api/submissions/submit",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
-
-export const getUserSubmissions = (
-  userId: number
-) =>
-  request<Submission[]>(
-    `/api/submissions/user/${userId}`
-  );
-
-export const getProblemSubmissions = (
-  problemId: number
-) =>
-  request<Submission[]>(
-    `/api/submissions/problem/${problemId}`
-  );
-
-  /* ---------------- Competitions ---------------- */
-
-export const createCompetition = (
-  data: Record<string, unknown>
-) =>
-  request<Competition>(
-    "/api/competitions/create",
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
+export type LeaderboardEntry = {
+  userId: number;
+  userName: string;
+  solved: number;
+  totalTime: number;
+  rank: number;
+};
 
 export const getAllCompetitions = () =>
-  request<Competition[]>(
-    "/api/competitions/getAllCompetitions"
-  );
+  request<Competition[]>("/api/competitions/getAllCompetitions");
 
-export const getCompetition = (
-  id: number
-) =>
-  request<Competition>(
-    `/api/competitions/get/${id}`
-  );
+export const createCompetition = (data: Record<string, unknown>) =>
+  request<Competition>("/api/competitions/create", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 
-export const addProblemsToCompetition = (
-  id: number,
-  _userId: number,
-  problemIds: number[]
-) =>
-  request<string>(
-    `/api/competitions/addProblemsTo/${id}/problems`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        problemIds,
-      }),
-    }
-  );
+export const addProblemsToCompetition = (id: number, problemIds: number[]) =>
+  request<string>(`/api/competitions/addProblemsTo/${id}/problems`, {
+    method: "POST",
+    body: JSON.stringify({ problemIds }),
+  });
 
-export const getCompetitionProblems = (
-  id: number
-) =>
-  request<number[]>(
-    `/api/competitions/getProblemsOf/${id}/problems`
-  );
+export const getCompetition = (id: number) =>
+  request<Competition>(`/api/competitions/get/${id}`);
 
-export const joinCompetition = (
-  id: number,
-  userId: number
-) =>
-  request<void>(
-    `/api/competitions/${id}/join?userId=${userId}`,
-    {
-      method: "POST",
-    }
-  );
+export const getCompetitionProblems = (id: number) =>
+  request<number[]>(`/api/competitions/getProblemsOf/${id}/problems`);
 
-export const startCompetition = (
-  id: number,
-  userId: number
-) =>
-  request<void>(
-    `/api/competitions/${id}/start?userId=${userId}`,
-    {
-      method: "POST",
-    }
-  );
+export const getCompetitionParticipants = (id: number) =>
+  request<number[]>(`/api/competitions/${id}/participants`);
 
-export const endCompetition = (id: number) =>
-  request<ContestSession>(`/api/competitions/${id}/end`, {
+export const joinCompetition = (id: number, userId?: number) => {
+  const qs = userId != null ? `?userId=${userId}` : "";
+  return request<string>(`/api/competitions/${id}/join${qs}`, {
+    method: "POST",
+  });
+};
+
+export const startCompetition = (id: number, userId: number) =>
+  request<ContestSession>(`/api/competitions/${id}/start?userId=${userId}`, {
     method: "POST",
   });
 
-export const getCompetitionSession = (
-  id: number,
-  userId: number
-) =>
+export const endCompetition = (id: number) =>
+  request<ContestSession>(`/api/competitions/${id}/end`, { method: "POST" });
+
+export const getCompetitionSession = (id: number, userId: number) =>
   request<ContestSession>(
     `/api/competitions/${id}/session?userId=${userId}`
   );
 
-export const getCompetitionParticipants = (
-  id: number
-) =>
-  request<number[]>(
-    `/api/competitions/${id}/participants`
-  );
-
-export const submitToCompetition = (
-  id: number,
-  data: SubmitRequest
-) =>
-  request<JudgeVerdictDTO>(
-    `/api/competitions/${id}/submit`,
-    {
-      method: "POST",
-      body: JSON.stringify(data),
-    }
-  );
-
-export const getLeaderboard = (
-  id: number
-) =>
-  request<LeaderboardEntry[]>(
-    `/api/competitions/${id}/leaderboard`
-  );
-
-export const patchCompetitionTimes = (
-  id: number,
-  data: {
-    startTime?: string;
-    endTime?: string;
-  }
-) =>
-  request<Competition>(
-    `/api/competitions/${id}/times`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }
-  );
-
-/* ---------------- AI Coach (practice only) ---------------- */
-
-export const aiCoach = (data: AiCoachRequest) =>
-  request<AiCoachResponse>("/api/ai/coach", {
+export const submitToCompetition = (id: number, data: SubmitRequest) =>
+  request<JudgeVerdictDTO>(`/api/competitions/${id}/submit`, {
     method: "POST",
     body: JSON.stringify(data),
   });
+
+export const getLeaderboard = (id: number) =>
+  request<LeaderboardEntry[]>(`/api/competitions/${id}/leaderboard`);
+
+/* ---------------- AI Coach (practice only) ---------------- */
+
+export type AiAction =
+  | "EXPLAIN_PROBLEM"
+  | "EXPLAIN_CONSTRAINTS"
+  | "ASK_AI"
+  | "REQUEST_HINT"
+  | "ANALYZE_CODE"
+  | "ANALYZE_FAILURE"
+  | "REVIEW_ACCEPTED"
+  | "EXPLAIN_EDITORIAL";
+
+export type AiCoachRequest = {
+  problemId: number;
+  language?: string;
+  languageId?: number;
+  code?: string;
+  action?: AiAction;
+  hintLevel?: number;
+  question?: string;
+  submissionId?: number | null;
+};
+
+export type AiCoachResponse = {
+  action: AiAction;
+  content: string;
+  hintLevel?: number | null;
+  unlockedHintLevel?: number | null;
+};
 
 export const aiExplain = (data: Omit<AiCoachRequest, "action">) =>
   request<AiCoachResponse>("/api/ai/explain", {
@@ -682,10 +783,183 @@ export const getAiHintProgress = (problemId: number) =>
     `/api/ai/hints/progress?problemId=${problemId}`
   );
 
-export const getAiHistory = (problemId: number) =>
-  request<
-    Array<{ role: string; action?: string; content: string; created_at?: string }>
-  >(`/api/ai/history?problemId=${problemId}`);
+/* ── Friends / Notifications / Quick Clash ───────────────────────── */
 
-export type { AiAction };
+export type FriendUserCard = {
+  user_id: number;
+  name: string;
+  unique_user_id: string;
+  avatar_url?: string | null;
+  solved_count?: number;
+  friends_since?: string;
+  request_id?: number;
+  created_at?: string;
+};
 
+export const getFriends = () =>
+  request<{
+    friends: FriendUserCard[];
+    incoming: FriendUserCard[];
+    outgoing: FriendUserCard[];
+  }>("/api/friends");
+
+export const searchFriend = (q: string) =>
+  request<{
+    user_id: number;
+    name: string;
+    unique_user_id: string;
+    avatar_url?: string | null;
+    solved_count?: number;
+    isSelf: boolean;
+    isFriend: boolean;
+    outgoingPending: boolean;
+    incomingPending: boolean;
+  }>(`/api/friends/search?q=${encodeURIComponent(q)}`);
+
+export const sendFriendRequest = (uniqueUserId: string) =>
+  request<{ requestId: number; status: string }>("/api/friends/request", {
+    method: "POST",
+    body: JSON.stringify({ uniqueUserId }),
+  });
+
+export type FriendRespondResult = {
+  status: "ACCEPTED" | "REJECTED" | "IGNORED" | string;
+  friends?: boolean;
+  alreadyHandled?: boolean;
+  userId?: number;
+  name?: string;
+  uniqueUserId?: string;
+};
+
+export const respondFriendRequest = (
+  requestId: number,
+  action: "ACCEPT" | "REJECT" | "IGNORE"
+) =>
+  request<FriendRespondResult>(
+    `/api/friends/requests/${requestId}/respond`,
+    {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    }
+  );
+
+export const removeFriend = (userId: number) =>
+  request<{ ok: boolean }>(`/api/friends/${userId}`, { method: "DELETE" });
+
+export type AppNotification = {
+  id: number;
+  type: string;
+  payload: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+};
+
+export const getNotifications = (limit = 50) =>
+  request<{ items: AppNotification[]; unreadCount: number }>(
+    `/api/notifications?limit=${limit}`
+  );
+
+export const getNotificationUnreadCount = () =>
+  request<{ unreadCount: number }>("/api/notifications/unread-count");
+
+export const markNotificationRead = (id: number) =>
+  request<{ ok: boolean; unreadCount: number }>(`/api/notifications/${id}/read`, {
+    method: "POST",
+  });
+
+export const markAllNotificationsRead = () =>
+  request<{ ok: boolean; updated: number; unreadCount: number }>(
+    "/api/notifications/read-all",
+    { method: "POST" }
+  );
+
+export type QuickContest = {
+  id: number;
+  name: string;
+  description?: string;
+  difficulty_tier: string;
+  duration_minutes: number;
+  max_players: number;
+  status: string;
+  invite_token?: string;
+  host_user_id: number;
+  started_at?: string | null;
+  ends_at?: string | null;
+  problems?: Array<{
+    ordinal: number;
+    problem_id: number;
+    title: string;
+    difficulty: string;
+  }>;
+  participants?: Array<Record<string, unknown>>;
+  joinedCount?: number;
+  leaderboard?: Array<Record<string, unknown>>;
+};
+
+export const createQuickContest = (body: {
+  name: string;
+  description?: string;
+  difficultyTier: "EASY" | "MEDIUM" | "HARD";
+  durationMinutes: number;
+  maxPlayers: number;
+}) =>
+  request<QuickContest>("/api/quick-clash", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const getQuickContest = (id: number | string) =>
+  request<QuickContest>(`/api/quick-clash/${id}`);
+
+export const getQuickContestLeaderboard = (id: number | string) =>
+  request<Array<Record<string, unknown>>>(
+    `/api/quick-clash/${id}/leaderboard`
+  );
+
+/** Live Quick Clash submit — judged against full hidden tests, unrated. */
+export const submitQuickContest = (
+  id: number | string,
+  data: {
+    problemId: number;
+    languageId: number;
+    language: string;
+    code: string;
+  }
+) =>
+  request<JudgeVerdictDTO>(`/api/quick-clash/${id}/submit`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const inviteToQuickContest = (id: number | string, friendUserIds: number[]) =>
+  request<{ invited: number; contest: QuickContest }>(`/api/quick-clash/${id}/invite`, {
+    method: "POST",
+    body: JSON.stringify({ friendUserIds }),
+  });
+
+export const joinQuickContest = (id: number | string) =>
+  request<QuickContest>(`/api/quick-clash/${id}/join`, { method: "POST" });
+
+export const readyQuickContest = (id: number | string, ready: boolean) =>
+  request<QuickContest>(`/api/quick-clash/${id}/ready`, {
+    method: "POST",
+    body: JSON.stringify({ ready }),
+  });
+
+export const startQuickContest = (id: number | string) =>
+  request<QuickContest>(`/api/quick-clash/${id}/start`, { method: "POST" });
+
+export const cancelQuickContest = (id: number | string) =>
+  request<{ ok: boolean }>(`/api/quick-clash/${id}/cancel`, { method: "POST" });
+
+export const leaveQuickContest = (id: number | string) =>
+  request<{ ok: boolean }>(`/api/quick-clash/${id}/leave`, { method: "POST" });
+
+export const getQuickClashHistory = () =>
+  request<{
+    active?: Array<Record<string, unknown>>;
+    history: Array<Record<string, unknown>>;
+    invited: Array<Record<string, unknown>>;
+  }>("/api/quick-clash/history");
+
+export type { User, ProblemPublicDTO, Submission };

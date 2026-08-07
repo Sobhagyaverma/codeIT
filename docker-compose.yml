@@ -1,9 +1,15 @@
 # CodeIT production stack (Cloudflare → Nginx:80 → api/sync)
 # Judge0 is external: set JUDGE0_API_URL (e.g. http://host.docker.internal:2358 or LAN IP).
 #
-# Usage:
+# Usage (local Postgres in compose):
 #   cp .env.example .env   # fill secrets
 #   docker compose up -d --build
+#
+# Homelab + Supabase (no compose postgres):
+#   docker compose -f docker-compose.yml -f docker-compose.supabase.yml up -d --build
+#
+# API uses SPRING_PROFILES_ACTIVE=prod → application.properties + application-prod.properties.
+# Do not use the `local` profile on the VM (that loads gitignored application-local.properties).
 
 services:
   postgres:
@@ -12,7 +18,9 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-codeit}
       POSTGRES_USER: ${POSTGRES_USER:-codeit}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      # Soft default: profile-disabled postgres (Supabase override) still interpolates this.
+      # Local postgres path: set POSTGRES_PASSWORD in .env (API requires it below).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./schema/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -58,12 +66,15 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-codeit}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-codeit}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Local postgres: set POSTGRES_PASSWORD in .env. Supabase override replaces these three.
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       CODEIT_JWT_SECRET: ${CODEIT_JWT_SECRET:?set CODEIT_JWT_SECRET}
       CODEIT_OTP_PEPPER: ${CODEIT_OTP_PEPPER:?set CODEIT_OTP_PEPPER}
+      CODEIT_PUBLIC_BASE_URL: ${CODEIT_PUBLIC_BASE_URL:-http://localhost}
+      CODEIT_REGISTRATION_MODE: ${CODEIT_REGISTRATION_MODE:-INVITE_ONLY}
       CODEIT_CORS_ORIGINS: ${CODEIT_CORS_ORIGINS:-http://localhost}
       CODEIT_TRUST_FORWARDED_HEADERS: "true"
       CODEIT_CAPTCHA_ENABLED: "true"

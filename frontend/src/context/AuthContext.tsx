@@ -2,11 +2,11 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import type { User } from "../lib/types";
 import {
   clearAuthStorage,
   getAuthPersistPreference,
@@ -14,13 +14,16 @@ import {
   saveAuthSession,
   setAuthPersistPreference,
   type AuthSession,
+  type User,
 } from "../lib/authStorage";
+import { setUnauthorizedHandler } from "../lib/authEvents";
+import { resolveApiBase } from "../lib/runtimeConfig";
+import { disconnectWs } from "../lib/ws";
 
-interface AuthState {
+type AuthState = {
   user: User | null;
   rememberMe: boolean;
   setRememberMe: (value: boolean) => void;
-  setUser: (u: User | null) => void;
   establishSession: (params: {
     user: User;
     token: string;
@@ -28,7 +31,7 @@ interface AuthState {
     rememberMe: boolean;
   }) => void;
   logout: () => void;
-}
+};
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
@@ -44,22 +47,13 @@ function hydrateInitial(): AuthSession | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const initial = hydrateInitial();
   const [user, setUserState] = useState<User | null>(initial?.user ?? null);
-  const [rememberMe, setRememberMeState] = useState<boolean>(
-    () => getAuthPersistPreference()
+  const [rememberMe, setRememberMeState] = useState(() =>
+    getAuthPersistPreference()
   );
 
   const setRememberMe = useCallback((value: boolean) => {
     setRememberMeState(value);
     setAuthPersistPreference(value);
-  }, []);
-
-  const setUser = useCallback((u: User | null) => {
-    if (!u) {
-      clearAuthStorage();
-      setUserState(null);
-      return;
-    }
-    setUserState(u);
   }, []);
 
   const establishSession = useCallback(
@@ -87,8 +81,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    const session = loadAuthSession();
+    const token = session?.token;
+    // Best-effort server revoke (bumps token_version). Always clear local session.
+    if (token) {
+      const base = resolveApiBase();
+      void fetch(`${base}/api/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {
+        /* ignore network errors on logout */
+      });
+    }
     clearAuthStorage();
     setUserState(null);
+    disconnectWs();
+  }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearAuthStorage();
+      setUserState(null);
+      disconnectWs();
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const value = useMemo(
@@ -96,11 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       rememberMe,
       setRememberMe,
-      setUser,
       establishSession,
       logout,
     }),
-    [user, rememberMe, setRememberMe, setUser, establishSession, logout]
+    [user, rememberMe, setRememberMe, establishSession, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

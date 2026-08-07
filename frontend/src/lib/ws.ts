@@ -98,9 +98,11 @@ export function subscribeTopic<T>(
   if (c.connected) {
     attach();
   } else {
-    void whenConnected(c).then(attach).catch(() => {
-      /* connection failed; onConnect resubscribe will retry */
-    });
+    void whenConnected(c)
+      .then(attach)
+      .catch(() => {
+        /* connection failed; onConnect resubscribe will retry */
+      });
   }
 
   return () => {
@@ -114,35 +116,13 @@ export function subscribeTopic<T>(
   };
 }
 
-/** Publish to an /app destination (requires connected + JWT). */
-export async function publishApp(
-  destination: string,
-  body: unknown = {}
-): Promise<void> {
-  const c = getClient();
-  await whenConnected(c);
-  c.publish({
-    destination,
-    body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
-  });
+/** Drop the shared connection (used on logout so the next login re-authenticates). */
+export function disconnectWs() {
+  topics.forEach((entry) => entry.subscription?.unsubscribe());
+  topics.clear();
+  void client?.deactivate();
+  client = null;
 }
 
-export const leaderboardTopic = (competitionId: number) =>
-  `/topic/competitions/${competitionId}/leaderboard`;
-export const statusTopic = (competitionId: number) =>
-  `/topic/competitions/${competitionId}/status`;
-export const sessionTopic = (competitionId: number, userId: number) =>
-  `/topic/competitions/${competitionId}/users/${userId}/session`;
-
-export const roomChatTopic = (roomId: string) =>
-  `/topic/rooms/${roomId}/chat`;
-export const roomPresenceTopic = (roomId: string) =>
-  `/topic/rooms/${roomId}/presence`;
-export const roomPresenceJoinDestination = (roomId: string) =>
-  `/app/rooms/${roomId}/presence/join`;
-export const roomRunTopic = (roomId: string) => `/topic/rooms/${roomId}/run`;
-export const roomSubmitTopic = (roomId: string) =>
-  `/topic/rooms/${roomId}/submit`;
-export const roomWorkspaceTopic = (roomId: string) =>
-  `/topic/rooms/${roomId}/workspace`;
+export const userNotificationsTopic = (userId: number) =>
+  `/topic/users/${userId}/notifications`;

@@ -1,6 +1,5 @@
 import type { Room } from "./types";
 
-/** Map API `inviteToken` to user-facing Room Code. */
 export function roomCodeOf(room: Pick<Room, "inviteToken">): string {
   return room.inviteToken;
 }
@@ -19,7 +18,6 @@ export function codeRoomShareUrl(roomId: string, roomCode: string): string {
   return `${origin}/coderoom/${roomId}?code=${encodeURIComponent(roomCode)}`;
 }
 
-/** Accept `?code=` (preferred) or legacy `?invite=`. */
 export function roomCodeFromSearchParams(
   searchParams: URLSearchParams
 ): string | null {

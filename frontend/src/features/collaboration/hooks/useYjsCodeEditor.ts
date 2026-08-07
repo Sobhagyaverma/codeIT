@@ -9,8 +9,8 @@ import {
   loadLocalCode,
   persistLocalCode,
 } from "../sync";
-import type { ConnectionState } from "../components/ConnectionStatus";
-import { mapProviderStatus } from "../components/ConnectionStatus";
+import type { ConnectionState } from "../ConnectionStatus";
+import { mapProviderStatus } from "../ConnectionStatus";
 import {
   avatarColorFor,
   syncMonacoRemoteCursorStyles,
@@ -23,6 +23,8 @@ type Options = {
   readOnly?: boolean;
   userName?: string;
   userId?: number;
+  /** Seed empty docs (first join / no local cache). */
+  fallbackCode?: string;
 };
 
 export function useYjsCodeEditor({
@@ -32,6 +34,7 @@ export function useYjsCodeEditor({
   readOnly = false,
   userName = "anon",
   userId,
+  fallbackCode,
 }: Options) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,11 +48,33 @@ export function useYjsCodeEditor({
   const ytextRef = useRef<Y.Text | null>(null);
   const ymetaRef = useRef<Y.Map<string> | null>(null);
   const languageRef = useRef(language);
+  const fallbackRef = useRef(fallbackCode);
   const hydratedRef = useRef(false);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof Monaco | null>(null);
   const userColor = avatarColorFor(userId ?? 0);
 
   languageRef.current = language;
+  fallbackRef.current = fallbackCode;
+
+  const attachBinding = useCallback(() => {
+    const editor = editorRef.current;
+    const ytext = ytextRef.current;
+    const ydoc = ydocRef.current;
+    const provider = providerRef.current;
+    if (!editor || !ytext || !ydoc || !provider) return;
+    bindingRef.current?.destroy();
+    const model = editor.getModel();
+    if (!model) return;
+    bindingRef.current = new MonacoBinding(
+      ytext,
+      model,
+      new Set([editor]),
+      provider.awareness
+    );
+    syncMonacoRemoteCursorStyles(provider.awareness);
+    editor.updateOptions({ readOnly });
+  }, [readOnly]);
 
   useEffect(() => {
     if (!enabled || !roomId) return;
@@ -76,12 +101,13 @@ export function useYjsCodeEditor({
       try {
         const sync = await getSyncToken(roomId);
         if (cancelled) return;
-        const { serverUrl, roomName, params } = buildSyncProviderUrl(
+        const { serverUrl, roomName, params, protocols } = buildSyncProviderUrl(
           sync.codeDocName,
           sync.token
         );
         const provider = new WebsocketProvider(serverUrl, roomName, ydoc, {
           params,
+          protocols,
           connect: true,
         });
         providerRef.current = provider;
@@ -103,15 +129,16 @@ export function useYjsCodeEditor({
             return;
           }
           const local = loadLocalCode(roomId);
-          if (local?.code) {
+          const seed = local?.code || fallbackRef.current;
+          if (seed) {
             ydoc.transact(() => {
-              ytext.insert(0, local.code);
-              if (local.language && !ymeta.get("language")) {
+              ytext.insert(0, seed);
+              if (local?.language && !ymeta.get("language")) {
                 ymeta.set("language", local.language);
               }
             });
             if (
-              local.cursor != null &&
+              local?.cursor != null &&
               editorRef.current &&
               Number.isFinite(local.cursor)
             ) {
@@ -143,6 +170,8 @@ export function useYjsCodeEditor({
         }, 800);
 
         setReady(true);
+        // Monaco may have mounted before the provider finished connecting
+        attachBinding();
 
         persistInterval = window.setInterval(() => {
           const model = editorRef.current?.getModel();
@@ -181,7 +210,7 @@ export function useYjsCodeEditor({
       setReady(false);
       setConnectionStatus("disconnected");
     };
-  }, [roomId, enabled, userName, userColor]);
+  }, [roomId, enabled, userName, userColor, attachBinding]);
 
   useEffect(() => {
     const meta = ymetaRef.current;
@@ -191,32 +220,21 @@ export function useYjsCodeEditor({
     }
   }, [language, ready]);
 
+  useEffect(() => {
+    if (!ready) return;
+    attachBinding();
+  }, [ready, attachBinding]);
+
   const bindEditor = useCallback(
     (
       editor: Monaco.editor.IStandaloneCodeEditor,
       monaco: typeof Monaco
     ) => {
-      const ytext = ytextRef.current;
-      const ydoc = ydocRef.current;
-      const provider = providerRef.current;
-      if (!ytext || !ydoc || !provider) return;
-
       editorRef.current = editor;
-      bindingRef.current?.destroy();
-      const model = editor.getModel();
-      if (!model) return;
-
-      bindingRef.current = new MonacoBinding(
-        ytext,
-        model,
-        new Set([editor]),
-        provider.awareness
-      );
-      syncMonacoRemoteCursorStyles(provider.awareness);
-      editor.updateOptions({ readOnly });
-      void monaco;
+      monacoRef.current = monaco;
+      attachBinding();
     },
-    [readOnly]
+    [attachBinding]
   );
 
   const getCode = useCallback(() => ytextRef.current?.toString() ?? "", []);

@@ -1,8 +1,8 @@
 import { getAuthToken } from "./authStorage";
+import { resolveApiBase } from "./runtimeConfig";
 
-const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  "http://localhost:9091";
+/** Empty = same-origin (Vite proxy in dev, Nginx in prod). */
+const API_BASE = resolveApiBase();
 
 export type PublicKeyResponse = {
   keyId: string;

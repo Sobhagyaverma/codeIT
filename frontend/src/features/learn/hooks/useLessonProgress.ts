@@ -10,7 +10,7 @@ function notifyProgressChanged() {
 }
 
 function storageKey(sectionId: string) {
-  return `codeit:learn:${sectionId}:v1`;
+  return `codeit.stitch.learn:${sectionId}:v1`;
 }
 
 function readStoredSlugs(sectionId: string): Set<string> {

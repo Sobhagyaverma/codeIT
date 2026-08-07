@@ -3,27 +3,29 @@ import type { FormEvent } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, resendVerifyEmail, verifyEmail } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-import AuthLayout from "../components/auth/AuthLayout";
 import TurnstileWidget from "../components/TurnstileWidget";
 
 export default function VerifyEmail() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { user } = useAuth();
   const [email, setEmail] = useState(params.get("email") || "");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = useState(0);
 
   useEffect(() => {
-    const q = params.get("email");
-    if (q) setEmail(q);
+    const fromQuery = params.get("email");
+    if (fromQuery) setEmail(fromQuery);
   }, [params]);
 
-  if (user) return <Navigate to="/problems" replace />;
+  if (user) {
+    return <Navigate to="/problems" replace />;
+  }
 
   const bumpCaptcha = (err: unknown) => {
     if (err instanceof ApiError && err.code === "CAPTCHA_FAILED") {
@@ -34,73 +36,112 @@ export default function VerifyEmail() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setError("");
+    setMessage("");
+    if (!email.trim() || otp.trim().length !== 6) {
+      setError("Enter your email and the 6-digit code.");
+      return;
+    }
     setLoading(true);
     try {
       await verifyEmail(email.trim(), otp.trim(), captchaToken || undefined);
-      setInfo("Verified. Redirecting to login…");
+      setMessage("Email verified. You can sign in now.");
       window.setTimeout(() => navigate("/login", { replace: true }), 700);
     } catch (err) {
       bumpCaptcha(err);
-      setError(err instanceof ApiError ? err.message : "Verification failed");
+      setError(err instanceof ApiError ? err.message : "Verification failed.");
     } finally {
       setLoading(false);
     }
   };
 
   const onResend = async () => {
-    setError(null);
+    setError("");
+    setMessage("");
+    if (!email.trim()) {
+      setError("Enter your email first.");
+      return;
+    }
+    setResending(true);
     try {
       const res = await resendVerifyEmail(email.trim(), captchaToken || undefined);
-      setInfo(res.message);
+      setMessage(res.message || "If an account exists, a new code was sent.");
       setCaptchaReset((n) => n + 1);
       setCaptchaToken(null);
     } catch (err) {
       bumpCaptcha(err);
-      setError(err instanceof ApiError ? err.message : "Resend failed");
+      setError(err instanceof ApiError ? err.message : "Could not resend code.");
+    } finally {
+      setResending(false);
     }
   };
 
   return (
-    <AuthLayout title="Verify email" subtitle="Enter the 6-digit code we sent you.">
-      <form onSubmit={onSubmit} className="space-y-4">
-        <input
-          type="email"
-          className="w-full rounded-md border border-[var(--line)] bg-[var(--bg)] px-3 py-2"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          required
-        />
-        <input
-          type="text"
-          inputMode="numeric"
-          maxLength={6}
-          className="w-full rounded-md border border-[var(--line)] bg-[var(--bg)] px-3 py-2 tracking-widest"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          placeholder="000000"
-          required
-        />
-        <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaReset} />
-        {error && <p className="text-xs text-[var(--err)]">{error}</p>}
-        {info && <p className="text-xs text-[var(--info)]">{info}</p>}
+    <div className="flex min-h-screen items-center justify-center bg-surface px-4 text-on-surface">
+      <div className="w-full max-w-md rounded-2xl border border-outline-variant/30 bg-surface-container-low/80 p-8 backdrop-blur-xl">
+        <Link to="/" className="mb-6 inline-flex items-center gap-2 text-primary">
+          <span className="material-symbols-outlined" style={{ fontVariationSettings: '"FILL" 1' }}>
+            terminal
+          </span>
+          <span className="font-bold tracking-tighter">CodeIT</span>
+        </Link>
+        <h1 className="mb-2 text-2xl font-bold">Verify your email</h1>
+        <p className="mb-6 text-sm text-on-surface-variant">
+          Enter the 6-digit code we sent. Codes expire in a few minutes.
+        </p>
+        <form className="space-y-4" onSubmit={onSubmit}>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wider text-on-surface-variant">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container px-3"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wider text-on-surface-variant">
+              Code
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container px-3 tracking-[0.3em]"
+              placeholder="000000"
+              required
+            />
+          </div>
+          <TurnstileWidget onToken={setCaptchaToken} resetKey={captchaReset} />
+          {error && <p className="text-sm text-error">{error}</p>}
+          {message && <p className="text-sm text-primary">{message}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="h-11 w-full rounded-lg bg-primary-container font-semibold text-on-primary-container disabled:opacity-70"
+          >
+            {loading ? "Verifying…" : "Verify email"}
+          </button>
+        </form>
         <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-[var(--accent)] px-3 py-2 font-semibold text-black disabled:opacity-70"
+          type="button"
+          onClick={onResend}
+          disabled={resending}
+          className="mt-4 w-full text-sm text-primary underline-offset-4 hover:underline disabled:opacity-70"
         >
-          {loading ? "Verifying…" : "Verify"}
+          {resending ? "Sending…" : "Resend code"}
         </button>
-        <button type="button" onClick={onResend} className="w-full text-xs text-[var(--info)]">
-          Resend code
-        </button>
-        <p className="text-center text-xs text-[var(--text-dim)]">
-          <Link to="/login" className="text-[var(--info)] hover:underline">
-            Back to login
+        <p className="mt-6 text-center text-sm text-on-surface-variant">
+          <Link to="/login" className="text-primary hover:underline">
+            Back to sign in
           </Link>
         </p>
-      </form>
-    </AuthLayout>
+      </div>
+    </div>
   );
 }

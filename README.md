@@ -4,7 +4,7 @@ CodeIT is a full-stack competitive programming platform for solving problems, ru
 
 Stack: React + TypeScript frontends, Spring Boot API, PostgreSQL, Redis, Judge0, JWT auth, STOMP WebSockets, and a Yjs sync server for real-time editor/whiteboard sync.
 
-> **Project status:** Core coding, judging, submissions, competitions, profile, AI learning coach (Groq), collaboration (CodeRoom + Problem Collab), and an ADMIN Command Center (problem + competition studios) are implemented. The Stitch UI (`frontend-stitch/`) is the polished app under active migration; the original `frontend/` remains available.
+> **Project status:** Core coding, judging, submissions, competitions, profile, AI learning coach (Groq), collaboration (CodeRoom + Problem Collab), and an ADMIN Command Center (problem + competition studios) are implemented. The product UI lives in `frontend/` (Stitch-based).
 
 ## Highlights
 
@@ -22,7 +22,7 @@ Stack: React + TypeScript frontends, Spring Boot API, PostgreSQL, Redis, Judge0,
 
 ```mermaid
 flowchart LR
-    Browser[React frontends] -->|REST + JWT| API[Spring Boot API]
+    Browser[React frontend] -->|REST + JWT| API[Spring Boot API]
     Browser <-->|STOMP / SockJS + JWT| WS[WebSocket Broker]
     Browser <-->|Yjs WebSocket| Sync[sync-server]
     API --> PostgreSQL[(PostgreSQL)]
@@ -33,14 +33,13 @@ flowchart LR
     Sync -.->|validates JWT| API
 ```
 
-### Frontends
+### Frontend
 
-| App           | Path               | Dev URL               | Role                                         |
-| ------------- | ------------------ | --------------------- | -------------------------------------------- |
-| **Stitch UI** | `frontend-stitch/` | http://localhost:5175 | Primary polished UI (Stitch screens + admin) |
-| Legacy UI     | `frontend/`        | http://localhost:5173 | Original production frontend                 |
+| App | Path | Dev URL | Role |
+| --- | --- | --- | --- |
+| **UI** | `frontend/` | http://localhost:5175 | Product UI (Stitch screens + admin) |
 
-Both talk to the same API (`9091`) and sync-server (`1234`). Auth storage keys differ (`codeit.stitch.*` vs production keys) so sessions do not clash.
+Talks to the API (`9091`) and sync-server (`1234`). Auth storage keys use `codeit.stitch.*`.
 
 ### Main application flow
 
@@ -324,49 +323,30 @@ Or: `docker compose up sync-server --build` (port `1234`).
 
 ### 8. Frontend
 
-**Recommended — Stitch UI:**
-
-```bash
-cd frontend-stitch
-npm ci
-npm run dev
-```
-
-Opens at **http://localhost:5175**. Dev proxies `/api` → `http://localhost:9091`. Optional:
-
-```properties
-VITE_API_URL=http://localhost:9091
-VITE_SYNC_WS_URL=ws://localhost:1234
-```
-
-**Legacy UI** (still supported):
-
 ```bash
 cd frontend
-cp .env.example .env.local
 npm ci
 npm run dev
 ```
 
-Frontend: **http://localhost:5173**
+Opens at **http://localhost:5175**. Dev proxies `/api` + `/ws` → `http://localhost:9091` and `/sync` → sync-server `:1234`. Optional:
 
 ```properties
-VITE_API_URL=http://localhost:9091
-VITE_SYNC_WS_URL=ws://localhost:1234
+VITE_API_URL=
+VITE_SYNC_WS_URL=
 ```
 
-Promote a user to admin (SQL), then open `/admin` in the Stitch app.
+Promote a user to admin (SQL), then open `/admin`.
 
 ## Default Ports
 
-| Service                             | Port |
-| ----------------------------------- | ---: |
-| Stitch frontend (`frontend-stitch`) | 5175 |
-| Legacy frontend (`frontend`)        | 5173 |
-| Spring Boot API                     | 9091 |
-| Yjs sync-server                     | 1234 |
-| PostgreSQL                          | 5432 |
-| Redis (optional)                    | 6379 |
+| Service | Port |
+| --- | ---: |
+| Frontend (`frontend`) | 5175 |
+| Spring Boot API | 9091 |
+| Yjs sync-server | 1234 |
+| PostgreSQL | 5432 |
+| Redis (optional) | 6379 |
 | Judge0                              | 2358 |
 
 ## Configuration Reference
@@ -559,7 +539,6 @@ RUN_JUDGE0_INTEGRATION=true ./mvnw -Dtest=CompileOnceJudgeServiceIntegrationTest
 ```
 
 ```bash
-cd frontend-stitch && npm ci && npm run lint && npm run build
 cd frontend && npm ci && npm run lint && npm run build
 ```
 
@@ -567,22 +546,18 @@ cd frontend && npm ci && npm run lint && npm run build
 
 ```text
 CodeIT/
-├── frontend-stitch/          # Stitch UI (primary, port 5175)
+├── frontend/                 # Product UI (port 5175)
 │   └── src/
 │       ├── components/       # AppNav, SoftPageFade, …
 │       ├── features/
 │       ├── lib/
 │       └── pages/            # product + Admin* studios
-├── frontend/                 # Legacy React app (port 5173)
-│   └── src/
-│       ├── components/
-│       ├── features/collaboration/
-│       ├── lib/
-│       └── pages/
 ├── sync-server/              # Yjs WebSocket sidecar
 ├── schema/                   # Base SQL bootstrap (+ legacy one-shots)
 ├── docs/                     # Architecture and deploy guides
-├── docker-compose.yml        # sync-server only
+├── deploy/                   # Nginx + production checklist
+├── docker-compose.yml        # Full stack (optional local Postgres)
+├── docker-compose.supabase.yml  # Override: Supabase instead of compose Postgres
 ├── src/main/java/com/codeit/
 │   ├── config/
 │   ├── security/ratelimit/   # HTTP / judge / AI / room limits
@@ -597,8 +572,9 @@ CodeIT/
 │       └── user/
 ├── src/main/resources/
 │   ├── application.properties
+│   ├── application-prod.properties
 │   ├── ai/prompts/
-│   └── db/migration/         # Flyway V1–V3
+│   └── db/migration/         # Flyway
 └── pom.xml
 ```
 
@@ -608,27 +584,25 @@ CodeIT/
 - Backend tests focus mainly on the judging pipeline.
 - Judge0 is external and not version-pinned by this repo.
 - Base schema is still bootstrapped via `schema/schema.sql`; Flyway covers incremental AI/collab tables.
-- CORS is tuned for local frontend origins.
-- `docker-compose.yml` runs only the sync-server, not the full stack.
+- CORS is tuned for local frontend origins; override with `CODEIT_CORS_ORIGINS` in prod.
+- Production Compose stack: see [`deploy/README.md`](deploy/README.md) (Supabase override available).
 - Competition draft/publish/edit and rich dashboard fields are not on the API yet (studios use create + local draft).
-- Stitch vs legacy frontend: dual apps until Stitch fully replaces `frontend/`.
 - Practice dashboard and some competition-dashboard fields remain backlog (see `docs/PRACTICE_API_REQUIREMENTS.md`, `docs/COMPETITIONS_DASHBOARD_API.md`).
 
 ## Roadmap
 
-- Cut over fully to `frontend-stitch` and retire legacy `frontend/`
-- Full-stack Docker Compose (Postgres, Redis, Judge0, API, sync-server, frontend)
 - Broader backend/frontend automated tests
 - Competition draft / update / publish APIs
 - Observability (structured logs, metrics)
 
 ## Docs
 
-| Doc                                                                        | Topic                          |
-| -------------------------------------------------------------------------- | ------------------------------ |
-| [`frontend-stitch/README.md`](frontend-stitch/README.md)                   | Stitch UI runbook + screen map |
-| [`docs/COLLABORATION_ARCHITECTURE.md`](docs/COLLABORATION_ARCHITECTURE.md) | Rooms, Yjs, roles              |
-| [`docs/JUDGE0_HOMELAB_DEPLOY.md`](docs/JUDGE0_HOMELAB_DEPLOY.md)           | Judge0 on homelab              |
-| [`docs/JUDGE0_DIGITALOCEAN_DEPLOY.md`](docs/JUDGE0_DIGITALOCEAN_DEPLOY.md) | Judge0 on DO                   |
-| [`docs/PROFILE_API_INTEGRATION.md`](docs/PROFILE_API_INTEGRATION.md)       | Profile API                    |
-| [`sync-server/README.md`](sync-server/README.md)                           | Sync server                    |
+| Doc | Topic |
+| --- | --- |
+| [`frontend/README.md`](frontend/README.md) | UI runbook + screen map |
+| [`deploy/README.md`](deploy/README.md) | Compose / Nginx / homelab deploy |
+| [`docs/COLLABORATION_ARCHITECTURE.md`](docs/COLLABORATION_ARCHITECTURE.md) | Rooms, Yjs, roles |
+| [`docs/JUDGE0_HOMELAB_DEPLOY.md`](docs/JUDGE0_HOMELAB_DEPLOY.md) | Judge0 on homelab |
+| [`docs/JUDGE0_DIGITALOCEAN_DEPLOY.md`](docs/JUDGE0_DIGITALOCEAN_DEPLOY.md) | Judge0 on DO |
+| [`docs/PROFILE_API_INTEGRATION.md`](docs/PROFILE_API_INTEGRATION.md) | Profile API |
+| [`sync-server/README.md`](sync-server/README.md) | Sync server |

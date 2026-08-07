@@ -1,0 +1,30 @@
+# Homelab / VM override: Supabase Postgres (no local compose postgres).
+# Keeps CodeIT redis + api + sync + nginx. Judge0 stays on the host.
+#
+# Usage:
+#   cp .env.example .env   # fill SPRING_DATASOURCE_* + secrets
+#   docker compose -f docker-compose.yml -f docker-compose.supabase.yml up -d --build
+#
+# Required in .env (in addition to JWT / OTP / Turnstile / Redis / SYNC secrets):
+#   SPRING_DATASOURCE_URL=jdbc:postgresql://aws-....pooler.supabase.com:5432/postgres?sslmode=require
+#   SPRING_DATASOURCE_USERNAME=postgres.<project-ref>
+#   SPRING_DATASOURCE_PASSWORD=...
+#
+# Prefer the Session pooler (IPv4) over direct db.*.supabase.co when the VM is IPv4-only.
+#
+# Note: `depends_on: !reset` clears the base compose postgres dependency (Compose deep-merges
+# depends_on otherwise, which breaks when postgres is profile-disabled).
+
+services:
+  # Disabled unless you explicitly enable profile `local-postgres`.
+  postgres:
+    profiles: ["local-postgres"]
+
+  api:
+    depends_on: !reset
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:?set SPRING_DATASOURCE_URL for Supabase}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:?set SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?set SPRING_DATASOURCE_PASSWORD}

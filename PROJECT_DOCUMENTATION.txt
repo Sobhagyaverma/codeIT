@@ -54,8 +54,8 @@ Project status (as of docs):
   - Collaboration (CodeRoom + Problem Collab): implemented
   - Friends, notifications, Quick Clash: implemented
   - ADMIN Command Center (problem + competition studios): implemented
-  - Primary UI: frontend-stitch/ (active migration)
-  - Legacy UI: frontend/ (still available)
+  - Primary UI: frontend/
+  - Deploy: docker-compose (+ optional docker-compose.supabase.yml)
 
 
 ================================================================================
@@ -163,7 +163,7 @@ Flow summary:
   RSA-OAEP SHA-256 for sensitive fields in transit (defense-in-depth)
   Private key file: data/codeit-rsa-private.pem (gitignored, auto-generated)
 
-4.9 Primary frontend (frontend-stitch/)
+4.9 Frontend (frontend/)
   React 19.2
   TypeScript ~6
   Vite 8
@@ -177,12 +177,7 @@ Flow summary:
   Dev port: 5175
   Auth storage keys: codeit.stitch.*
 
-4.10 Legacy frontend (frontend/)
-  Same general stack family (React/TS/Vite)
-  Dev port: 5173
-  Separate auth storage keys so sessions do not clash with Stitch
-
-4.11 Sync server (sync-server/)
+4.10 Sync server (sync-server/)
   Node.js (>=18; project recommends ^20.19 or >=22.12 for frontends)
   Plain Node WebSocket server (ws)
   yjs + y-protocols + lib0
@@ -190,8 +185,10 @@ Flow summary:
   dotenv
   Port: 1234
 
-4.12 Docker
-  docker-compose.yml currently runs sync-server only (not full stack)
+4.11 Docker
+  docker-compose.yml: nginx + api + sync + redis (+ optional postgres)
+  docker-compose.supabase.yml: disables compose postgres; API uses Supabase via env
+  Judge0 remains external (JUDGE0_API_URL)
 
 
 ================================================================================
@@ -199,7 +196,7 @@ Flow summary:
 ================================================================================
 
 CodeIT/
-├── frontend-stitch/              # Primary polished UI (port 5175)
+├── frontend/              # Product UI (port 5175)
 │   └── src/
 │       ├── components/
 │       ├── context/              # Auth
@@ -207,7 +204,6 @@ CodeIT/
 │       │                         # learn, practice
 │       ├── lib/                  # api, authStorage, monacoTheme
 │       └── pages/                # product + Admin* studios
-├── frontend/                     # Legacy UI (port 5173)
 ├── sync-server/                  # Yjs WebSocket sidecar
 ├── schema/                       # Base SQL + legacy one-shots
 │   ├── schema.sql
@@ -215,6 +211,7 @@ CodeIT/
 │   ├── profile.sql
 │   └── users_name_uniqueuserid.sql
 ├── docs/                         # Architecture & deploy guides
+├── deploy/                       # Nginx + production checklist
 ├── data/                         # Local RSA key (gitignored content)
 ├── scripts/
 ├── docker-compose.yml
@@ -253,8 +250,7 @@ CodeIT/
 
   Service                         Port
   --------------------------------------
-  Stitch frontend                 5175
-  Legacy frontend                 5173
+  Frontend                        5175
   Spring Boot API                 9091
   Yjs sync-server                 1234
   PostgreSQL                      5432
@@ -991,7 +987,7 @@ Start:
 18. FRONTEND APPS
 ================================================================================
 
-18.1 Stitch UI screen map (frontend-stitch)
+18.1 Stitch UI screen map (frontend)
   /                                 Landing
   /login, /register                 Auth
   /problems                         Catalog
@@ -1084,7 +1080,7 @@ Never commit API keys or secrets.
     3. Export env vars (DB, JWT, Judge0, mail, Groq, captcha as needed)
     4. ./mvnw spring-boot:run          -> http://localhost:9091
     5. cd sync-server && npm ci && npm start  -> :1234
-    6. cd frontend-stitch && npm ci && npm run dev  -> :5175
+    6. cd frontend && npm ci && npm run dev  -> :5175
     7. Promote admin via SQL; open /admin
 
 Promote admin:
@@ -1102,7 +1098,7 @@ Promote admin:
     RUN_JUDGE0_INTEGRATION=true ./mvnw -Dtest=CompileOnceJudgeServiceIntegrationTests test
 
   Frontends:
-    cd frontend-stitch && npm ci && npm run lint && npm run build
+    cd frontend && npm ci && npm run lint && npm run build
     cd frontend && npm ci && npm run lint && npm run build
 
   Note: No full automated E2E suite yet; backend tests focus on judging.
@@ -1117,17 +1113,14 @@ Limitations:
   - Judge0 external / not version-pinned by this repo
   - Base schema still bootstrapped via schema/schema.sql;
     Flyway for incremental features
-  - CORS tuned for local origins
-  - docker-compose only sync-server (not full stack)
+  - CORS tuned for local origins (override CODEIT_CORS_ORIGINS in prod)
+  - Full-stack Docker Compose + Supabase override (see deploy/README.md)
   - Competition draft/publish/edit APIs incomplete (localStorage drafts)
-  - Dual frontends until Stitch fully replaces legacy
   - Practice dashboard / rich competition dashboard fields partly backlog
     (see docs/PRACTICE_API_REQUIREMENTS.md, docs/COMPETITIONS_DASHBOARD_API.md)
   - No first-class college/faculty org roles yet
 
 Roadmap (from README):
-  - Full cutover to frontend-stitch; retire legacy frontend
-  - Full-stack Docker Compose (Postgres, Redis, Judge0, API, sync, UI)
   - Broader automated tests
   - Competition draft / update / publish APIs
   - Observability (structured logs, metrics)
@@ -1138,8 +1131,8 @@ Roadmap (from README):
 ================================================================================
 
   README.md
-  frontend-stitch/README.md
   frontend/README.md
+  deploy/README.md
   sync-server/README.md
   docs/COLLABORATION_ARCHITECTURE.md
   docs/JUDGE0_HOMELAB_DEPLOY.md
@@ -1150,7 +1143,7 @@ Roadmap (from README):
   docs/EMAIL_OTP_CONTACT_TEST.md
   src/main/resources/quickclash.txt
   schema/schema.sql
-  src/main/resources/db/migration/V1..V8
+  src/main/resources/db/migration/V1..V9
 
 
 ================================================================================

@@ -1,4 +1,4 @@
-/** Stable per-user palette for presence, Monaco cursors, and whiteboard. */
+/** Stable per-user palette for presence and Monaco remote cursors. */
 export const USER_COLORS = [
   "#f5a623",
   "#3b82f6",
@@ -37,7 +37,7 @@ export function syncMonacoRemoteCursorStyles(
     getStates: () => Map<number, Record<string, unknown>>;
     clientID: number;
   },
-  styleElementId = "codeit-yjs-remote-cursors"
+  styleElementId = "codeit-stitch-yjs-remote-cursors"
 ): void {
   let style = document.getElementById(styleElementId) as HTMLStyleElement | null;
   if (!style) {

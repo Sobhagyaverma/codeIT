@@ -1,9 +1,9 @@
-# Build Stitch UI and serve behind Nginx (same-origin /api /ws /sync)
+# Build frontend UI and serve behind Nginx (same-origin /api /ws /sync)
 FROM node:22-alpine AS frontend-build
 WORKDIR /ui
-COPY frontend-stitch/package.json frontend-stitch/package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
-COPY frontend-stitch/ ./
+COPY frontend/ ./
 # Same-origin: leave VITE_* empty so the browser uses /api, /ws, /sync on this host
 ENV VITE_API_URL= \
     VITE_SYNC_WS_URL=

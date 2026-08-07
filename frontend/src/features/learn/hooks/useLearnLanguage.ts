@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import type { LearnLanguage } from "../types";
 
-const STORAGE_KEY = "codeit:learn:lang:v1";
+const STORAGE_KEY = "codeit.stitch.learn.lang:v1";
 const DEFAULT_LANGUAGE: LearnLanguage = "python";
 
 const VALID: ReadonlySet<string> = new Set(["cpp", "java", "python"]);

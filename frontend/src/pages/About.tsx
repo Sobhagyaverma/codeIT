@@ -1,187 +1,186 @@
 import { Link } from "react-router-dom";
-import {
-  BookOpen,
-  BrainCircuit,
-  Code2,
-  Database,
-  LineChart,
-  Palette,
-  Sparkles,
-  Trophy,
-} from "lucide-react";
+import AppNav from "../components/AppNav";
 
-const FEATURES = [
+const PILLARS = [
   {
-    icon: BookOpen,
-    title: "Structured practice",
-    description:
-      "A topic-by-topic DSA roadmap with progress tracking, favorites, and a full problem catalog.",
+    icon: "account_tree",
+    title: "Structured Practice",
+    body: "Topic-by-topic DSA roadmap and full problem catalog.",
   },
   {
-    icon: Trophy,
-    title: "Real contests",
-    description:
-      "Timed rounds with hidden test cases, live standings, and rank history under real pressure.",
+    icon: "emoji_events",
+    title: "Real Contests",
+    body: "Timed rounds, hidden tests, and live standings.",
   },
   {
-    icon: BrainCircuit,
-    title: "AI assistance",
-    description:
-      "Stuck on a verdict? Ask the AI to explain your code or fix what's failing, grounded in the actual problem.",
+    icon: "smart_toy",
+    title: "AI Assistance",
+    body: "Intelligent code explanations grounded in problem context.",
   },
   {
-    icon: LineChart,
-    title: "Progress you can see",
-    description:
-      "Streaks, heatmaps, per-topic stats, and submission history — consistency made visible.",
+    icon: "monitoring",
+    title: "Progress Visibility",
+    body: "Streaks, heatmaps, and per-topic analytics.",
   },
-];
-
-const AUTHORS = [
-  {
-    name: "Sobhagya Verma",
-    role: "Backend / Database",
-    icon: Database,
-    bio: "Computer Science undergraduate and aspiring AI/ML engineer with a strong interest in backend development and RAG systems. He built CodeIT's backend and database layer, focusing on scalable APIs, reliable architecture, and efficient data handling. He also enjoys machine learning, cloud technologies, and developing intelligent software that solves practical problems.",
-  },
-  {
-    name: "Manya Katakol",
-    role: "Frontend / UI",
-    icon: Palette,
-    bio: "Computer Science undergraduate passionate about building innovative, impactful technology. She explores IoT, cybersecurity, blockchain, AI, and software development, combining creativity with practical problem-solving and aiming to bridge innovation with real-world applications through every project.",
-  },
-];
+] as const;
 
 export default function About() {
   return (
-    <div className="practice-shell min-h-[calc(100vh-3.5rem)]">
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-        {/* Hero */}
-        <header className="mb-10 text-center">
-          <p className="verdict-strip text-[var(--accent)]">/about → codeit</p>
-          <h1 className="display mt-3 text-3xl font-semibold tracking-tight sm:text-5xl">
-            Built for the grind,
-            <br />
-            designed for <span className="text-[var(--accent)]">growth</span>.
+    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background text-on-surface">
+      <AppNav activeHint="/about" />
+
+      <main className="mx-auto w-full max-w-[1440px] space-y-32 px-4 pb-24 pt-32 md:px-12">
+        <section className="relative flex flex-col items-center space-y-8 text-center">
+          <div className="absolute left-1/2 top-1/2 z-[-1] size-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[100px]" />
+          <h1 className="font-headline text-5xl font-extrabold tracking-tight text-primary drop-shadow-[0_0_15px_rgba(183,109,255,0.5)] md:text-6xl">
+            CodeIT
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[var(--text-dim)] sm:text-base">
-            CodeIT brings problem solving, contests, progress tracking, and
-            intelligent assistance into a single focused environment — so you
-            can practice systematically, measure honestly, and improve
-            steadily.
+          <h2 className="max-w-3xl font-headline text-2xl font-bold text-on-surface md:text-3xl">
+            Built for the grind, designed for growth.
+          </h2>
+          <p className="max-w-2xl font-body text-lg text-on-surface-variant">
+            CodeIT combines problem solving, contests, progress tracking, and
+            intelligent assistance in one focused environment — practice
+            systematically, measure honestly, improve steadily.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <div className="flex flex-col gap-4 pt-4 sm:flex-row">
             <Link
-              to="/dsa-sheet"
-              className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0a0d12] shadow-[0_8px_24px_rgba(245,166,35,0.22)] transition hover:-translate-y-0.5 hover:brightness-110"
+              to="/problems"
+              className="rounded-xl bg-primary px-8 py-3 font-label text-sm font-bold text-on-primary transition hover:brightness-110"
             >
-              <Sparkles className="h-4 w-4" aria-hidden />
               Start practicing
             </Link>
             <Link
               to="/competitions"
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--bg-raised)]/70 px-4 py-2.5 text-sm text-[var(--text)] transition hover:border-[var(--info)]"
+              className="rounded-xl border border-outline-variant/40 bg-transparent px-8 py-3 font-label text-sm font-bold text-on-surface backdrop-blur-md transition hover:bg-surface-container-high"
             >
-              <Trophy className="h-4 w-4" aria-hidden />
               View competitions
             </Link>
           </div>
-        </header>
-
-        {/* Mission */}
-        <section className="mb-8 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]/80 practice-glass">
-          <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/10 text-[var(--accent)]">
-              <Code2 className="h-6 w-6" aria-hidden />
-            </div>
-            <div>
-              <h2 className="display text-xl font-semibold">
-                What this project is about
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--text-dim)]">
-                CodeIT is a dedicated platform for practicing data structures
-                and algorithms through a structured, interactive, and
-                user-focused experience. It encourages regular practice with
-                tools that support both learning and performance evaluation —
-                helping you sharpen technical ability, develop stronger
-                analytical thinking, and grow consistently in your
-                problem-solving journey.
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--text-dim)]">
-                Approach problems systematically, evaluate your performance
-                across topics and sessions, and refine your strategy over time.
-                Through usability, functionality, and guided support, CodeIT
-                aims to be an effective space to strengthen your foundations
-                and build confidence in tackling technical challenges.
-              </p>
-            </div>
-          </div>
         </section>
 
-        {/* Features */}
-        <section className="mb-10">
-          <h2 className="display mb-4 text-xl font-semibold">
-            What you get
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {FEATURES.map(({ icon: Icon, title, description }) => (
-              <article
-                key={title}
-                className="practice-card rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]/70 p-5 practice-glass hover:-translate-y-0.5 hover:border-[var(--info)]/40 hover:shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
+        <section className="glass-panel group relative overflow-hidden rounded-xl p-12">
+          <div className="absolute left-0 top-0 h-full w-1 bg-primary-container shadow-[0_0_10px_#b76dff]" />
+          <h3 className="mb-6 flex items-center gap-2 font-headline text-2xl font-bold text-primary">
+            <span className="material-symbols-outlined text-3xl">
+              rocket_launch
+            </span>{" "}
+            Mission
+          </h3>
+          <p className="font-body text-lg leading-relaxed text-on-surface-variant">
+            A dedicated platform for DSA practice — structured, interactive, and
+            user-focused. CodeIT helps you sharpen technical ability and
+            analytical thinking through systematic practice and performance
+            evaluation.
+          </p>
+        </section>
+
+        <section className="space-y-12">
+          <h3 className="text-center font-headline text-2xl font-bold text-on-surface">
+            Core Pillars
+          </h3>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {PILLARS.map((p) => (
+              <div
+                key={p.title}
+                className="glass-panel flex flex-col gap-4 rounded-xl p-8 transition-all duration-300 hover:shadow-[0_0_24px_rgba(183,109,255,0.15)]"
               >
-                <div className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--line)] bg-[var(--bg-inset)] text-[var(--accent)]">
-                  <Icon className="h-5 w-5" aria-hidden />
+                <div className="flex size-12 items-center justify-center rounded-full border border-primary-container/30 bg-primary-container/20">
+                  <span className="material-symbols-outlined text-primary-container">
+                    {p.icon}
+                  </span>
                 </div>
-                <h3 className="mt-3 text-sm font-semibold text-[var(--text)]">
-                  {title}
-                </h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-[var(--text-dim)]">
-                  {description}
-                </p>
-              </article>
+                <h4 className="font-headline text-xl font-bold text-primary-fixed">
+                  {p.title}
+                </h4>
+                <p className="font-body text-on-surface-variant">{p.body}</p>
+              </div>
             ))}
           </div>
         </section>
 
-        {/* Authors */}
-        <section>
-          <h2 className="display mb-4 text-xl font-semibold">Authors</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {AUTHORS.map(({ name, role, icon: Icon, bio }) => {
-              const initials = name
-                .split(" ")
-                .map((part) => part[0])
-                .join("")
-                .toUpperCase();
-              return (
-                <article
-                  key={name}
-                  className="practice-card overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--bg-raised)]/80 practice-glass hover:-translate-y-0.5 hover:border-[var(--accent)]/40 hover:shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
-                >
-                  <div className="h-16 bg-gradient-to-r from-[var(--accent)]/15 via-[var(--info)]/10 to-transparent" />
-                  <div className="relative px-5 pb-5">
-                    <div className="-mt-8 flex items-end justify-between">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-[var(--bg-raised)] bg-[var(--accent)] text-xl font-bold text-[#0a0d12]">
-                        {initials}
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent)]">
-                        <Icon className="h-3 w-3" aria-hidden />
-                        {role}
-                      </span>
-                    </div>
-                    <h3 className="mt-3 text-base font-semibold text-[var(--text)]">
-                      {name}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--text-dim)]">
-                      {bio}
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
+        <section className="space-y-12">
+          <h3 className="text-center font-headline text-2xl font-bold text-on-surface">
+            Architects
+          </h3>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+            <div className="glass-panel group flex flex-col items-center gap-6 rounded-xl p-8 transition-colors duration-300 hover:border-primary-container md:flex-row md:items-start">
+              <div className="relative size-24 flex-shrink-0 overflow-hidden rounded-full border-2 border-outline-variant bg-surface-container-high">
+                <img
+                  alt="Sobhagya Verma"
+                  className="size-full object-cover opacity-80 mix-blend-luminosity transition-all group-hover:opacity-100 group-hover:mix-blend-normal"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCh6qpB1Wbis-GPcJnRdhmjHPlmsk9bfSw0F0j0KcsFcuvLydL3TJcBEBOLMVUGmE3DxN3LSiUbYcr9WFPeS4nJ7OVK3z67Aw5QTQW7eKmYIWYTHELSyz5oDS-g6VzwELmy1FgY0bv5doZunyk4eUTif-su81vxqVheNWRzdUQzSTAz9l3MmV-74oxFQv7p4IIoCtaYYoeeXRgg9XIa3BNylRfu7FFTTT3_qf-aUFHb01gD8Gdjplsj"
+                />
+              </div>
+              <div className="flex flex-col gap-2 text-center md:text-left">
+                <h4 className="font-headline text-xl font-bold text-primary">
+                  Sobhagya Verma
+                </h4>
+                <div className="mx-auto inline-block w-max rounded-full border border-primary-container/20 bg-primary-container/10 px-3 py-1 md:mx-0">
+                  <span className="font-label text-sm text-primary-container">
+                    Backend / Database
+                  </span>
+                </div>
+                <p className="mt-2 font-body text-on-surface-variant">
+                  CS undergrad / aspiring AI-ML. Built CodeIT backend + database
+                  (scalable APIs, reliable architecture, data handling).
+                </p>
+              </div>
+            </div>
+            <div className="glass-panel group flex flex-col items-center gap-6 rounded-xl p-8 transition-colors duration-300 hover:border-primary-container md:flex-row md:items-start">
+              <div className="relative size-24 flex-shrink-0 overflow-hidden rounded-full border-2 border-outline-variant bg-surface-container-high">
+                <img
+                  alt="Manya Katakol"
+                  className="size-full object-cover opacity-80 mix-blend-luminosity transition-all group-hover:opacity-100 group-hover:mix-blend-normal"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4R_rlfBx73e0pW7vfST5QRDn3mvTZmzACNrAt24aOdNHf25USEvIo-19ozwnabsnDMdB2ziF84NfyF0Q6QkjLhGDneRdLfWwg8oc1m12u1DPvUFd7stBCnyFL17dmAxShBrUubgkXrfk9-OaIg5_l-vASwxDbpUiNolXxUMcfwI4l8mynBpzyfT_1x46DQFYdnefFC6S9oDN_a2P1Jgow2us7Ug3G5boJwDOBRK6UW7nqp4zFinoV"
+                />
+              </div>
+              <div className="flex flex-col gap-2 text-center md:text-left">
+                <h4 className="font-headline text-xl font-bold text-primary">
+                  Manya Katakol
+                </h4>
+                <div className="mx-auto inline-block w-max rounded-full border border-primary-container/20 bg-primary-container/10 px-3 py-1 md:mx-0">
+                  <span className="font-label text-sm text-primary-container">
+                    Frontend / UI
+                  </span>
+                </div>
+                <p className="mt-2 font-body text-on-surface-variant">
+                  CS undergrad; builds innovative tech; explores IoT,
+                  cybersecurity, blockchain, AI, software.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
       </main>
+
+      <footer className="mt-auto w-full border-t border-outline-variant/10 bg-surface-container-lowest py-12">
+        <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between px-4 md:flex-row md:px-12">
+          <div className="mb-6 font-headline text-2xl font-bold text-primary md:mb-0">
+            CodeIT
+          </div>
+          <div className="flex gap-6">
+            <Link
+              className="font-label text-sm text-on-surface-variant opacity-80 transition-colors hover:text-primary hover:opacity-100"
+              to="/privacy"
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              className="font-label text-sm text-on-surface-variant opacity-80 transition-colors hover:text-primary hover:opacity-100"
+              to="/terms"
+            >
+              Terms of Service
+            </Link>
+            <Link
+              className="font-label text-sm text-on-surface-variant opacity-80 transition-colors hover:text-primary hover:opacity-100"
+              to="/help"
+            >
+              Help
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

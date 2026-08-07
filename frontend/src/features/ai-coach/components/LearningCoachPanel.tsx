@@ -1,5 +1,5 @@
-import { Loading, ErrorState } from "../../../components/Loading";
-import type { JudgeVerdictDTO } from "../../../lib/types";
+import { Link } from "react-router-dom";
+import type { JudgeVerdictDTO } from "../../../lib/api";
 import { useLearningCoach } from "../hooks/useLearningCoach";
 import type { CoachTool } from "../types";
 import CoachHintCards from "./CoachHintCards";
@@ -34,9 +34,18 @@ export default function LearningCoachPanel({
 
   if (!enabled) {
     return (
-      <p className="text-sm text-[var(--text-dim)]">
-        Log in to use the AI Learning Coach on practice problems.
-      </p>
+      <div className="flex h-full flex-col items-start justify-center gap-2 text-on-surface-variant">
+        <span className="material-symbols-outlined text-3xl text-primary">
+          smart_toy
+        </span>
+        <p className="font-label-md text-on-surface">AI Learning Coach</p>
+        <p className="text-sm">
+          <Link to="/login" className="text-primary hover:underline">
+            Log in
+          </Link>{" "}
+          to use the AI Learning Coach on practice problems.
+        </p>
+      </div>
     );
   }
 
@@ -52,13 +61,16 @@ export default function LearningCoachPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <div>
-          <h3 className="display text-sm font-semibold text-[var(--text)]">
-            AI Learning Coach
-          </h3>
-          <p className="text-xs text-[var(--text-dim)]">
-            Optional mentor for practice — never contests.
-          </p>
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">smart_toy</span>
+          <div>
+            <h3 className="font-label-md text-sm font-semibold text-on-surface">
+              AI Learning Coach
+            </h3>
+            <p className="text-xs text-on-surface-variant">
+              Optional mentor for practice — never contests.
+            </p>
+          </div>
         </div>
         {coach.activeTool && (
           <button
@@ -68,7 +80,7 @@ export default function LearningCoachPanel({
               coach.setResult(null);
               coach.setError(null);
             }}
-            className="text-xs text-[var(--text-dim)] hover:text-[var(--text)]"
+            className="text-xs text-on-surface-variant transition hover:text-primary"
           >
             All tools
           </button>
@@ -76,7 +88,7 @@ export default function LearningCoachPanel({
       </div>
 
       {!coach.activeTool && (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <CoachToolList
             hasCode={coach.hasCode}
             isFailed={coach.isFailed}
@@ -94,13 +106,15 @@ export default function LearningCoachPanel({
             onChange={(e) => coach.setQuestion(e.target.value)}
             rows={3}
             placeholder="What does this constraint mean?"
-            className="w-full rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-sm text-[var(--text)] focus:border-[var(--info)] focus:outline-none"
+            className="w-full rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
           />
           <button
             type="button"
             disabled={coach.loading || !coach.question.trim()}
-            onClick={() => coach.runAction("ASK_AI", { question: coach.question })}
-            className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[#0a0d12] disabled:opacity-40"
+            onClick={() =>
+              coach.runAction("ASK_AI", { question: coach.question })
+            }
+            className="rounded-xl bg-primary px-4 py-2 font-label-md text-sm font-semibold text-on-primary disabled:opacity-40"
           >
             Ask
           </button>
@@ -108,19 +122,35 @@ export default function LearningCoachPanel({
       )}
 
       {coach.activeTool === "hints" && (
-        <CoachHintCards
-          unlockedHintLevel={coach.unlockedHintLevel}
-          hintContents={coach.hintContents}
-          loading={coach.loading}
-          onUnlock={(level) => coach.runAction("REQUEST_HINT", { hintLevel: level })}
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <CoachHintCards
+            unlockedHintLevel={coach.unlockedHintLevel}
+            hintContents={coach.hintContents}
+            loading={coach.loading}
+            onUnlock={(level) =>
+              coach.runAction("REQUEST_HINT", { hintLevel: level })
+            }
+          />
+        </div>
       )}
 
-      {coach.loading && <Loading label="Thinking" />}
-      {coach.error && <ErrorState message={coach.error} />}
+      {coach.loading && (
+        <div className="mt-3 flex items-center gap-2 text-sm text-on-surface-variant">
+          <span className="material-symbols-outlined animate-spin text-primary">
+            progress_activity
+          </span>
+          Thinking…
+        </div>
+      )}
+
+      {coach.error && (
+        <p className="mt-3 rounded-xl border border-hard/30 bg-hard/10 px-3 py-2 text-sm text-hard">
+          {coach.error}
+        </p>
+      )}
 
       {coach.result && coach.activeTool !== "hints" && !coach.loading && (
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-md border border-[var(--line)] bg-[var(--bg-raised)] p-3">
+        <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded-xl border border-outline-variant/30 bg-surface-container-low p-3">
           <CoachMessage content={coach.result.content} />
         </div>
       )}

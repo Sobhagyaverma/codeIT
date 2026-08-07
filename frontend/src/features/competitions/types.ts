@@ -22,7 +22,6 @@ export type ContestCardModel = {
   contestType: ContestType;
   difficulty: ContestDifficulty;
   isFeatured: boolean;
-  createdAt: string | null;
 };
 
 export type ContestHistoryRow = {
@@ -40,9 +39,6 @@ export type ContestUserStats = {
   bestRank: number | null;
   recentRank: number | null;
   averageRank: number | null;
-  currentRating: number | null;
-  highestRating: number | null;
-  winRate: number | null;
 };
 
 export type ContestDashboardStats = {

@@ -6,15 +6,10 @@ export type Example = {
   explanation?: string;
 };
 
-/**
- * Fix I/O strings that were stored with literal backslash-n (e.g. from
- * non-E'...' SQL inserts) instead of real newlines.
- */
 export function unescapeIoString(s: string): string {
   if (!s.includes("\\n") && !s.includes("\\r") && !s.includes("\\t")) {
     return s;
   }
-  // Already has real newlines — leave as-is to avoid corrupting valid data.
   if (s.includes("\n") || s.includes("\r")) {
     return s;
   }
@@ -35,15 +30,11 @@ export function parseExamples(examples?: string | Example[]): Example[] {
   }
 }
 
-/** True when a string looks like program I/O, not a JSON blob to re-parse. */
 function looksLikeRawIo(s: string): boolean {
   const t = s.trim();
   if (!t) return true;
-  // Pattern / multi-line stdout — never JSON.parse (would strip structure).
   if (t.includes("\n") || t.includes("\\n")) return true;
-  // Bare scalars / star patterns / numbers — leave as text.
   if (/^[\d\s.*+-]+$/.test(t)) return true;
-  // JSON objects/arrays/quoted strings only.
   return !(t.startsWith("{") || t.startsWith("[") || t.startsWith('"'));
 }
 
@@ -78,11 +69,6 @@ export function formatExample(value: unknown): string {
   return value == null ? "" : unescapeIoString(String(value));
 }
 
-/**
- * Stdin for a sample run: prefer the editable case value (with \\n fixed),
- * but if it's blank fall back to the problem example so Run can't silently
- * use empty stdin while the UI still shows the sample input.
- */
 export function resolveSampleStdin(
   caseStdin: string | undefined,
   exampleInput: unknown
@@ -92,7 +78,6 @@ export function resolveSampleStdin(
   return exampleInputToStdin(exampleInput);
 }
 
-/** Convert a problem example input into Judge0 stdin. */
 export function exampleInputToStdin(input: unknown): string {
   let value = input;
 
@@ -131,12 +116,10 @@ export function exampleInputToStdin(input: unknown): string {
   return value == null ? "" : unescapeIoString(String(value));
 }
 
-/** Convert a problem example output into expected stdout for comparison. */
 export function exampleOutputToExpected(output: unknown): string {
   let value = output;
 
   if (typeof value === "string") {
-    // Keep trailing newline semantics for judges, but trim only for JSON detect.
     if (looksLikeRawIo(value)) {
       return unescapeIoString(value);
     }
@@ -149,7 +132,6 @@ export function exampleOutputToExpected(output: unknown): string {
   }
 
   if (Array.isArray(value)) {
-    // String rows (pattern lines) → real newlines; scalars → space-separated.
     if (value.every((v) => typeof v === "string")) {
       return value.map((v) => unescapeIoString(v)).join("\n");
     }
@@ -164,7 +146,6 @@ export function exampleOutputToExpected(output: unknown): string {
   return value == null ? "" : unescapeIoString(String(value));
 }
 
-/** Match backend OutputComparator normalization. */
 export function normalizeOutput(s: string | null | undefined): string {
   if (s == null) return "";
   const lines = s.replace(/\r\n/g, "\n").replace(/\s+$/u, "").split("\n");

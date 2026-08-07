@@ -1,56 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
 import Editor from "@monaco-editor/react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import AppNav from "../components/AppNav";
+import { IoPre } from "../components/IoPre";
+import { useAuth } from "../context/AuthContext";
 import {
+  formatDuration,
+  formatSecondsClock,
+  toContestCard,
+} from "../features/competitions/adapters";
+import type { ContestCardModel } from "../features/competitions/types";
+import {
+  ApiError,
+  endCompetition,
   getCompetition,
   getCompetitionProblems,
   getCompetitionSession,
+  getLanguages,
   getLeaderboard,
   getProblem,
   joinCompetition,
   startCompetition,
-  endCompetition,
   submitToCompetition,
-  getLanguages,
+  type ContestSession,
+  type JudgeVerdictDTO,
+  type LanguageDTO,
+  type LeaderboardEntry,
+  type ProblemPublicDTO,
 } from "../lib/api";
-import {
-  leaderboardTopic,
-  sessionTopic,
-  statusTopic,
-  subscribeTopic,
-} from "../lib/ws";
-import type {
-  Competition,
-  ContestSession,
-  JudgeVerdictDTO,
-  LanguageDTO,
-  LeaderboardEntry,
-  ProblemPublicDTO,
-} from "../lib/types";
-import {
-  exampleInputToStdin,
-  exampleOutputToExpected,
-  formatExample,
-  parseExamples,
-} from "../lib/examples";
-import { ProblemExamples, IoPre } from "../components/ProblemExamples";
-import {
-  runSampleTests,
-  type SampleRunSession,
-} from "../lib/runSampleTests";
-import { useAuth } from "../context/AuthContext";
-import { Loading, ErrorState } from "../components/Loading";
-import EmptyState from "../components/EmptyState";
-import { FileText, ListChecks, TriangleAlert } from "lucide-react";
-import DifficultyBadge from "../components/DifficultyBadge";
-import VerdictPanel from "../components/VerdictPanel";
-import RunResultsPanel from "../components/RunResultsPanel";
 import {
   loadContestCodeDraft,
   pickPreferredLanguage,
   saveContestCodeDraft,
   setPreferredLanguage,
 } from "../lib/editorPrefs";
+import {
+  exampleOutputToExpected,
+  formatExample,
+  parseExamples,
+  resolveSampleStdin,
+} from "../lib/examples";
+import { CODEIT_THEME, defineCodeitTheme } from "../lib/monacoTheme";
+import {
+  runSampleTests,
+  type SampleRunSession,
+} from "../lib/runSampleTests";
 
 const MONACO_LANG: Record<string, string> = {
   c: "c",
@@ -77,17 +71,24 @@ const STARTER: Record<string, string> = {
     "const lines = require('fs').readFileSync('/dev/stdin', 'utf8').split('\\n');\n// your solution here\n",
 };
 
+const FALLBACK_LANGUAGES: LanguageDTO[] = [
+  { slug: "python", name: "Python 3", languageId: 71 },
+  { slug: "java", name: "Java", languageId: 62 },
+  { slug: "cpp", name: "C++", languageId: 54 },
+  { slug: "javascript", name: "JavaScript", languageId: 63 },
+];
+
 const PROBLEM_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 type WorkspaceTab = "problem" | "standings";
-type EditorBottomTab = "testcase" | "result";
+type BottomTab = "testcase" | "result";
 
-function formatSeconds(total: number) {
-  const s = Math.max(0, Math.floor(total));
-  const h = String(Math.floor(s / 3600)).padStart(2, "0");
-  const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-  const sec = String(s % 60).padStart(2, "0");
-  return `${h}:${m}:${sec}`;
+function difficultyClass(d?: string) {
+  const u = (d || "").trim().toUpperCase();
+  if (u === "EASY") return "bg-[#1A3F33] text-easy border-[#235343]";
+  if (u === "MEDIUM") return "bg-[#3F351A] text-medium border-[#534723]";
+  if (u === "HARD") return "bg-[#3F1A1A] text-hard border-[#532323]";
+  return "bg-surface-container-high text-on-surface-variant border-outline-variant/30";
 }
 
 function formatPenalty(seconds: number) {
@@ -111,1056 +112,1194 @@ function parseConstraints(raw?: string): string[] {
     .filter(Boolean);
 }
 
-function statusBadgeClass(status?: string) {
-  switch (status) {
-    case "ACTIVE":
-      return "border-[var(--ok)] text-[var(--ok)]";
-    case "ENDED":
-      return "border-[var(--err)] text-[var(--err)]";
-    default:
-      return "border-[var(--line)] text-[var(--text-dim)]";
-  }
-}
-
 export default function CompetitionRoom() {
   const { id } = useParams();
   const competitionId = Number(id);
   const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
 
-  const [competition, setCompetition] = useState<Competition | null>(null);
+  const [contest, setContest] = useState<ContestCardModel | null>(null);
   const [problemIds, setProblemIds] = useState<number[]>([]);
-  const [problemMeta, setProblemMeta] = useState<
-    Record<number, ProblemPublicDTO>
-  >({});
+  const [problems, setProblems] = useState<Record<number, ProblemPublicDTO>>({});
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [solvedIds, setSolvedIds] = useState<Set<number>>(new Set());
   const [session, setSession] = useState<ContestSession | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [languages, setLanguages] = useState<LanguageDTO[]>([]);
+  const [joined, setJoined] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [board, setBoard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [problemLoading, setProblemLoading] = useState(false);
 
-  const [remaining, setRemaining] = useState(0);
-  const tickRef = useRef<number | null>(null);
-
-  const [selectedProblem, setSelectedProblem] = useState<number | null>(null);
-  const [codeByProblem, setCodeByProblem] = useState<Record<number, string>>(
-    {}
-  );
-  const [solvedIds, setSolvedIds] = useState<Set<number>>(new Set());
+  const [languages, setLanguages] = useState<LanguageDTO[]>(FALLBACK_LANGUAGES);
   const [language, setLanguage] = useState<LanguageDTO | null>(null);
-  const [verdict, setVerdict] = useState<JudgeVerdictDTO | null>(null);
+  const [langOpen, setLangOpen] = useState(false);
+  const [code, setCode] = useState("");
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [verdict, setVerdict] = useState<JudgeVerdictDTO | null>(null);
   const [runSession, setRunSession] = useState<SampleRunSession | null>(null);
+  const [bottomTab, setBottomTab] = useState<BottomTab>("testcase");
   const [caseStdins, setCaseStdins] = useState<string[]>([]);
   const [activeCaseIdx, setActiveCaseIdx] = useState(0);
-  const [customStdin, setCustomStdin] = useState("");
-  const [editorBottomTab, setEditorBottomTab] =
-    useState<EditorBottomTab>("testcase");
-  const [runError, setRunError] = useState<string | null>(null);
-  const runAbortRef = useRef<AbortController | null>(null);
-  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("problem");
+  const [remaining, setRemaining] = useState<number | null>(null);
   const [splitPct, setSplitPct] = useState(48);
+  const [editorPct, setEditorPct] = useState(62);
+
+  const runAbortRef = useRef<AbortController | null>(null);
   const splitRef = useRef<HTMLDivElement | null>(null);
+  const editorSplitRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);
+  const draggingEditorRef = useRef(false);
 
-  const loadAll = useCallback(async () => {
-    if (!user) return;
+  const workspaceTab: WorkspaceTab =
+    params.get("tab") === "standings" ? "standings" : "problem";
+  const setWorkspaceTab = (tab: WorkspaceTab) => {
+    const copy = new URLSearchParams(params);
+    if (tab === "problem") copy.delete("tab");
+    else copy.set("tab", tab);
+    setParams(copy, { replace: true });
+  };
 
-    setLoading(true);
-    setError(null);
+  const activeProblemId = problemIds[activeIdx] ?? null;
+  const problem = activeProblemId != null ? problems[activeProblemId] : null;
+  const examples = useMemo(
+    () => parseExamples(problem?.examples as string | undefined),
+    [problem]
+  );
+  const constraints = useMemo(
+    () => parseConstraints(problem?.constraintsData),
+    [problem]
+  );
 
-    try {
-      const [comp, ids, board, langs] = await Promise.all([
-        getCompetition(competitionId),
-        getCompetitionProblems(competitionId),
-        getLeaderboard(competitionId).catch(() => []),
-        getLanguages(),
-      ]);
-
-      setCompetition(comp);
-      setProblemIds(ids);
-      setLeaderboard(board);
-      setLanguages(langs);
-
-      const preferred = pickPreferredLanguage(langs);
-      setLanguage((prev) => prev || preferred);
-
-      if (ids.length > 0) {
-        setSelectedProblem((prev) => prev ?? ids[0]);
-      }
-
-      // Prefetch titles for problem tabs (best-effort).
-      const metas = await Promise.all(
-        ids.map((pid) =>
-          getProblem(pid)
-            .then((p) => [pid, p] as const)
-            .catch(() => null)
-        )
-      );
-      const nextMeta: Record<number, ProblemPublicDTO> = {};
-      for (const row of metas) {
-        if (row) nextMeta[row[0]] = row[1];
-      }
-      setProblemMeta(nextMeta);
-
-      try {
-        const s = await getCompetitionSession(competitionId, user.id);
-        setSession(s);
-        setRemaining(s.remainingSeconds ?? 0);
-      } catch {
-        setSession(null);
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load competition."
-      );
-    } finally {
-      setLoading(false);
+  const loadProblemDetails = useCallback(async (ids: number[]) => {
+    const problemEntries = await Promise.all(
+      ids.map(async (pid) => {
+        try {
+          return [pid, await getProblem(pid)] as const;
+        } catch {
+          return null;
+        }
+      })
+    );
+    const map: Record<number, ProblemPublicDTO> = {};
+    for (const entry of problemEntries) {
+      if (entry) map[entry[0]] = entry[1];
     }
-  }, [competitionId, user]);
+    setProblems(map);
+  }, []);
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
-
-  // Load full statement when selection changes.
-  useEffect(() => {
-    if (!selectedProblem) return;
-    if (problemMeta[selectedProblem]?.description) return;
+    if (!Number.isFinite(competitionId) || competitionId <= 0) {
+      setError("Invalid competition id.");
+      setLoading(false);
+      return;
+    }
+    if (!user) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     let cancelled = false;
-    setProblemLoading(true);
-
-    getProblem(selectedProblem)
-      .then((p) => {
+    (async () => {
+      setLoading(true);
+      setError(null);
+      setJoined(false);
+      setProblems({});
+      try {
+        const [comp, ids, langs] = await Promise.all([
+          getCompetition(competitionId),
+          getCompetitionProblems(competitionId),
+          getLanguages().catch(() => FALLBACK_LANGUAGES),
+        ]);
         if (cancelled) return;
-        setProblemMeta((prev) => ({ ...prev, [selectedProblem]: p }));
-      })
-      .catch(() => {
-        /* keep empty */
-      })
-      .finally(() => {
-        if (!cancelled) setProblemLoading(false);
-      });
+
+        setContest(
+          toContestCard(comp, {
+            problemCount: ids.length,
+            participantCount: null,
+          })
+        );
+        setProblemIds(ids);
+        setLanguages(langs.length ? langs : FALLBACK_LANGUAGES);
+        setLanguage(
+          pickPreferredLanguage(langs.length ? langs : FALLBACK_LANGUAGES)
+        );
+
+        let alreadyIn = false;
+        try {
+          let sess = await getCompetitionSession(competitionId, user.id);
+          if (
+            sess.sessionStatus === "JOINED" &&
+            toContestCard(comp, {}).status === "ACTIVE"
+          ) {
+            try {
+              sess = await startCompetition(competitionId, user.id);
+            } catch {
+              /* stay JOINED — Start button available */
+            }
+          }
+          if (!cancelled) {
+            setSession(sess);
+            setJoined(true);
+            alreadyIn = true;
+            if (typeof sess.remainingSeconds === "number") {
+              setRemaining(sess.remainingSeconds);
+            }
+          }
+        } catch {
+          if (!cancelled) {
+            setSession(null);
+            setJoined(false);
+          }
+        }
+
+        if (alreadyIn && !cancelled) {
+          await loadProblemDetails(ids);
+        }
+
+        try {
+          const lb = await getLeaderboard(competitionId);
+          if (!cancelled) setBoard(lb);
+        } catch {
+          /* ignore */
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : "Failed to load competition."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
 
     return () => {
       cancelled = true;
+      runAbortRef.current?.abort();
     };
-  }, [selectedProblem, problemMeta]);
-
-  // Seed / restore code when problem or language changes.
-  const codeByProblemRef = useRef(codeByProblem);
-  codeByProblemRef.current = codeByProblem;
-  const selectionRef = useRef<{ problem: number | null; lang: string | null }>({
-    problem: null,
-    lang: null,
-  });
+  }, [competitionId, user, loadProblemDetails]);
 
   useEffect(() => {
-    if (!language) return;
-
-    const prev = selectionRef.current;
-    if (prev.problem != null && prev.lang) {
-      const prevCode = codeByProblemRef.current[prev.problem] ?? "";
-      saveContestCodeDraft(competitionId, prev.problem, prev.lang, prevCode);
-    }
-
-    if (selectedProblem != null) {
-      const draft = loadContestCodeDraft(
-        competitionId,
-        selectedProblem,
-        language.slug
-      );
-      setCodeByProblem((prevMap) => ({
-        ...prevMap,
-        [selectedProblem]: draft ?? STARTER[language.slug] ?? "",
-      }));
-    }
-
-    selectionRef.current = {
-      problem: selectedProblem,
-      lang: language.slug,
+    if (!contest) return;
+    const tick = () => {
+      if (session?.sessionStatus === "IN_PROGRESS" && session.deadlineAt) {
+        const left = Math.max(
+          0,
+          Math.floor((Date.parse(session.deadlineAt) - Date.now()) / 1000)
+        );
+        setRemaining(left);
+        return;
+      }
+      const end = Date.parse(contest.endTime);
+      if (Number.isFinite(end)) {
+        setRemaining(Math.max(0, Math.floor((end - Date.now()) / 1000)));
+      }
     };
-  }, [selectedProblem, language, competitionId]);
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [contest, session]);
 
   useEffect(() => {
-    if (!selectedProblem || !language || loading) return;
-    const source = codeByProblem[selectedProblem];
-    if (source === undefined) return;
+    if (!language || activeProblemId == null || !Number.isFinite(competitionId))
+      return;
+    const draft = loadContestCodeDraft(
+      competitionId,
+      activeProblemId,
+      language.slug
+    );
+    setCode(draft ?? STARTER[language.slug] ?? "");
+    const p = problems[activeProblemId];
+    const exs = parseExamples(p?.examples as string | undefined);
+    setCaseStdins(exs.map((ex) => resolveSampleStdin(undefined, ex.input)));
+    setActiveCaseIdx(0);
+    setVerdict(null);
+    setRunSession(null);
+    setBottomTab("testcase");
+  }, [activeProblemId, language?.slug, competitionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!language || activeProblemId == null || loading) return;
     const t = window.setTimeout(() => {
       saveContestCodeDraft(
         competitionId,
-        selectedProblem,
+        activeProblemId,
         language.slug,
-        source
+        code
       );
     }, 400);
     return () => window.clearTimeout(t);
-  }, [codeByProblem, selectedProblem, language, competitionId, loading]);
-
-  useEffect(() => {
-    if (tickRef.current) window.clearInterval(tickRef.current);
-
-    if (session?.sessionStatus === "IN_PROGRESS") {
-      tickRef.current = window.setInterval(() => {
-        setRemaining((r) => Math.max(0, r - 1));
-      }, 1000);
-    }
-
-    return () => {
-      if (tickRef.current) window.clearInterval(tickRef.current);
-    };
-  }, [session?.sessionStatus]);
-
-  useEffect(() => {
-    if (!user || !competitionId) return;
-
-    const unsubs = [
-      subscribeTopic<LeaderboardEntry[]>(
-        leaderboardTopic(competitionId),
-        setLeaderboard
-      ),
-      subscribeTopic<Competition>(statusTopic(competitionId), (c) =>
-        setCompetition((prev) => ({ ...prev, ...c }))
-      ),
-      subscribeTopic<ContestSession>(
-        sessionTopic(competitionId, user.id),
-        (s) => {
-          setSession(s);
-          setRemaining(s.remainingSeconds ?? 0);
-        }
-      ),
-    ];
-
-    return () => unsubs.forEach((u) => u());
-  }, [competitionId, user]);
-
-  useEffect(() => {
-    if (
-      session?.sessionStatus === "IN_PROGRESS" &&
-      remaining <= 0 &&
-      selectedProblem &&
-      codeByProblem[selectedProblem] &&
-      language &&
-      user
-    ) {
-      handleContestSubmit();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining]);
-
-  const handleJoin = async () => {
-    if (!user) return;
-    setBusy(true);
-    try {
-      await joinCompetition(competitionId, user.id);
-      await loadAll();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to join.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleStart = async () => {
-    if (!user) return;
-    setBusy(true);
-    try {
-      await startCompetition(competitionId, user.id);
-      await loadAll();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleEnd = async () => {
-    if (!user || session?.sessionStatus !== "IN_PROGRESS") return;
-    const ok = window.confirm(
-      "End your contest session now? You will not be able to submit again."
-    );
-    if (!ok) return;
-
-    setBusy(true);
-    setError(null);
-    try {
-      const s = await endCompetition(competitionId);
-      setSession(s);
-      setRemaining(s.remainingSeconds ?? 0);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to end session.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  }, [code, language, activeProblemId, competitionId, loading]);
 
   useEffect(() => {
     const onMove = (clientX: number, clientY: number) => {
-      if (!draggingRef.current || !splitRef.current) return;
-      const rect = splitRef.current.getBoundingClientRect();
-      const horizontal = window.matchMedia("(min-width: 1024px)").matches;
-      let pct: number;
-      if (horizontal) {
-        pct = ((clientX - rect.left) / rect.width) * 100;
-      } else {
-        pct = ((clientY - rect.top) / rect.height) * 100;
+      if (draggingRef.current && splitRef.current) {
+        const rect = splitRef.current.getBoundingClientRect();
+        const pct = ((clientX - rect.left) / rect.width) * 100;
+        setSplitPct(Math.min(70, Math.max(30, pct)));
       }
-      setSplitPct(Math.min(72, Math.max(28, pct)));
+      if (draggingEditorRef.current && editorSplitRef.current) {
+        const rect = editorSplitRef.current.getBoundingClientRect();
+        const pct = ((clientY - rect.top) / rect.height) * 100;
+        setEditorPct(Math.min(80, Math.max(35, pct)));
+      }
     };
-
     const onMouseMove = (e: MouseEvent) => onMove(e.clientX, e.clientY);
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY);
-    };
     const stop = () => {
-      if (!draggingRef.current) return;
       draggingRef.current = false;
+      draggingEditorRef.current = false;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
-
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", stop);
-    window.addEventListener("touchmove", onTouchMove, { passive: true });
-    window.addEventListener("touchend", stop);
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", stop);
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", stop);
     };
   }, []);
 
-  const startResize = () => {
-    draggingRef.current = true;
-    document.body.style.cursor = window.matchMedia("(min-width: 1024px)").matches
-      ? "col-resize"
-      : "row-resize";
-    document.body.style.userSelect = "none";
+  const handleLanguageChange = (slug: string) => {
+    if (language && activeProblemId != null) {
+      saveContestCodeDraft(competitionId, activeProblemId, language.slug, code);
+    }
+    const lang = languages.find((l) => l.slug === slug) || null;
+    setLanguage(lang);
+    setLangOpen(false);
+    if (lang) setPreferredLanguage(lang.slug);
   };
 
-  const activeProblem = selectedProblem
-    ? problemMeta[selectedProblem]
-    : null;
-  const examples = useMemo(
-    () => parseExamples(activeProblem?.examples),
-    [activeProblem?.examples]
-  );
-  const constraints = useMemo(
-    () => parseConstraints(activeProblem?.constraintsData),
-    [activeProblem?.constraintsData]
-  );
+  const ensureSession = async () => {
+    if (!user) throw new Error("Log in to compete.");
+    if (session?.sessionStatus === "IN_PROGRESS") return session;
+    if (!joined) {
+      throw new Error("Join the contest before submitting.");
+    }
+    setBusy(true);
+    try {
+      const started = await startCompetition(competitionId, user.id);
+      setSession(started);
+      setActionError(null);
+      if (typeof started.remainingSeconds === "number") {
+        setRemaining(started.remainingSeconds);
+      }
+      return started;
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  useEffect(() => {
-    runAbortRef.current?.abort();
-    setVerdict(null);
-    setRunSession(null);
-    setRunError(null);
-    setEditorBottomTab("testcase");
-    setActiveCaseIdx(0);
-    const exs = parseExamples(activeProblem?.examples);
-    setCaseStdins(exs.map((ex) => exampleInputToStdin(ex.input)));
-    setCustomStdin(exs[0] ? exampleInputToStdin(exs[0].input) : "");
-  }, [selectedProblem, activeProblem?.examples]);
+  const handleStartSession = async () => {
+    if (!user) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const started = await startCompetition(competitionId, user.id);
+      setSession(started);
+      if (typeof started.remainingSeconds === "number") {
+        setRemaining(started.remainingSeconds);
+      }
+    } catch (err) {
+      // Already in progress — refresh session
+      if (
+        err instanceof Error &&
+        /already started/i.test(err.message)
+      ) {
+        try {
+          const sess = await getCompetitionSession(competitionId, user.id);
+          setSession(sess);
+          if (typeof sess.remainingSeconds === "number") {
+            setRemaining(sess.remainingSeconds);
+          }
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+      setActionError(
+        err instanceof ApiError ? err.message : "Failed to start session."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const handleContestRun = async () => {
-    if (!language || !selectedProblem) return;
-    const source = codeByProblem[selectedProblem];
-    if (!source?.trim()) return;
+  const handleJoinContest = async () => {
+    if (!user) {
+      setActionError("Log in to join this contest.");
+      return;
+    }
+    if (contest?.status === "ENDED") {
+      setActionError("This competition has ended.");
+      return;
+    }
+    setJoining(true);
+    setActionError(null);
+    try {
+      const joinResult = await joinCompetition(competitionId, user.id);
+      const joinMsg =
+        typeof joinResult === "string" ? joinResult.toLowerCase() : "";
+      if (
+        joinMsg &&
+        !joinMsg.includes("joined") &&
+        !joinMsg.includes("already")
+      ) {
+        throw new Error(joinResult);
+      }
 
+      let nextSession: ContestSession | null = null;
+      try {
+        nextSession = await startCompetition(competitionId, user.id);
+      } catch (startErr) {
+        nextSession = await getCompetitionSession(competitionId, user.id);
+        // Live contest but still JOINED — try start once more after refresh
+        if (
+          nextSession.sessionStatus === "JOINED" &&
+          contest?.status === "ACTIVE"
+        ) {
+          try {
+            nextSession = await startCompetition(competitionId, user.id);
+          } catch {
+            /* keep JOINED; user can click Start */
+            void startErr;
+          }
+        }
+      }
+      setSession(nextSession);
+      setJoined(true);
+      if (typeof nextSession.remainingSeconds === "number") {
+        setRemaining(nextSession.remainingSeconds);
+      }
+      await loadProblemDetails(problemIds);
+      try {
+        setBoard(await getLeaderboard(competitionId));
+      } catch {
+        /* ignore */
+      }
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to join contest."
+      );
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleEndSession = async () => {
+    if (!user) return;
+    if (session?.sessionStatus !== "IN_PROGRESS") {
+      setActionError("Start the contest before ending your session.");
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      const ended = await endCompetition(competitionId);
+      setSession(ended);
+      setRemaining(0);
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError ? err.message : "Failed to end session."
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRun = async () => {
+    if (!language || !user) {
+      setActionError("Log in to run code.");
+      return;
+    }
     runAbortRef.current?.abort();
     const controller = new AbortController();
     runAbortRef.current = controller;
-
     setRunning(true);
-    setRunError(null);
+    setActionError(null);
     setRunSession(null);
     setVerdict(null);
-    setEditorBottomTab("result");
-
+    setBottomTab("result");
     try {
       const samples =
         examples.length > 0
-          ? examples.map((ex, i) => ({
-              stdin: caseStdins[i] ?? exampleInputToStdin(ex.input),
-              expectedOutput: exampleOutputToExpected(ex.output),
-              inputDisplay: formatExample(ex.input),
-            }))
+          ? examples.map((ex, i) => {
+              const stdin = resolveSampleStdin(caseStdins[i], ex.input);
+              return {
+                stdin,
+                expectedOutput: exampleOutputToExpected(ex.output),
+                inputDisplay: stdin || "(empty)",
+              };
+            })
           : undefined;
-
-      const sessionResult = await runSampleTests({
-        sourceCode: source,
+      const customStdin =
+        examples.length === 0
+          ? caseStdins[0] || ""
+          : undefined;
+      const result = await runSampleTests({
+        sourceCode: code,
         languageId: language.languageId,
         samples,
         customStdin,
         signal: controller.signal,
       });
-      setRunSession(sessionResult);
+      setRunSession(result);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      setRunError(err instanceof Error ? err.message : "Run failed.");
+      setActionError(err instanceof Error ? err.message : "Run failed.");
     } finally {
       setRunning(false);
     }
   };
 
-  const handleContestSubmit = async () => {
-    if (!user || !language || !selectedProblem) return;
-    const source = codeByProblem[selectedProblem];
-    if (!source?.trim()) return;
-
-    runAbortRef.current?.abort();
+  const handleSubmit = async () => {
+    if (!language || !user || activeProblemId == null) {
+      setActionError("Log in to submit.");
+      return;
+    }
     setSubmitting(true);
-    setBusy(true);
+    setActionError(null);
     setVerdict(null);
     setRunSession(null);
-    setRunError(null);
-    setEditorBottomTab("result");
-
+    setBottomTab("result");
     try {
+      await ensureSession();
       const res = await submitToCompetition(competitionId, {
         userId: user.id,
-        problemId: selectedProblem,
+        problemId: activeProblemId,
         languageId: language.languageId,
         language: language.slug,
-        code: source,
+        code,
       });
       setVerdict(res);
-      if (res.verdict === "Accepted") {
-        setSolvedIds((prev) => new Set(prev).add(selectedProblem));
-        setLeaderboard(await getLeaderboard(competitionId));
+      const ok =
+        res.passed === true ||
+        /ac|accepted/i.test(res.verdict || "");
+      if (ok) {
+        setSolvedIds((prev) => new Set(prev).add(activeProblemId));
+      }
+      try {
+        setBoard(await getLeaderboard(competitionId));
+      } catch {
+        /* ignore */
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Contest submit failed."
+      setActionError(
+        err instanceof ApiError ? err.message : "Submit failed."
       );
     } finally {
       setSubmitting(false);
-      setBusy(false);
     }
   };
 
-  const handleLanguageChange = (slug: string) => {
-    const lang = languages.find((l) => l.slug === slug) || null;
-    setLanguage(lang);
-    if (lang) setPreferredLanguage(lang.slug);
-  };
-
-  const code = selectedProblem ? codeByProblem[selectedProblem] || "" : "";
-  const inProgress = session?.sessionStatus === "IN_PROGRESS";
-  const ended =
-    session?.sessionStatus === "ENDED" || competition?.status === "ENDED";
-  const canRun =
-    inProgress && !ended && !!selectedProblem && !!code.trim() && !submitting;
-  const canSubmit = canRun && !running;
-
-  const sortedBoard = useMemo(
-    () => [...leaderboard].sort((a, b) => a.rank - b.rank),
-    [leaderboard]
-  );
-
   if (!user) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <ErrorState message="Log in to join this competition." />
+      <div className="problem-workspace font-body-md relative flex min-h-screen flex-col text-on-background antialiased">
+        <div className="pw-ambient" aria-hidden />
+        <AppNav activeHint="/competitions" />
+        <div className="relative z-10 mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
+          <p className="font-headline-lg-mobile text-headline-lg-mobile">
+            Sign in to enter the contest room
+          </p>
+          <Link to="/login" className="text-primary hover:underline">
+            Go to login
+          </Link>
+        </div>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <Loading label="Loading competition" />
+      <div className="problem-workspace font-body-md relative flex min-h-screen flex-col text-on-background antialiased">
+        <div className="pw-ambient" aria-hidden />
+        <AppNav activeHint="/competitions" />
+        <div className="relative z-10 flex flex-1 items-center justify-center pt-16">
+          <p className="text-on-surface-variant">Loading contest…</p>
+        </div>
       </div>
     );
   }
 
-  if (error && !competition) {
+  if (error || !contest) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <ErrorState message={error} />
+      <div className="problem-workspace font-body-md relative flex min-h-screen flex-col text-on-background antialiased">
+        <div className="pw-ambient" aria-hidden />
+        <AppNav activeHint="/competitions" />
+        <div className="relative z-10 mx-auto flex max-w-lg flex-1 flex-col items-center justify-center gap-4 px-6 pt-16 text-center">
+          <p className="text-hard">{error || "Contest not found"}</p>
+          <Link to="/competitions" className="text-primary hover:underline">
+            Back to Competitions
+          </Link>
+        </div>
       </div>
     );
   }
 
-  if (competition?.status === "UPCOMING") {
-    return (
-      <div className="mx-auto max-w-2xl px-5 py-16 text-center">
-        <p className="verdict-strip text-[var(--text-dim)]">Upcoming contest</p>
-        <h2 className="display mt-2 text-2xl font-semibold">
-          {competition.title || competition.name}
-        </h2>
-        <p className="mt-3 text-sm text-[var(--text-dim)]">
-          Starts at {new Date(competition.startTime).toLocaleString()}
-        </p>
-        <Link
-          to="/competitions"
-          className="mt-6 inline-block text-sm text-[var(--info)] hover:underline"
-        >
-          ← Back to competitions
-        </Link>
-      </div>
-    );
-  }
+  const statusLabel =
+    contest.status === "ACTIVE"
+      ? "LIVE"
+      : contest.status === "UPCOMING"
+        ? "UPCOMING"
+        : "ENDED";
 
   return (
-    <div className="flex h-[calc(100vh-57px)] flex-col overflow-hidden">
-      {/* Contest header */}
-      <header className="sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--bg)]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                to="/competitions"
-                className="text-xs text-[var(--text-dim)] hover:text-[var(--text)]"
-              >
-                Contests
-              </Link>
-              <span className="text-[var(--text-dim)]">/</span>
-              <h1 className="display truncate text-lg font-semibold sm:text-xl">
-                {competition?.title ||
-                  competition?.name ||
-                  `Competition #${competitionId}`}
-              </h1>
-              <span
-                className={`verdict-strip rounded border px-2 py-0.5 ${statusBadgeClass(competition?.status)}`}
-              >
-                {competition?.status}
+    <div className="problem-workspace font-body-md relative flex h-screen flex-col overflow-hidden text-on-background antialiased">
+      <div className="pw-ambient" aria-hidden />
+      <AppNav activeHint="/competitions" />
+
+      <main className="relative z-10 mt-16 flex h-[calc(100vh-64px)] min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3">
+        {/* Contest header */}
+        <header className="pw-contest-header relative z-40 flex flex-shrink-0 flex-wrap items-center justify-between gap-3 px-gutter py-3">
+          <div className="flex min-w-0 flex-col gap-2">
+            <Link
+              to="/competitions"
+              className="flex items-center gap-1 font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                arrow_back
               </span>
+              Competitions
+            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">
+                {contest.title}
+              </h1>
+              <div
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${
+                  contest.status === "ACTIVE"
+                    ? "border-emerald-500/30 bg-emerald-500/10"
+                    : "border-outline-variant/20 bg-white/5"
+                }`}
+              >
+                {contest.status === "ACTIVE" && (
+                  <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                )}
+                <span
+                  className={`font-label-md text-[10px] font-bold tracking-wider uppercase ${
+                    contest.status === "ACTIVE"
+                      ? "text-emerald-400"
+                      : "text-on-surface-variant"
+                  }`}
+                >
+                  {statusLabel}
+                </span>
+              </div>
             </div>
-            {error && (
-              <p className="mt-1 text-xs text-[var(--err)]">{error}</p>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {contest.problemCount != null && (
+                <span className="rounded-full border border-outline-variant/20 bg-white/5 px-2.5 py-0.5 font-code-sm text-[11px] text-on-surface-variant">
+                  {contest.problemCount} problems
+                </span>
+              )}
+              <span className="rounded-full border border-outline-variant/20 bg-white/5 px-2.5 py-0.5 font-code-sm text-[11px] text-on-surface-variant">
+                {formatDuration(contest.durationMinutes)}
+              </span>
+              {contest.contestType && (
+                <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 font-code-sm text-[11px] text-primary">
+                  {contest.contestType}
+                </span>
+              )}
+              {contest.difficulty && (
+                <span className="rounded-full border border-outline-variant/20 bg-white/5 px-2.5 py-0.5 font-code-sm text-[11px] text-on-surface-variant">
+                  {contest.difficulty}
+                </span>
+              )}
+            </div>
           </div>
 
-          {inProgress && (
-            <div
-              className="mono rounded-md border border-[var(--accent)] bg-[var(--bg-raised)] px-4 py-2 text-xl font-semibold tracking-wider"
-              style={{ color: remaining <= 300 ? "var(--err)" : "var(--accent)" }}
-              title="Time remaining"
-            >
-              {formatSeconds(remaining)}
+          <div className="flex flex-col items-center justify-center">
+            <div className="rounded-xl border border-primary/30 bg-primary/10 px-6 py-2 font-code-sm text-3xl font-bold tracking-widest text-primary shadow-[0_0_16px_rgba(168,85,247,0.25)]">
+              {remaining != null ? formatSecondsClock(remaining) : "--:--:--"}
             </div>
-          )}
+            <span className="mt-1 font-label-md text-[10px] tracking-widest text-on-surface-variant uppercase">
+              Time Remaining
+            </span>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {!session && (
+          <div className="flex items-center gap-4">
+            {!joined ? (
               <button
-                onClick={handleJoin}
-                disabled={busy || ended}
-                className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[#0a0d12] hover:brightness-110 disabled:opacity-40"
+                type="button"
+                disabled={joining || contest.status === "ENDED"}
+                onClick={() => void handleJoinContest()}
+                className="pw-btn-submit font-label-md text-label-md flex items-center gap-2 rounded-full px-5 py-2.5 font-bold disabled:opacity-40"
               >
-                Join contest
+                <span className="material-symbols-outlined text-[18px]">
+                  login
+                </span>
+                {joining ? "Joining…" : "Join contest"}
               </button>
-            )}
-            {session?.sessionStatus === "JOINED" && (
+            ) : session?.sessionStatus === "IN_PROGRESS" ? (
               <button
-                onClick={handleStart}
-                disabled={busy || ended}
-                className="rounded-md bg-[var(--ok)] px-4 py-2 text-sm font-medium text-[#0a0d12] hover:brightness-110 disabled:opacity-40"
-              >
-                Start timer
-              </button>
-            )}
-            {inProgress && (
-              <button
-                onClick={handleEnd}
+                type="button"
                 disabled={busy}
-                className="rounded-md border border-[var(--err)] px-4 py-2 text-sm font-medium text-[var(--err)] hover:bg-[var(--err)]/10 disabled:opacity-40"
+                onClick={() => void handleEndSession()}
+                className="font-label-md text-label-md flex items-center gap-2 rounded-full border border-hard/40 bg-hard/10 px-4 py-2 text-hard transition-all hover:bg-hard/15 disabled:opacity-40"
               >
-                End competition
+                <span className="material-symbols-outlined text-[18px]">
+                  power_settings_new
+                </span>
+                End session
               </button>
-            )}
-            {ended && (
-              <span className="verdict-strip rounded border border-[var(--line)] px-2 py-1 text-[var(--text-dim)]">
+            ) : session?.sessionStatus === "ENDED" ? (
+              <span className="rounded-full border border-outline-variant/30 px-4 py-2 font-label-md text-sm text-on-surface-variant">
                 Session ended
               </span>
+            ) : (
+              <button
+                type="button"
+                disabled={busy || contest.status === "ENDED"}
+                onClick={() => void handleStartSession()}
+                className="pw-btn-submit font-label-md text-label-md flex items-center gap-2 rounded-full px-5 py-2.5 font-bold disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  play_arrow
+                </span>
+                {busy ? "Starting…" : "Start contest"}
+              </button>
             )}
           </div>
-        </div>
+        </header>
 
-        {/* Problem tabs */}
-        <div className="mx-auto flex max-w-[1600px] items-end gap-1 overflow-x-auto px-4 sm:px-5">
-          {problemIds.length === 0 ? (
-            <EmptyState
-              icon={FileText}
-              title="No problems yet"
-              subtitle="No problems in this contest yet."
-              size="sm"
-              bordered={false}
-              className="pb-3"
-            />
-          ) : (
-            problemIds.map((pid, index) => {
-              const letter = PROBLEM_LETTERS[index] || String(index + 1);
-              const meta = problemMeta[pid];
-              const active = selectedProblem === pid;
+        {actionError && (
+          <div className="flex-shrink-0 rounded-xl border border-hard/30 bg-hard/10 px-4 py-2 text-sm text-hard">
+            {actionError}
+          </div>
+        )}
+
+        {!joined ? (
+          <div className="pw-contest-header flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+              <span className="material-symbols-outlined text-[32px]">
+                emoji_events
+              </span>
+            </div>
+            <div className="max-w-md space-y-2">
+              <h2 className="font-headline-lg text-2xl font-semibold text-white">
+                Join to unlock problems
+              </h2>
+              <p className="text-sm leading-relaxed text-on-surface-variant">
+                Register for{" "}
+                <span className="text-primary">{contest.title}</span> before
+                you can view statements, run code, or submit solutions.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={joining || contest.status === "ENDED"}
+              onClick={() => void handleJoinContest()}
+              className="pw-btn-submit flex items-center gap-2 rounded-full px-8 py-3 font-label-md text-sm font-bold disabled:opacity-40"
+            >
+              <span className="material-symbols-outlined text-[20px]">
+                login
+              </span>
+              {joining
+                ? "Joining…"
+                : contest.status === "ENDED"
+                  ? "Contest ended"
+                  : "Join contest"}
+            </button>
+            <Link
+              to="/competitions"
+              className="text-sm text-on-surface-variant hover:text-primary"
+            >
+              Back to competitions
+            </Link>
+          </div>
+        ) : (
+          <>
+        {/* Controls strip */}
+        <div className="pw-contest-strip z-30 flex flex-shrink-0 items-center justify-between gap-2 px-2 py-2">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+            {problemIds.map((pid, idx) => {
+              const letter = PROBLEM_LETTERS[idx] || String(idx + 1);
+              const active = idx === activeIdx;
               const solved = solvedIds.has(pid);
               return (
                 <button
                   key={pid}
                   type="button"
                   onClick={() => {
-                    setSelectedProblem(pid);
-                    setVerdict(null);
+                    setActiveIdx(idx);
                     setWorkspaceTab("problem");
                   }}
-                  className={`group flex min-w-[7.5rem] flex-col border-b-2 px-3 py-2 text-left transition-colors ${
+                  className={`pw-letter-btn group relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md font-label-md text-sm font-bold transition-colors ${
                     active
-                      ? "border-[var(--accent)] bg-[var(--bg-raised)]"
-                      : "border-transparent hover:bg-[var(--bg-raised)]/60"
+                      ? "pw-letter-btn-active bg-primary text-on-primary"
+                      : "bg-white/5 text-on-surface-variant hover:bg-primary/15 hover:text-primary"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={`mono text-sm font-semibold ${
-                        solved
-                          ? "text-[var(--ok)]"
-                          : active
-                            ? "text-[var(--accent)]"
-                            : "text-[var(--text-dim)]"
-                      }`}
-                    >
-                      {letter}
-                    </span>
-                    {solved && (
-                      <span className="text-[10px] text-[var(--ok)]">●</span>
-                    )}
-                  </span>
-                  <span
-                    className={`max-w-[10rem] truncate text-xs ${
-                      active ? "text-[var(--text)]" : "text-[var(--text-dim)]"
-                    }`}
-                  >
-                    {meta?.title || `Problem ${pid}`}
-                  </span>
+                  {letter}
+                  {solved && (
+                    <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  )}
                 </button>
               );
-            })
-          )}
+            })}
+          </div>
 
-          <div className="ml-auto flex shrink-0 gap-1 pb-1">
+          <div className="flex flex-shrink-0 items-center gap-1 pr-2">
             <button
               type="button"
               onClick={() => setWorkspaceTab("problem")}
-              className={`verdict-strip rounded px-2 py-1 ${
+              className={`pw-tab flex items-center gap-2 rounded-lg px-3 py-1.5 font-label-md text-[13px] font-medium ${
                 workspaceTab === "problem"
-                  ? "bg-[var(--bg-raised)] text-[var(--accent)]"
-                  : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                  ? "pw-tab-active bg-white/5 text-primary"
+                  : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
               }`}
             >
+              <span className="material-symbols-outlined text-[16px]">
+                description
+              </span>
               Problem
             </button>
             <button
               type="button"
               onClick={() => setWorkspaceTab("standings")}
-              className={`verdict-strip rounded px-2 py-1 ${
+              className={`pw-tab flex items-center gap-2 rounded-lg px-3 py-1.5 font-label-md text-[13px] font-medium ${
                 workspaceTab === "standings"
-                  ? "bg-[var(--bg-raised)] text-[var(--accent)]"
-                  : "text-[var(--text-dim)] hover:text-[var(--text)]"
+                  ? "pw-tab-active bg-white/5 text-primary"
+                  : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
               }`}
             >
-              Standings ({sortedBoard.length})
+              <span className="material-symbols-outlined text-[16px]">
+                leaderboard
+              </span>
+              Standings ({board.length})
             </button>
           </div>
         </div>
-      </header>
 
-      {workspaceTab === "standings" ? (
-        <div className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-5">
-          <div className="overflow-hidden rounded-lg border border-[var(--line)]">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-[var(--line)] bg-[var(--bg-raised)]">
-                <tr className="verdict-strip text-[var(--text-dim)]">
-                  <th className="px-4 py-3 font-medium">Rank</th>
-                  <th className="px-4 py-3 font-medium">Participant</th>
-                  <th className="px-4 py-3 font-medium">Solved</th>
-                  <th className="px-4 py-3 font-medium">Penalty</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--line)]">
-                {sortedBoard.length === 0 ? (
+        {workspaceTab === "standings" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            <div className="pw-panel overflow-hidden rounded-2xl">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-white/5 bg-white/5 text-xs tracking-wider text-on-surface-variant uppercase">
                   <tr>
-                    <td colSpan={4} className="px-4 py-10">
-                      <EmptyState
-                        icon={ListChecks}
-                        title="No submissions yet"
-                        subtitle="Be the first on the board."
-                      />
-                    </td>
+                    <th className="px-4 py-3">Rank</th>
+                    <th className="px-4 py-3">User</th>
+                    <th className="px-4 py-3">Solved</th>
+                    <th className="px-4 py-3">Penalty</th>
                   </tr>
-                ) : (
-                  sortedBoard.map((e) => {
-                    const isMe = e.userId === user.id;
-                    return (
-                      <tr
-                        key={e.userId}
-                        className={
-                          isMe ? "bg-[var(--accent)]/5" : "hover:bg-[var(--bg-raised)]/50"
-                        }
+                </thead>
+                <tbody>
+                  {board.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-8 text-center text-on-surface-variant"
                       >
-                        <td className="mono px-4 py-3 text-[var(--text-dim)]">
-                          #{e.rank}
+                        No standings yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    board.map((row) => (
+                      <tr
+                        key={row.userId}
+                        className="border-b border-white/5 hover:bg-white/5"
+                      >
+                        <td className="mono px-4 py-3 text-primary">
+                          #{row.rank}
                         </td>
-                        <td className="px-4 py-3 font-medium">
-                          {e.userName}
-                          {isMe && (
-                            <span className="ml-2 text-xs text-[var(--accent)]">
-                              you
+                        <td className="px-4 py-3 text-on-surface">
+                          {row.userName}
+                          {user && row.userId === user.id && (
+                            <span className="ml-2 text-xs text-primary">
+                              (you)
                             </span>
                           )}
                         </td>
-                        <td className="mono px-4 py-3 text-[var(--ok)]">
-                          {e.solved}
-                        </td>
-                        <td className="mono px-4 py-3 text-[var(--text-dim)]">
-                          {formatPenalty(e.totalTime)}
+                        <td className="mono px-4 py-3">{row.solved}</td>
+                        <td className="mono px-4 py-3 text-on-surface-variant">
+                          {formatPenalty(row.totalTime)}
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div
-          ref={splitRef}
-          className="mx-auto flex w-full max-w-[1600px] min-h-0 flex-1 flex-col lg:flex-row"
-        >
-          {/* Statement */}
-          <section
-            className="flex min-h-0 flex-col overflow-hidden border-[var(--line)] lg:border-r"
-            style={{
-              flexBasis: `${splitPct}%`,
-              flexGrow: 0,
-              flexShrink: 0,
-            }}
+        ) : (
+          <div
+            ref={splitRef}
+            className="pw-workspace-frame flex min-h-0 flex-1 flex-col md:flex-row"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--bg-raised)] px-4 py-2.5">
-              <div className="min-w-0">
-                {activeProblem ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="display truncate text-base font-semibold">
-                      {PROBLEM_LETTERS[problemIds.indexOf(selectedProblem!)] ||
-                        "#"}
-                      . {activeProblem.title}
-                    </h2>
-                    <DifficultyBadge difficulty={activeProblem.difficulty} />
-                  </div>
-                ) : (
-                  <span className="text-sm text-[var(--text-dim)]">
-                    Select a problem
+            {/* Left: statement */}
+            <section
+              className="pw-panel relative flex min-h-0 min-w-0 flex-col overflow-hidden"
+              style={{
+                flexBasis: `${splitPct}%`,
+                flexGrow: 0,
+                flexShrink: 0,
+              }}
+            >
+              <div className="pw-toolbar flex shrink-0 items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                    <span className="material-symbols-outlined text-[18px]">
+                      menu_book
+                    </span>
                   </span>
+                  <span className="font-label-md text-[13px] font-semibold tracking-wide text-on-background">
+                    Description
+                  </span>
+                </div>
+              </div>
+
+              <div className="pw-scroll min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+                {!problem ? (
+                  <p className="text-on-surface-variant">
+                    Select a problem to begin.
+                  </p>
+                ) : (
+                  <>
+                    <div>
+                      <h2 className="font-headline-lg mb-3 text-[26px] leading-tight font-semibold tracking-tight text-white md:text-[30px]">
+                        <span className="text-primary">
+                          {PROBLEM_LETTERS[activeIdx] || activeIdx + 1}.
+                        </span>{" "}
+                        {problem.title}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full border px-3 py-1 font-label-md text-[12px] ${difficultyClass(problem.difficulty)}`}
+                        >
+                          {problem.difficulty}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="font-body-md whitespace-pre-wrap text-[15px] leading-relaxed text-on-surface-variant/90">
+                      {problem.description}
+                    </div>
+
+                    {examples.length > 0 && (
+                      <div className="space-y-4">
+                        {examples.map((ex, i) => (
+                          <div
+                            key={i}
+                            className="rounded-2xl border border-white/5 bg-black/25 p-4 transition-colors hover:border-primary/20"
+                          >
+                            <p className="mb-3 font-label-md text-[13px] font-semibold text-white">
+                              Example {i + 1}
+                            </p>
+                            <div className="space-y-2.5">
+                              <div>
+                                <p className="mb-1 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
+                                  Input
+                                </p>
+                                <IoPre>
+                                  {formatExample(ex.input) || "(empty)"}
+                                </IoPre>
+                              </div>
+                              <div>
+                                <p className="mb-1 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
+                                  Output
+                                </p>
+                                <IoPre tone="ok">
+                                  {formatExample(ex.output) || "(empty)"}
+                                </IoPre>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {constraints.length > 0 && (
+                      <div>
+                        <p className="font-label-md mb-2 text-[13px] font-semibold text-white">
+                          Constraints
+                        </p>
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-on-surface-variant">
+                          {constraints.map((c) => (
+                            <li key={c}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
-              {selectedProblem && (
-                <Link
-                  to={`/problems/${selectedProblem}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 text-xs text-[var(--info)] hover:underline"
-                >
-                  Open full page ↗
-                </Link>
-              )}
-            </div>
+            </section>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
-              {!selectedProblem ? (
-                <EmptyState
-                  icon={FileText}
-                  title="Pick a problem"
-                  subtitle="Choose a problem from the tabs above."
-                />
-              ) : problemLoading && !activeProblem ? (
-                <Loading label="Loading statement" />
-              ) : !activeProblem ? (
-                <EmptyState
-                  icon={TriangleAlert}
-                  title="Could not load this problem"
-                  subtitle="Try selecting another problem or refresh the page."
-                />
-              ) : (
-                <div className="space-y-6">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--text)]">
-                    {activeProblem.description}
-                  </div>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize statement and editor"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                draggingRef.current = true;
+                document.body.style.cursor = "col-resize";
+                document.body.style.userSelect = "none";
+              }}
+              className="pw-resize pw-resize-col hidden md:flex"
+            />
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Resize statement and editor"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                draggingRef.current = true;
+                document.body.style.cursor = "row-resize";
+                document.body.style.userSelect = "none";
+              }}
+              className="pw-resize pw-resize-row flex md:hidden"
+            />
 
-                  {examples.length > 0 && (
-                    <ProblemExamples examples={examples} />
-                  )}
-
-                  {constraints.length > 0 && (
-                    <div>
-                      <h3 className="verdict-strip mb-3 text-[var(--text-dim)]">
-                        Constraints
-                      </h3>
-                      <ul className="list-inside list-disc space-y-1 text-sm text-[var(--text-dim)]">
-                        {constraints.map((c, i) => (
-                          <li key={i}>{c}</li>
+            {/* Right: IDE shell */}
+            <section
+              ref={editorSplitRef}
+              className="pw-ide-shell flex min-h-0 min-w-0 flex-1 flex-col"
+            >
+              <div
+                className="flex min-h-[160px] flex-col overflow-hidden"
+                style={{ flex: `0 0 ${editorPct}%` }}
+              >
+                <div className="pw-toolbar flex shrink-0 items-center justify-between gap-3 px-3 py-2.5">
+                  <div className="relative flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLangOpen((o) => !o)}
+                      className="pw-lang-trigger font-code-sm flex items-center gap-2 rounded-xl px-3.5 py-2 text-[12px] font-medium text-on-surface"
+                    >
+                      <span className="material-symbols-outlined text-[16px] text-primary">
+                        code
+                      </span>
+                      {language?.name || "Language"}
+                      <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                        expand_more
+                      </span>
+                    </button>
+                    {langOpen && (
+                      <div className="pw-lang-menu absolute top-full left-0 z-30 mt-2 max-h-60 min-w-[12rem] overflow-y-auto py-1.5">
+                        {languages.map((l) => (
+                          <button
+                            key={l.slug}
+                            type="button"
+                            onClick={() => handleLanguageChange(l.slug)}
+                            className={`flex w-full items-center justify-between px-3.5 py-2 text-left font-code-sm text-[12px] transition-colors hover:bg-primary/10 ${
+                              l.slug === language?.slug
+                                ? "bg-primary/10 text-primary"
+                                : "text-on-surface"
+                            }`}
+                          >
+                            {l.name}
+                            {l.slug === language?.slug && (
+                              <span className="material-symbols-outlined text-[14px]">
+                                check
+                              </span>
+                            )}
+                          </button>
                         ))}
-                      </ul>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      disabled={running || !problem}
+                      onClick={() => void handleRun()}
+                      className="pw-btn-run font-label-md flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        play_arrow
+                      </span>
+                      {running ? "Running…" : "Run"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={submitting || busy || !problem}
+                      onClick={() => void handleSubmit()}
+                      className="pw-btn-submit font-label-md flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        cloud_upload
+                      </span>
+                      {submitting ? "Submitting…" : "Submit"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative min-h-0 flex-1 overflow-hidden bg-[#0a0610]">
+                  <Editor
+                    height="100%"
+                    theme={CODEIT_THEME}
+                    language={
+                      language
+                        ? MONACO_LANG[language.slug] || "plaintext"
+                        : "plaintext"
+                    }
+                    value={code}
+                    onChange={(v) => setCode(v ?? "")}
+                    beforeMount={defineCodeitTheme}
+                    options={{
+                      fontSize: 14,
+                      fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                      minimap: { enabled: false },
+                      scrollBeyondLastLine: false,
+                      padding: { top: 16 },
+                      automaticLayout: true,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Resize editor and test panel"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  draggingEditorRef.current = true;
+                  document.body.style.cursor = "row-resize";
+                  document.body.style.userSelect = "none";
+                }}
+                className="pw-resize pw-resize-row"
+              />
+
+              <div className="flex min-h-[140px] min-w-0 flex-1 flex-col overflow-hidden border-t border-white/5">
+                <div className="pw-toolbar flex shrink-0 items-center gap-1 px-2 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setBottomTab("testcase")}
+                    className={`pw-tab font-label-md flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-medium ${
+                      bottomTab === "testcase"
+                        ? "pw-tab-active bg-white/5 text-primary"
+                        : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">
+                      fact_check
+                    </span>
+                    Testcase
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBottomTab("result")}
+                    className={`pw-tab font-label-md flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-medium ${
+                      bottomTab === "result"
+                        ? "pw-tab-active bg-white/5 text-primary"
+                        : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[15px]">
+                      terminal
+                    </span>
+                    Test Result
+                  </button>
+                </div>
+
+                <div className="pw-scroll min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-black/20 to-transparent p-4">
+                  {bottomTab === "testcase" && (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        {(examples.length
+                          ? examples
+                          : [{ input: "", output: "" }]
+                        ).map((_, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setActiveCaseIdx(i)}
+                            className={`pw-case-chip rounded-full px-3.5 py-1.5 font-label-md text-[12px] font-medium ${
+                              activeCaseIdx === i
+                                ? "pw-case-chip-active bg-primary/20 text-primary"
+                                : "bg-white/5 text-on-surface-variant hover:bg-white/10 hover:text-on-surface"
+                            }`}
+                          >
+                            Case {i + 1}
+                          </button>
+                        ))}
+                      </div>
+                      <div>
+                        <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-on-surface-variant uppercase">
+                          stdin
+                        </p>
+                        <textarea
+                          value={caseStdins[activeCaseIdx] ?? ""}
+                          onChange={(e) => {
+                            const next = [...caseStdins];
+                            next[activeCaseIdx] = e.target.value;
+                            setCaseStdins(next);
+                          }}
+                          className="mono min-h-[5rem] w-full resize-y rounded-2xl border border-white/8 bg-black/30 p-3.5 text-[13px] leading-[1.55] tracking-wide text-on-surface outline-none transition-shadow focus:border-primary/50 focus:shadow-[0_0_0_3px_rgba(183,109,255,0.15)]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {bottomTab === "result" && (
+                    <div className="space-y-3 font-code-sm text-sm">
+                      {verdict && (
+                        <div className="rounded-2xl border border-white/6 bg-white/4 p-4">
+                          <p
+                            className={`font-bold ${
+                              /ac|accepted/i.test(verdict.verdict) ||
+                              verdict.passed
+                                ? "text-easy"
+                                : "text-hard"
+                            }`}
+                          >
+                            {verdict.verdict}
+                          </p>
+                          {verdict.passedCount != null &&
+                            verdict.totalCount != null && (
+                              <p className="mt-1 text-on-surface-variant">
+                                {verdict.passedCount}/{verdict.totalCount}{" "}
+                                tests
+                              </p>
+                            )}
+                        </div>
+                      )}
+                      {runSession && (
+                        <div className="space-y-2">
+                          <p className="font-bold text-on-surface">
+                            Overall: {runSession.overall}
+                          </p>
+                          {runSession.cases.map((r) => (
+                            <div
+                              key={r.index}
+                              className="rounded-2xl border border-white/6 bg-white/4 p-3"
+                            >
+                              <p className="font-bold text-on-surface">
+                                Case {r.index + 1}: {r.status}
+                              </p>
+                              {r.userOutput != null && (
+                                <IoPre className="mt-2 text-xs text-on-surface-variant">
+                                  {r.userOutput || "(empty)"}
+                                </IoPre>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!verdict && !runSession && (
+                        <p className="text-on-surface-variant">
+                          Run or submit to see results.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </section>
-
-          {/* Resize handle */}
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize editor"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              startResize();
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              startResize();
-            }}
-            className="group relative z-10 flex h-3 shrink-0 cursor-row-resize items-center justify-center border-y border-[var(--line)] bg-[var(--bg-raised)] hover:bg-[var(--accent)]/15 lg:h-auto lg:w-2 lg:cursor-col-resize lg:border-x lg:border-y-0"
-          >
-            <div className="h-1 w-10 rounded-full bg-[var(--line)] group-hover:bg-[var(--accent)] lg:h-10 lg:w-1" />
+              </div>
+            </section>
           </div>
-
-          {/* Editor */}
-          <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] bg-[var(--bg-raised)] px-3 py-2">
-              <select
-                value={language?.slug || ""}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                disabled={!inProgress}
-                className="rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-2 py-1.5 text-xs disabled:opacity-50"
-              >
-                {languages.map((l) => (
-                  <option key={l.slug} value={l.slug}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="ml-auto flex items-center gap-2">
-                {!inProgress && !ended && (
-                  <span className="text-xs text-[var(--text-dim)]">
-                    {session
-                      ? "Start your timer to code"
-                      : "Join the contest to code"}
-                  </span>
-                )}
-                <button
-                  onClick={handleContestRun}
-                  disabled={!canRun || running}
-                  className="rounded-md border border-[var(--line)] px-3 py-1.5 text-sm text-[var(--text)] transition hover:border-[var(--info)] hover:text-[var(--info)] disabled:opacity-40"
-                >
-                  {running ? "Running…" : "Run"}
-                </button>
-                <button
-                  onClick={handleContestSubmit}
-                  disabled={!canSubmit || submitting}
-                  className="rounded-md bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[#0a0d12] hover:brightness-110 disabled:opacity-40"
-                >
-                  {submitting ? "Judging…" : "Submit"}
-                </button>
-              </div>
-            </div>
-
-            <div className="min-h-[180px] flex-[1.1] bg-[var(--bg-inset)]">
-              <Editor
-                height="100%"
-                theme="vs-dark"
-                language={
-                  language
-                    ? MONACO_LANG[language.slug] || language.slug
-                    : "plaintext"
-                }
-                value={code}
-                onChange={(value) => {
-                  if (!selectedProblem) return;
-                  setCodeByProblem((prev) => ({
-                    ...prev,
-                    [selectedProblem]: value ?? "",
-                  }));
-                }}
-                options={{
-                  fontSize: 13,
-                  fontFamily: "JetBrains Mono, monospace",
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  padding: { top: 12 },
-                  readOnly: !inProgress || ended,
-                  automaticLayout: true,
-                  tabSize: 2,
-                }}
-              />
-            </div>
-
-            <div className="flex min-h-[200px] flex-1 flex-col border-t border-[var(--line)]">
-              <div className="flex shrink-0 items-center gap-1 border-b border-[var(--line)] bg-[var(--bg-raised)] px-2">
-                {(
-                  [
-                    ["testcase", "Testcase"],
-                    ["result", "Test Result"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setEditorBottomTab(id)}
-                    className={`verdict-strip border-b-2 px-3 py-2 ${
-                      editorBottomTab === id
-                        ? "border-[var(--accent)] text-[var(--accent)]"
-                        : "border-transparent text-[var(--text-dim)] hover:text-[var(--text)]"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                {editorBottomTab === "testcase" && (
-                  <div className="space-y-3">
-                    {examples.length > 0 ? (
-                      <>
-                        <div className="flex flex-wrap gap-1.5">
-                          {examples.map((_, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setActiveCaseIdx(idx)}
-                              className={`rounded-md border px-2.5 py-1 text-xs transition ${
-                                activeCaseIdx === idx
-                                  ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
-                                  : "border-[var(--line)] text-[var(--text-dim)] hover:border-[var(--info)] hover:text-[var(--text)]"
-                              }`}
-                            >
-                              Case {idx + 1}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div>
-                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                            Input
-                          </label>
-                          <textarea
-                            value={caseStdins[activeCaseIdx] ?? ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setCaseStdins((prev) => {
-                                const next = [...prev];
-                                next[activeCaseIdx] = value;
-                                return next;
-                              });
-                            }}
-                            rows={5}
-                            spellCheck={false}
-                            disabled={!inProgress || ended}
-                            className="mono w-full resize-y rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text)] focus:border-[var(--info)] focus:outline-none disabled:opacity-50"
-                          />
-                        </div>
-
-                          <div>
-                            <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                              Expected Output
-                            </div>
-                            <IoPre tone="dim">
-                              {exampleOutputToExpected(
-                                examples[activeCaseIdx]?.output
-                              )}
-                            </IoPre>
-                          </div>
-
-                        <p className="text-xs text-[var(--text-dim)]">
-                          Run checks sample cases only. Submit judges hidden
-                          tests and updates the leaderboard.
-                        </p>
-                      </>
-                    ) : (
-                      <div>
-                        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-dim)]">
-                          Custom stdin
-                        </label>
-                        <textarea
-                          value={customStdin}
-                          onChange={(e) => setCustomStdin(e.target.value)}
-                          rows={5}
-                          spellCheck={false}
-                          disabled={!inProgress || ended}
-                          placeholder={"4\n2 7 11 15\n9"}
-                          className="mono w-full resize-y rounded-md border border-[var(--line)] bg-[var(--bg-inset)] px-3 py-2 text-xs text-[var(--text)] focus:border-[var(--info)] focus:outline-none disabled:opacity-50"
-                        />
-                        <p className="mt-1 text-xs text-[var(--text-dim)]">
-                          No sample cases on this problem. Run uses this input
-                          only.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {editorBottomTab === "result" && (
-                  <div className="space-y-3">
-                    {runError && <ErrorState message={runError} />}
-
-                    {submitting && (
-                      <p className="text-sm text-[var(--text-dim)]">
-                        Judging against hidden test cases
-                        {language?.slug === "csharp"
-                          ? " (batch path)…"
-                          : " (compile once)…"}
-                      </p>
-                    )}
-
-                    {verdict && (
-                      <div className="space-y-3">
-                        <VerdictPanel verdict={verdict} />
-                        {typeof verdict.totalCount === "number" &&
-                          verdict.totalCount > 0 && (
-                            <div className="rounded-lg border border-[var(--line)] bg-[var(--bg-raised)] p-3 text-sm">
-                              <div className="verdict-strip mb-1 text-[var(--text-dim)]">
-                                Hidden tests
-                              </div>
-                              <p
-                                style={{
-                                  color:
-                                    (verdict.passedCount ?? 0) ===
-                                    verdict.totalCount
-                                      ? "var(--ok)"
-                                      : "var(--err)",
-                                }}
-                              >
-                                {verdict.passedCount ?? 0} /{" "}
-                                {verdict.totalCount} passed
-                              </p>
-                              <p className="mt-1 text-xs text-[var(--text-dim)]">
-                                Hidden case details are never shown.
-                              </p>
-                            </div>
-                          )}
-                      </div>
-                    )}
-
-                    {!submitting && !verdict && (
-                      <RunResultsPanel
-                        session={runSession}
-                        loading={running}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
+        )}
+          </>
+        )}
+      </main>
     </div>
   );
 }

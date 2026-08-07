@@ -9,8 +9,10 @@ import {
   aiHints,
   aiReview,
   getAiHintProgress,
+  type AiCoachRequest,
+  type AiCoachResponse,
+  type JudgeVerdictDTO,
 } from "../../../lib/api";
-import type { AiCoachRequest, AiCoachResponse, JudgeVerdictDTO } from "../../../lib/types";
 import type { AiAction, CoachToolId } from "../types";
 
 interface Options {
@@ -30,7 +32,6 @@ export function useLearningCoach({
   verdict,
   enabled,
 }: Options) {
-  const [open, setOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<CoachToolId | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +49,19 @@ export function useLearningCoach({
   const editorialUnlocked = unlockedHintLevel >= 3 || isAccepted;
 
   useEffect(() => {
-    if (!enabled || !open) return;
+    if (!enabled) return;
     let cancelled = false;
     getAiHintProgress(problemId)
       .then((res) => {
         if (!cancelled) setUnlockedHintLevel(res.unlockedHintLevel ?? 0);
       })
       .catch(() => {
-        /* progress is optional on open */
+        /* progress is optional */
       });
     return () => {
       cancelled = true;
     };
-  }, [enabled, open, problemId]);
+  }, [enabled, problemId]);
 
   const basePayload = useCallback((): Omit<AiCoachRequest, "action"> => {
     return {
@@ -87,7 +88,10 @@ export function useLearningCoach({
             res = await aiConstraints(payload);
             break;
           case "ASK_AI":
-            res = await aiChat({ ...payload, question: extra?.question || question });
+            res = await aiChat({
+              ...payload,
+              question: extra?.question || question,
+            });
             break;
           case "REQUEST_HINT":
             res = await aiHints({
@@ -115,7 +119,10 @@ export function useLearningCoach({
           setUnlockedHintLevel(res.unlockedHintLevel);
         }
         if (action === "REQUEST_HINT" && res.hintLevel) {
-          setHintContents((prev) => ({ ...prev, [res.hintLevel!]: res.content }));
+          setHintContents((prev) => ({
+            ...prev,
+            [res.hintLevel!]: res.content,
+          }));
         }
         return res;
       } catch (e) {
@@ -129,8 +136,6 @@ export function useLearningCoach({
   );
 
   return {
-    open,
-    setOpen,
     activeTool,
     setActiveTool,
     loading,

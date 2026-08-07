@@ -46,27 +46,6 @@ export const getMyRooms = (opts?: {
 export const getRoom = (roomId: string) =>
   request<Room>(`/api/rooms/${roomId}`);
 
-export const updateMemberRole = (
-  roomId: string,
-  targetUserId: number,
-  role: string
-) =>
-  request<Room>(`/api/rooms/${roomId}/members/${targetUserId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ role }),
-  });
-
-export const removeMember = (roomId: string, targetUserId: number) =>
-  request<Room>(`/api/rooms/${roomId}/members/${targetUserId}`, {
-    method: "DELETE",
-  });
-
-export const transferHost = (roomId: string, newHostUserId: number) =>
-  request<Room>(`/api/rooms/${roomId}/transfer-host`, {
-    method: "POST",
-    body: JSON.stringify({ newHostUserId }),
-  });
-
 export const updateWorkspace = (roomId: string, workspace: string) =>
   request<Room>(`/api/rooms/${roomId}/workspace`, {
     method: "PATCH",

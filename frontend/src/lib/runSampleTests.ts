@@ -1,4 +1,4 @@
-import { runCode } from "./api";
+import { runCode, type RunResult } from "./api";
 import {
   exampleInputToStdin,
   exampleOutputToExpected,
@@ -13,7 +13,6 @@ import {
   runtimeErrorMessage,
   type RunVerdictKind,
 } from "./judgeStatus";
-import type { RunResult } from "./types";
 
 export type { RunVerdictKind };
 
@@ -50,11 +49,8 @@ export type PreparedSampleCase = {
 export type RunSampleTestsParams = {
   sourceCode: string;
   languageId: number;
-  /** Prepared sample cases (preferred). */
   samples?: PreparedSampleCase[];
-  /** Fallback: build samples from problem examples. */
   examples?: Example[];
-  /** Used when there are no sample cases. */
   customStdin?: string;
   signal?: AbortSignal;
 };
@@ -156,10 +152,6 @@ function summarize(cases: SampleCaseResult[]): Omit<SampleRunSession, "mode"> {
   };
 }
 
-/**
- * Runs sample cases via POST /api/submissions/run (one call per sample).
- * Short-circuits on compilation error so CE is shown without case cards.
- */
 export async function runSampleTests(
   params: RunSampleTestsParams
 ): Promise<SampleRunSession> {

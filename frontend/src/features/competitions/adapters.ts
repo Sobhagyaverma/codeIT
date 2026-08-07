@@ -1,5 +1,4 @@
-import type { Competition } from "../../lib/types";
-import type { ProfileContestHistory } from "../../lib/api";
+import type { Competition } from "../../lib/api";
 import type {
   ContestCardModel,
   ContestDashboardData,
@@ -78,7 +77,6 @@ export function toContestCard(
   const endTime = competition.endTime;
   const durationMinutes =
     asNumber(competition.durationMinutes) ??
-    asNumber((competition as { duration_minutes?: unknown }).duration_minutes) ??
     durationFromTimes(startTime, endTime);
 
   return {
@@ -95,22 +93,13 @@ export function toContestCard(
     problemCount: counts?.problemCount ?? asNumber(competition.problemCount),
     participantCount:
       counts?.participantCount ?? asNumber(competition.participantCount),
-    contestType:
-      parseContestType(competition.contestType) ??
-      parseContestType(competition.contest_type),
-    difficulty:
-      parseDifficulty(competition.difficulty) ??
-      parseDifficulty(competition.contestDifficulty),
-    isFeatured:
-      asBoolean(competition.isFeatured) || asBoolean(competition.is_featured),
-    createdAt:
-      asString(competition.createdAt) ?? asString(competition.created_at),
+    contestType: parseContestType(competition.contestType),
+    difficulty: parseDifficulty(competition.difficulty),
+    isFeatured: asBoolean(competition.isFeatured),
   };
 }
 
-export function buildUserStats(
-  history: ContestHistoryRow[]
-): ContestUserStats {
+function buildUserStats(history: ContestHistoryRow[]): ContestUserStats {
   const ranked = history
     .map((row) => row.rank)
     .filter((rank): rank is number => rank != null && rank >= 1);
@@ -124,9 +113,6 @@ export function buildUserStats(
           (ranked.reduce((sum, rank) => sum + rank, 0) / ranked.length).toFixed(1)
         )
       : null,
-    currentRating: null,
-    highestRating: null,
-    winRate: null,
   };
 }
 
@@ -136,7 +122,7 @@ export function buildContestDashboard(
     number,
     { problemCount: number | null; participantCount: number | null }
   >,
-  historyRaw: ProfileContestHistory[]
+  historyRaw: ContestHistoryRow[]
 ): ContestDashboardData {
   const contests = competitions
     .map((competition) =>
@@ -164,16 +150,6 @@ export function buildContestDashboard(
   }, 0);
   const hasAnyParticipants = contests.some((c) => c.participantCount != null);
 
-  const history: ContestHistoryRow[] = historyRaw.map((row) => ({
-    competitionId: row.competitionId,
-    title: row.title,
-    rank: row.rank,
-    solved: row.solved,
-    score: row.score,
-    date: row.date,
-    ratingDelta: row.ratingDelta,
-  }));
-
   return {
     contests,
     featured,
@@ -187,8 +163,8 @@ export function buildContestDashboard(
       ended: past.length,
       totalParticipants: hasAnyParticipants ? participantSum : null,
     },
-    history,
-    userStats: buildUserStats(history),
+    history: historyRaw,
+    userStats: buildUserStats(historyRaw),
   };
 }
 
@@ -198,8 +174,7 @@ export function formatContestWhen(iso: string): string {
   return date.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: "numeric",
   });
 }
 
@@ -209,4 +184,25 @@ export function formatDuration(minutes: number | null): string {
   const hours = Math.floor(minutes / 60);
   const rem = minutes % 60;
   return rem ? `${hours}h ${rem}m` : `${hours}h`;
+}
+
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(total / 86400);
+  const h = Math.floor((total % 86400) / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) {
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+export function formatSecondsClock(total: number): string {
+  const s = Math.max(0, Math.floor(total));
+  const h = String(Math.floor(s / 3600)).padStart(2, "0");
+  const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const sec = String(s % 60).padStart(2, "0");
+  return `${h}:${m}:${sec}`;
 }

@@ -21,7 +21,7 @@ export default function CoachHintCards({
 }: Props) {
   return (
     <div className="space-y-3">
-      <p className="text-xs text-[var(--text-dim)]">
+      <p className="text-xs text-on-surface-variant">
         Unlock one level at a time. Higher hints never open automatically.
       </p>
       {LABELS.map(({ level, title }) => {
@@ -32,12 +32,14 @@ export default function CoachHintCards({
         return (
           <div
             key={level}
-            className="rounded-md border border-[var(--line)] bg-[var(--bg-raised)] p-3"
+            className="rounded-xl border border-outline-variant/30 bg-surface-container-high/50 p-3"
           >
             <div className="flex items-center justify-between gap-2">
               <div>
-                <div className="text-sm font-medium text-[var(--text)]">{title}</div>
-                <div className="text-[10px] uppercase tracking-wide text-[var(--text-dim)]">
+                <div className="font-label-md text-sm font-medium text-on-surface">
+                  {title}
+                </div>
+                <div className="text-[10px] tracking-wide text-on-surface-variant uppercase">
                   {unlocked ? "Unlocked" : "Locked"}
                 </div>
               </div>
@@ -46,14 +48,14 @@ export default function CoachHintCards({
                   type="button"
                   disabled={!canUnlock || loading}
                   onClick={() => onUnlock(level)}
-                  className="rounded-md border border-[var(--line)] px-2.5 py-1 text-xs text-[var(--text)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-40"
+                  className="rounded-lg border border-outline-variant/40 px-2.5 py-1 text-xs text-on-surface transition hover:border-primary hover:text-primary disabled:opacity-40"
                 >
                   {unlocked ? "Reveal" : "Unlock"}
                 </button>
               )}
             </div>
             {content && (
-              <div className="mt-3 border-t border-[var(--line)] pt-3">
+              <div className="mt-3 border-t border-outline-variant/25 pt-3">
                 <CoachMessage content={content} />
               </div>
             )}

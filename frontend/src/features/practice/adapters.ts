@@ -1,5 +1,4 @@
-import type { ProfileResponse } from "../../lib/api";
-import type { ProblemPublicDTO, Submission } from "../../lib/types";
+import type { ProblemPublicDTO, Submission } from "../../lib/authStorage";
 import { isRoadmapExcludedTopic } from "../learn/content/sections";
 import { OTHER_MODULE_ID, PRACTICE_ROADMAP } from "./config/roadmap";
 import type {
@@ -103,28 +102,11 @@ function moduleIdFor(topics: string[]): string {
   return OTHER_MODULE_ID;
 }
 
-function activeDaysInLastWeek(
-  heatmap: ProfileResponse["heatmap"] | undefined
-): number {
-  if (!heatmap?.length) return 0;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const firstDay = new Date(today);
-  firstDay.setDate(firstDay.getDate() - 6);
-
-  return heatmap.reduce((total, day) => {
-    if (day.count <= 0) return total;
-    const date = new Date(`${day.date.slice(0, 10)}T00:00:00`);
-    return date >= firstDay && date <= today ? total + 1 : total;
-  }, 0);
-}
-
+/** Build practice catalog from problems + submissions (no profile/bookmarks required). */
 export function buildPracticeCatalog(
   problems: ProblemPublicDTO[],
   submissions: Submission[],
-  bookmarkedIds: number[],
-  profile?: ProfileResponse | null
+  bookmarkedIds: number[] = []
 ): PracticeCatalogData {
   const bookmarkSet = new Set(bookmarkedIds);
   const submissionsByProblem = new Map<number, Submission[]>();
@@ -162,14 +144,12 @@ export function buildPracticeCatalog(
     PRACTICE_ROADMAP.map((module) => [module.id, []])
   );
   for (const problem of practiceProblems) {
-    // Learn-track / Pattern Problems stay outside the DSA roadmap buckets.
     if (problem.topics.some((topic) => isRoadmapExcludedTopic(topic))) {
       continue;
     }
     problemsByModule.get(moduleIdFor(problem.topics))!.push(problem);
   }
 
-  // Stable lesson order for The Proving Grounds (IDs 121–140).
   problemsByModule.get("proving-grounds")?.sort((a, b) => a.id - b.id);
 
   const solved = practiceProblems.filter(
@@ -190,10 +170,9 @@ export function buildPracticeCatalog(
     if (problem.status === "SOLVED") difficulty.solved[key] += 1;
   }
 
-  const problemById = new Map(
-    practiceProblems.map((problem) => [problem.id, problem])
-  );
-  const attemptedTotal = solved + attempted;
+  const modules = PRACTICE_ROADMAP.map((definition) =>
+    buildModule(definition, problemsByModule.get(definition.id) ?? [])
+  ).filter((m) => m.total > 0 || m.id === "proving-grounds");
 
   return {
     problems: practiceProblems,
@@ -202,27 +181,15 @@ export function buildPracticeCatalog(
       solved,
       attempted,
       notStarted: practiceProblems.length - solved - attempted,
-      acceptanceRate: attemptedTotal
-        ? Number(((solved / attemptedTotal) * 100).toFixed(1))
-        : 0,
+      acceptanceRate: 0,
       difficulty,
     },
     bookmarks: bookmarkSet,
-    modules: PRACTICE_ROADMAP.map((module) =>
-      buildModule(module, problemsByModule.get(module.id) ?? [])
-    ),
-    streak: profile?.stats.currentStreak ?? 0,
-    heatmap: profile?.heatmap ?? [],
-    continueProblem: profile?.continueProblem
-      ? problemById.get(profile.continueProblem.id) ?? null
-      : null,
-    recentSolved:
-      profile?.recentSolved
-        .map((problem) => problemById.get(problem.id))
-        .filter((problem): problem is PracticeProblem => Boolean(problem)) ?? [],
-    weeklyGoal: {
-      target: 7,
-      completed: activeDaysInLastWeek(profile?.heatmap),
-    },
+    modules,
+    streak: 0,
+    heatmap: [],
+    continueProblem: null,
+    recentSolved: [],
+    weeklyGoal: { target: 5, completed: 0 },
   };
 }
