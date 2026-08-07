@@ -47,7 +47,10 @@ public class CollaborationController {
         return collaborationService.createRoom(userId, request);
     }
 
-    /** Preferred join: token in JSON body (avoids invite secrets in access-log URIs). */
+    /**
+     * Preferred join: token in JSON body (avoids invite secrets in access-log
+     * URIs).
+     */
     @PostMapping("/join")
     public RoomResponse joinRoom(@RequestBody JoinRoomRequest request) {
         Integer userId = SecurityUtils.currentUserId();

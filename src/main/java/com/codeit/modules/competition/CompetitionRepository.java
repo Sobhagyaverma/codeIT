@@ -112,18 +112,19 @@ public class CompetitionRepository {
                 ON CONFLICT DO NOTHING
                 """;
         try {
-            int[] counts = jdbcTemplate.batchUpdate(sql, new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
-                @Override
-                public void setValues(java.sql.PreparedStatement ps, int i) throws java.sql.SQLException {
-                    ps.setInt(1, competitionId);
-                    ps.setInt(2, problemIds.get(i));
-                }
+            int[] counts = jdbcTemplate.batchUpdate(sql,
+                    new org.springframework.jdbc.core.BatchPreparedStatementSetter() {
+                        @Override
+                        public void setValues(java.sql.PreparedStatement ps, int i) throws java.sql.SQLException {
+                            ps.setInt(1, competitionId);
+                            ps.setInt(2, problemIds.get(i));
+                        }
 
-                @Override
-                public int getBatchSize() {
-                    return problemIds.size();
-                }
-            });
+                        @Override
+                        public int getBatchSize() {
+                            return problemIds.size();
+                        }
+                    });
             int total = 0;
             for (int c : counts) {
                 total += Math.max(c, 0);

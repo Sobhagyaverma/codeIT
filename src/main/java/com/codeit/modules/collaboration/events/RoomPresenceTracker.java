@@ -65,8 +65,10 @@ public class RoomPresenceTracker {
         return Optional.ofNullable(displaced);
     }
 
-    /** @return userId that left, or null if session was unknown.
-     *  Also returns whether this was the user's last session in the room. */
+    /**
+     * @return userId that left, or null if session was unknown.
+     *         Also returns whether this was the user's last session in the room.
+     */
     public LeaveResult leaveWithResult(String sessionId) {
         UUID roomId = sessionRoom.remove(sessionId);
         Integer userId = sessionUser.remove(sessionId);
