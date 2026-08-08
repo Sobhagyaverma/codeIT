@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import AppNav from "../components/AppNav";
+import BrandMark from "../components/BrandMark";
 import {
   LessonBlocksView,
   useLessonNav,
@@ -341,7 +342,9 @@ export default function LessonPage() {
             <footer className="flex flex-col items-center justify-between gap-4 border-t border-outline-variant/10 py-8 text-xs text-on-surface-variant md:flex-row">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm">terminal</span>
-                <span>CodeIT</span>
+                <span>
+                  <BrandMark />
+                </span>
               </div>
               <div className="flex items-center gap-6">
                 <Link to="/privacy" className="transition-colors hover:text-primary">

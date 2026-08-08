@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import BrandMark from "./BrandMark";
 
 const PLATFORM = [
   { to: "/problems", label: "Problems" },
@@ -55,8 +56,8 @@ export default function AppFooter() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="mb-16 grid grid-cols-2 gap-8 md:grid-cols-5">
           <div className="col-span-2">
-            <span className="font-headline-lg mb-4 block text-xl font-bold tracking-wide text-[#a855f7] uppercase">
-              CodeIT
+            <span className="font-headline-lg mb-4 block text-xl font-bold tracking-wide text-[#a855f7]">
+              <BrandMark />
             </span>
             <p className="mb-6 max-w-xs text-[13px] text-white/40">
               Connect and build on the advanced collaborative IDE platform.
@@ -89,7 +90,7 @@ export default function AppFooter() {
         </div>
         <div className="flex flex-col items-center justify-between border-t border-white/5 pt-8 md:flex-row">
           <span className="font-body-sm text-[12px] text-white/40">
-            © {new Date().getFullYear()} CodeIT Platform. All rights reserved.
+            © {new Date().getFullYear()} CodeT Platform. All rights reserved.
           </span>
         </div>
       </div>

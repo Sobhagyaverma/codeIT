@@ -82,7 +82,7 @@ public class EmailAuthService {
                         "otp", otp,
                         "ttlMinutes", String.valueOf(Math.max(1, otpProperties.getTtlSeconds() / 60))));
         try {
-            mailService.sendHtml(email, "Verify your CodeIT email", html);
+            mailService.sendHtml(email, "Verify your CodeT email", html);
         } catch (RuntimeException ex) {
             otpService.invalidate(OtpService.Purpose.VERIFY, email);
             throw new ResponseStatusException(
@@ -149,7 +149,7 @@ public class EmailAuthService {
                                 "otp", otp,
                                 "ttlMinutes",
                                 String.valueOf(Math.max(1, otpProperties.getTtlSeconds() / 60))));
-                mailService.sendHtml(email, "Reset your CodeIT password", html);
+                mailService.sendHtml(email, "Reset your CodeT password", html);
                 log.info("Forgot-password OTP issued userId={}", user.getId());
             } catch (ResponseStatusException ex) {
                 if (ex.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {

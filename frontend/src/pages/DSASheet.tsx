@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppNav from "../components/AppNav";
+import BrandMark from "../components/BrandMark";
 import { useAuth } from "../context/AuthContext";
 import {
   LEARN_SECTION_ORDER,
@@ -887,7 +888,7 @@ export default function DSASheet() {
       <footer className="mt-12 border-t border-outline-variant/30 bg-surface-dim py-6">
         <div className="mx-auto flex w-full max-w-container-max flex-col items-center justify-between gap-4 px-margin-mobile md:flex-row md:px-margin-desktop">
           <span className="text-sm text-on-surface-variant">
-            CodeIT
+            <BrandMark />
           </span>
           <div className="flex gap-4">
             <Link

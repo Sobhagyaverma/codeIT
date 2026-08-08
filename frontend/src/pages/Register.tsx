@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useRegistration } from "../context/RegistrationContext";
 import TurnstileWidget from "../components/TurnstileWidget";
+import BrandMark from "../components/BrandMark";
 
 type Step = "details" | "otp";
 
@@ -285,7 +286,7 @@ export default function Register() {
                   terminal
                 </span>
                 <h1 className="font-headline-lg text-headline-lg font-bold tracking-tighter text-primary">
-                  CodeIT
+                  <BrandMark />
                 </h1>
               </Link>
             </div>
@@ -335,7 +336,7 @@ export default function Register() {
                 terminal
               </span>
               <span className="font-headline-lg-mobile text-headline-lg-mobile font-bold tracking-tighter text-primary">
-                CodeIT
+                <BrandMark />
               </span>
             </Link>
           </div>
@@ -350,7 +351,7 @@ export default function Register() {
                   ? "Enter the 6-digit code we sent to finish signup."
                   : requiresInvite
                     ? "Private Beta — register with your invite code."
-                    : "Join CodeIT to practice, compete, and collaborate."}
+                    : "Join CodeT to practice, compete, and collaborate."}
               </p>
             </div>
 
@@ -373,7 +374,7 @@ export default function Register() {
                     id="inviteCode"
                     type="text"
                     required
-                    placeholder="CODEIT-…"
+                    placeholder="CODET-…"
                     value={inviteCode}
                     onChange={(e) => {
                       setInviteCode(e.target.value);

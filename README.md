@@ -1,6 +1,6 @@
-# CodeIT
+# CodeT
 
-CodeIT is a full-stack competitive programming platform for solving problems, running and submitting code, joining timed contests with live leaderboards, collaborating in shared rooms, and getting AI-assisted mentoring.
+CodeT is a full-stack competitive programming platform for solving problems, running and submitting code, joining timed contests with live leaderboards, collaborating in shared rooms, and getting AI-assisted mentoring.
 
 Stack: React + TypeScript frontends, Spring Boot API, PostgreSQL, Redis, Judge0, JWT auth, STOMP WebSockets, and a Yjs sync server for real-time editor/whiteboard sync.
 
@@ -247,7 +247,7 @@ Optional overrides: `SPRING_DATA_REDIS_HOST`, `SPRING_DATA_REDIS_PORT`.
 
 ```bash
 export CODEIT_MAIL_ENABLED=true
-export CODEIT_MAIL_FROM='CodeIT <noreply@yourdomain-or-brevo-sender>'
+export CODEIT_MAIL_FROM='CodeT <noreply@yourdomain-or-brevo-sender>'
 export CODEIT_MAIL_INBOX='you@example.com'   # Contact Us destination
 export SPRING_MAIL_USERNAME='your-brevo-login-email'
 export BREVO_SMTP_KEY='your-smtp-key'
@@ -290,7 +290,7 @@ export JUDGE0_API_URL=https://judge0.ktatva.com
 export CODEIT_JWT_SECRET=replace-with-a-secret-at-least-32-characters-long
 export GROQ_API_KEY=your_groq_api_key
 export CODEIT_MAIL_ENABLED=true
-export CODEIT_MAIL_FROM='CodeIT <noreply@example.com>'
+export CODEIT_MAIL_FROM='CodeT <noreply@example.com>'
 export CODEIT_MAIL_INBOX=you@example.com
 export SPRING_MAIL_USERNAME=your-brevo-login-email
 export BREVO_SMTP_KEY=your-smtp-key
@@ -545,7 +545,7 @@ cd frontend && npm ci && npm run lint && npm run build
 ## Project Structure
 
 ```text
-CodeIT/
+CodeT/
 ├── frontend/                 # Product UI (port 5175)
 │   └── src/
 │       ├── components/       # AppNav, SoftPageFade, …

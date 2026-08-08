@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppNav from "../components/AppNav";
+import BrandMark from "../components/BrandMark";
 import { useAuth } from "../context/AuthContext";
 import {
   buildContestDashboard,
@@ -573,10 +574,10 @@ export default function Competitions() {
         <div className="mx-auto grid max-w-container-max grid-cols-1 gap-gutter px-margin-desktop md:grid-cols-4">
           <div>
             <p className="mb-4 font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">
-              CodeIT
+              <BrandMark />
             </p>
             <p className="font-body-md text-body-md text-on-surface-variant opacity-80">
-              © {new Date().getFullYear()} CodeIT. All rights reserved.
+              © {new Date().getFullYear()} CodeT. All rights reserved.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-8 font-label-md text-label-md md:col-span-3 md:justify-end">

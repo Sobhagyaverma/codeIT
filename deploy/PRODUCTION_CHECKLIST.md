@@ -1,4 +1,4 @@
-# CodeIT production deployment checklist
+# CodeT production deployment checklist
 
 Use with `docker compose` (see [README.md](./README.md) and root `.env.example`).
 
@@ -19,7 +19,7 @@ Use with `docker compose` (see [README.md](./README.md) and root `.env.example`)
 
 - [ ] **Supabase path:** `SPRING_DATASOURCE_URL` / `USERNAME` / `PASSWORD` (pooler + `sslmode=require`); use `docker-compose.supabase.yml`
 - [ ] **Local Postgres path:** `POSTGRES_PASSWORD` strong, not `ROOT`
-- [ ] `REDIS_PASSWORD` set (CodeIT compose Redis AUTH — not Judge0 Redis)
+- [ ] `REDIS_PASSWORD` set (CodeT compose Redis AUTH — not Judge0 Redis)
 - [ ] `CODEIT_JWT_SECRET` ≥ 32 chars, unique
 - [ ] `CODEIT_OTP_PEPPER` ≥ 16 chars, unique
 - [ ] `SYNC_INTERNAL_SECRET` set (API→sync revoke on kick/leave/archive)

@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, resendVerifyEmail, verifyEmail } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import TurnstileWidget from "../components/TurnstileWidget";
+import BrandMark from "../components/BrandMark";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -83,7 +84,9 @@ export default function VerifyEmail() {
           <span className="material-symbols-outlined" style={{ fontVariationSettings: '"FILL" 1' }}>
             terminal
           </span>
-          <span className="font-bold tracking-tighter">CodeIT</span>
+          <span className="font-bold tracking-tighter">
+            <BrandMark />
+          </span>
         </Link>
         <h1 className="mb-2 text-2xl font-bold">Verify your email</h1>
         <p className="mb-6 text-sm text-on-surface-variant">

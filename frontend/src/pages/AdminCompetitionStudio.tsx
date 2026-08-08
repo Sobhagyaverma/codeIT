@@ -493,7 +493,7 @@ export default function AdminCompetitionStudio({ onBack, onPublished }: Props) {
                 </label>
                 <input
                   className="comp-input w-full rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-3 font-body-md"
-                  placeholder="e.g., CodeIT Summer Sprint 2024"
+                  placeholder="e.g., CodeT Summer Sprint 2024"
                   value={draft.title}
                   onChange={(e) => patch({ title: e.target.value })}
                 />

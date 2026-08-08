@@ -59,7 +59,7 @@ const FEATURE_CARDS = [
   {
     icon: "group_add",
     title: "Invite Friends",
-    body: "Share a room code or invite link. Teammates join instantly — no setup beyond CodeIT login.",
+    body: "Share a room code or invite link. Teammates join instantly — no setup beyond CodeT login.",
   },
 ] as const;
 
@@ -943,7 +943,7 @@ export default function CodeRoomHub() {
       <footer className="mt-auto border-t border-outline-variant/20 py-8">
         <div className="mx-auto flex w-full max-w-container-max flex-col items-center justify-between gap-4 px-margin-desktop md:flex-row">
           <span className="font-label-md text-label-md text-on-surface-variant/60">
-            © {new Date().getFullYear()} CodeIT
+            © {new Date().getFullYear()} CodeT
           </span>
           <div className="flex gap-6">
             <Link

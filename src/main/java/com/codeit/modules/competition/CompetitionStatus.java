@@ -1,18 +1,25 @@
 package com.codeit.modules.competition;
 
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public enum CompetitionStatus {
     UPCOMING, ACTIVE, ENDED;
 
-    public static CompetitionStatus fromTimes(Timestamp start, Timestamp end, LocalDateTime now) {
-        LocalDateTime startDt = start.toLocalDateTime();
-        LocalDateTime endDt = end.toLocalDateTime();
-        if (now.isBefore(startDt)) {
+    /**
+     * Compare contest bounds as absolute instants (timezone-safe).
+     * Null start/end are treated as missing → ACTIVE is not assumed; callers should validate.
+     */
+    public static CompetitionStatus fromTimes(Timestamp start, Timestamp end, Instant now) {
+        if (start == null || end == null || now == null) {
+            throw new IllegalArgumentException("start, end, and now are required");
+        }
+        Instant startInstant = start.toInstant();
+        Instant endInstant = end.toInstant();
+        if (now.isBefore(startInstant)) {
             return UPCOMING;
         }
-        if (now.isAfter(endDt)) {
+        if (now.isAfter(endInstant)) {
             return ENDED;
         }
         return ACTIVE;

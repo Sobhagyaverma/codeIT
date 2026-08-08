@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import AppNav from "../components/AppNav";
+import BrandMark from "../components/BrandMark";
 import TurnstileWidget from "../components/TurnstileWidget";
 import { ApiError, submitContact } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -38,7 +39,7 @@ export default function Contact() {
       const res = await submitContact({
         username: name.trim(),
         email: email.trim(),
-        subject: subject.trim() || "CodeIT Contact Form",
+        subject: subject.trim() || "CodeT Contact Form",
         message: message.trim(),
         captchaToken: captchaToken || undefined,
       });
@@ -185,7 +186,7 @@ export default function Contact() {
               <div className="flex flex-col items-center justify-between gap-4 border-t border-outline-variant/10 pt-4 sm:flex-row">
                 <p className="flex items-center gap-2 font-mono text-xs text-on-surface-variant">
                   <span className="material-symbols-outlined text-[16px]">info</span>
-                  Sent to the CodeIT inbox (rate limited).
+                  Sent to the CodeT inbox (rate limited).
                 </p>
                 <button
                   className="group flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3 font-label text-sm font-bold text-on-primary transition-colors hover:bg-primary-fixed disabled:opacity-70 sm:w-auto"
@@ -202,7 +203,9 @@ export default function Contact() {
       </main>
 
       <footer className="mt-auto flex w-full flex-col items-center justify-between gap-4 border-t border-outline-variant/10 bg-surface-container-lowest px-4 py-8 opacity-80 md:flex-row md:px-12">
-        <div className="text-sm font-bold text-on-surface">CodeIT</div>
+        <div className="text-sm font-bold text-on-surface">
+          <BrandMark />
+        </div>
         <div className="flex flex-wrap items-center justify-center gap-6">
           <Link className="font-label text-sm text-on-surface-variant hover:text-secondary" to="/privacy">
             Privacy Policy
@@ -215,7 +218,7 @@ export default function Contact() {
           </Link>
         </div>
         <div className="font-body text-sm text-tertiary">
-          © {new Date().getFullYear()} CodeIT. All systems operational.
+          © {new Date().getFullYear()} CodeT. All systems operational.
         </div>
       </footer>
     </div>

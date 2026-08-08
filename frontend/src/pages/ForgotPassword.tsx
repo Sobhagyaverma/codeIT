@@ -9,6 +9,7 @@ import {
 } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import TurnstileWidget from "../components/TurnstileWidget";
+import BrandMark from "../components/BrandMark";
 
 type Step = 1 | 2 | 3;
 
@@ -125,7 +126,9 @@ export default function ForgotPassword() {
           <span className="material-symbols-outlined" style={{ fontVariationSettings: '"FILL" 1' }}>
             terminal
           </span>
-          <span className="font-bold tracking-tighter">CodeIT</span>
+          <span className="font-bold tracking-tighter">
+            <BrandMark />
+          </span>
         </Link>
         <h1 className="mb-2 text-2xl font-bold">Forgot password</h1>
         <p className="mb-6 text-sm text-on-surface-variant">

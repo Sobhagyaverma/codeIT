@@ -1,6 +1,6 @@
 package com.codeit.modules.competition;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public final class CompetitionStatusResolver {
 
@@ -11,7 +11,7 @@ public final class CompetitionStatusResolver {
         return CompetitionStatus.fromTimes(
                 competition.getStartTime(),
                 competition.getEndTime(),
-                LocalDateTime.now());
+                Instant.now());
     }
 
     public static Competition applyStatus(Competition competition) {

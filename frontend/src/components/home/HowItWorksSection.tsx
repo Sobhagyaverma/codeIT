@@ -34,7 +34,7 @@ export default function HowItWorksSection() {
     <section className="reveal relative z-20 mx-auto w-full max-w-[1000px] px-6 py-24">
       <div className="mb-16 text-center">
         <h2 className="font-headline-lg mb-4 text-[32px] font-medium text-white">
-          How CodeIT Works
+          How CodeT Works
         </h2>
         <p className="text-[15px] text-white/50">
           Your journey to competitive programming mastery.

@@ -1,0 +1,321 @@
+CodeT UI Color Codes
+========================================
+
+1. DESIGN TOKENS (@theme in frontend/src/index.css)
+----------------------------------------
+--accent: #a855f7
+--bg: #050508
+--bg-inset: #0a0a0f
+--bg-raised: #18101f
+--color-background: #0a0a0f
+--color-easy: #4ade80
+--color-error: #ffb4ab
+--color-error-container: #93000a
+--color-hard: #f87171
+--color-inverse-on-surface: #362d3e
+--color-inverse-primary: #842bd2
+--color-inverse-surface: #edddf4
+--color-medium: #fbbf24
+--color-on-background: #edddf4
+--color-on-error: #690005
+--color-on-error-container: #ffdad6
+--color-on-primary: #490080
+--color-on-primary-container: #400071
+--color-on-primary-fixed: #2c0051
+--color-on-primary-fixed-variant: #6900b3
+--color-on-secondary: #45166e
+--color-on-secondary-container: #d4a5ff
+--color-on-secondary-fixed: #2d0050
+--color-on-secondary-fixed-variant: #5d3186
+--color-on-surface: #edddf4
+--color-on-surface-variant: #cfc2d6
+--color-on-tertiary: #382a4a
+--color-on-tertiary-container: #312343
+--color-on-tertiary-fixed: #221534
+--color-on-tertiary-fixed-variant: #4f4062
+--color-outline: #988d9f
+--color-outline-variant: #4d4354
+--color-primary: #ddb7ff
+--color-primary-container: #b76dff
+--color-primary-fixed: #f0dbff
+--color-primary-fixed-dim: #ddb7ff
+--color-secondary: #deb7ff
+--color-secondary-container: #603389
+--color-secondary-fixed: #f1dbff
+--color-secondary-fixed-dim: #deb7ff
+--color-surface: #18101f
+--color-surface-bright: #403547
+--color-surface-container: #251c2c
+--color-surface-container-high: #302637
+--color-surface-container-highest: #3b3142
+--color-surface-container-low: #211828
+--color-surface-container-lowest: #130b1a
+--color-surface-dim: #18101f
+--color-surface-tint: #ddb7ff
+--color-surface-variant: #3b3142
+--color-tertiary: #d2bfe8
+--color-tertiary-container: #9b8ab0
+--color-tertiary-fixed: #eddcff
+--color-tertiary-fixed-dim: #d2bfe8
+--line: rgba(255, 255, 255, 0.05)
+--text: #edddf4
+--text-dim: #cfc2d6
+
+2. ROOT / PAGE VARIABLES (:root)
+----------------------------------------
+--bg: #050508
+--bg-raised: #18101f
+--bg-inset: #0a0a0f
+--line: rgba(255, 255, 255, 0.05)
+--text: #edddf4
+--text-dim: #cfc2d6
+--accent: #a855f7
+
+3. ALL UNIQUE HEX COLORS (across frontend/src)
+----------------------------------------
+#000
+#fff
+#050508
+#06b6d4
+#08080b
+#09040d
+#0a0610
+#0a0a0f
+#0a0d12
+#0a66c2
+#0c0512
+#0d1117
+#0ea5e9
+#0f172a
+#10b981
+#130b1a
+#14b8a6
+#160b22
+#161b22
+#18101f
+#1a3f33
+#1e1b4b
+#211828
+#21262d
+#221534
+#22c55e
+#235343
+#251c2c
+#2c0051
+#2d0050
+#302637
+#30363d
+#312343
+#312e81
+#362d3e
+#382a4a
+#38bdf8
+#3b3142
+#3b82f6
+#3e4451
+#3f1a1a
+#3f351a
+#400071
+#403547
+#45166e
+#490080
+#4ade80
+#4b5263
+#4c1d95
+#4d4354
+#4f4062
+#528bff
+#532323
+#534723
+#5d3186
+#603389
+#690005
+#6900b3
+#6d28d9
+#7c3aed
+#842bd2
+#84cc16
+#8b5cf6
+#93000a
+#988d9f
+#9b8ab0
+#a78bfa
+#a855f7
+#abb2bf
+#b76dff
+#c084fc
+#cfc2d6
+#d2bfe8
+#d4a5ff
+#d946ef
+#ddb7ff
+#deb7ff
+#e9d5ff
+#eab308
+#ec4899
+#eddcff
+#edddf4
+#ef4444
+#f0dbff
+#f1dbff
+#f43f5e
+#f5a623
+#f87171
+#f97316
+#fbbf24
+#ffb4ab
+#ffdad6
+#00000000
+#3e445155
+#3e445180
+#4e566680
+#5a637580
+#747d9180
+
+4. ALL UNIQUE RGB/RGBA COLORS (across frontend/src)
+----------------------------------------
+rgba(0,0,0,0.2)
+rgba(0,0,0,0.35)
+rgba(0,0,0,0.45)
+rgba(0,0,0,0.5)
+rgba(0,0,0,0.55)
+rgba(0,0,0,0.65)
+rgba(10,10,15,0.8)
+rgba(10,6,16,0.94)
+rgba(110,231,183,0.7)
+rgba(132,43,210,0.05)
+rgba(132,43,210,0.1)
+rgba(132,43,210,0.15)
+rgba(132,43,210,0.16)
+rgba(132,43,210,0.2)
+rgba(132,43,210,0.28)
+rgba(132,43,210,0.3)
+rgba(132,43,210,0.4)
+rgba(132,43,210,0.5)
+rgba(132,43,210,0.7)
+rgba(132,43,210,0.8)
+rgba(132,43,210,1)
+rgba(14,8,22,0.72)
+rgba(152,141,159,0.05)
+rgba(152,141,159,0.35)
+rgba(155,138,176,0.45)
+rgba(168,85,247,0.08)
+rgba(168,85,247,0.1)
+rgba(168,85,247,0.12)
+rgba(168,85,247,0.15)
+rgba(168,85,247,0.16)
+rgba(168,85,247,0.18)
+rgba(168,85,247,0.2)
+rgba(168,85,247,0.22)
+rgba(168,85,247,0.25)
+rgba(168,85,247,0.28)
+rgba(168,85,247,0.3)
+rgba(168,85,247,0.35)
+rgba(168,85,247,0.38)
+rgba(168,85,247,0.4)
+rgba(168,85,247,0.5)
+rgba(168,85,247,0.55)
+rgba(168,85,247,0.6)
+rgba(168,85,247,0.85)
+rgba(18,10,28,0.96)
+rgba(183,109,255,0.05)
+rgba(183,109,255,0.1)
+rgba(183,109,255,0.12)
+rgba(183,109,255,0.15)
+rgba(183,109,255,0.2)
+rgba(183,109,255,0.3)
+rgba(183,109,255,0.35)
+rgba(183,109,255,0.4)
+rgba(183,109,255,0.45)
+rgba(183,109,255,0.5)
+rgba(183,109,255,0.55)
+rgba(183,109,255,0.7)
+rgba(183,109,255,0.8)
+rgba(198,140,255,0.4)
+rgba(20,12,32,0.55)
+rgba(20,12,32,0.7)
+rgba(20,20,30,0.6)
+rgba(20,53,42,0.55)
+rgba(22,11,34,0.7)
+rgba(22,12,34,0.3)
+rgba(22,12,34,0.4)
+rgba(221,183,255,0.05)
+rgba(221,183,255,0.08)
+rgba(221,183,255,0.1)
+rgba(221,183,255,0.12)
+rgba(221,183,255,0.14)
+rgba(221,183,255,0.15)
+rgba(221,183,255,0.18)
+rgba(221,183,255,0.2)
+rgba(221,183,255,0.22)
+rgba(221,183,255,0.25)
+rgba(221,183,255,0.28)
+rgba(221,183,255,0.3)
+rgba(221,183,255,0.35)
+rgba(221,183,255,0.45)
+rgba(221,183,255,0.5)
+rgba(221,183,255,0.6)
+rgba(221,183,255,0.8)
+rgba(222,183,255,0.05)
+rgba(222,183,255,0.1)
+rgba(222,183,255,0.3)
+rgba(222,183,255,0.35)
+rgba(222,183,255,0.7)
+rgba(234,179,8,0.5)
+rgba(239,68,68,0.08)
+rgba(239,68,68,0.15)
+rgba(239,68,68,0.4)
+rgba(239,68,68,0.5)
+rgba(239,68,68,0.55)
+rgba(24,16,31,0.7)
+rgba(240,219,255,0.8)
+rgba(245,158,11,0.5)
+rgba(248,113,113,0.1)
+rgba(248,113,113,0.45)
+rgba(248,113,113,0.65)
+rgba(249,115,22,0.08)
+rgba(249,115,22,0.15)
+rgba(249,115,22,0.4)
+rgba(249,115,22,0.55)
+rgba(251,146,60,0.65)
+rgba(251,191,36,0.1)
+rgba(251,191,36,0.45)
+rgba(255,180,171,0.7)
+rgba(255,255,255,0.02)
+rgba(255,255,255,0.04)
+rgba(255,255,255,0.05)
+rgba(255,255,255,0.06)
+rgba(255,255,255,0.1)
+rgba(255,255,255,0.12)
+rgba(255,255,255,0.14)
+rgba(255,255,255,0.15)
+rgba(255,255,255,0.18)
+rgba(255,255,255,0.2)
+rgba(28,16,42,0.88)
+rgba(32,18,48,0.55)
+rgba(34,197,94,0)
+rgba(34,197,94,0.08)
+rgba(34,197,94,0.15)
+rgba(34,197,94,0.4)
+rgba(34,197,94,0.5)
+rgba(34,197,94,0.55)
+rgba(34,197,94,0.7)
+rgba(37,28,44,0.4)
+rgba(45,29,77,0.55)
+rgba(48,28,68,0.45)
+rgba(48,28,68,0.55)
+rgba(5,3,8,0)
+rgba(5,5,8,0.55)
+rgba(52,211,153,0.45)
+rgba(52,211,153,0.6)
+rgba(74,222,128,0.1)
+rgba(74,222,128,0.65)
+rgba(77,27,27,0.55)
+rgba(77,67,84,0)
+rgba(77,67,84,0.1)
+rgba(77,67,84,0.6)
+rgba(77,67,84,0.7)
+rgba(96,51,137,0.12)
+
+Totals: 50 color tokens, 98 hex, 142 rgb/rgba
+

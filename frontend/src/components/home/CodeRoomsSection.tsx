@@ -21,7 +21,7 @@ export default function CodeRoomsSection() {
           <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
           <div className="h-3 w-3 rounded-full bg-green-500/80" />
           <div className="font-code-sm mx-auto ml-4 max-w-md flex-1 rounded-md border border-white/5 bg-white/5 px-4 py-1 text-center text-[12px] text-white/50">
-            codeit.dev/room/a1b2c3
+            codet.dev/room/a1b2c3
           </div>
           <div className="flex gap-2">
             <div className="h-6 w-6 rounded-full border border-white/20 bg-blue-500/50" />

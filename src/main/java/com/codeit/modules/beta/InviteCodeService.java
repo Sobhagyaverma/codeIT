@@ -22,11 +22,11 @@ public class InviteCodeService {
         this.properties = properties;
     }
 
-    /** CODEIT- + 32 hex chars (16 bytes). */
+    /** CODET- + 32 hex chars (16 bytes). */
     public String generateRawCode() {
         byte[] bytes = new byte[16];
         RANDOM.nextBytes(bytes);
-        return "CODEIT-" + HEX.formatHex(bytes);
+        return "CODET-" + HEX.formatHex(bytes);
     }
 
     public String hash(String rawCode) {

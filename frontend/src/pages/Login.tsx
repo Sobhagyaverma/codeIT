@@ -5,6 +5,7 @@ import { ApiError, login } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useRegistration } from "../context/RegistrationContext";
 import TurnstileWidget from "../components/TurnstileWidget";
+import BrandMark from "../components/BrandMark";
 
 const LEFT_BG =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuB0pkqjDs_c1M_SDcWreXKSC6T80ekev2YeHxksln1UXxulTdUcIVnwaMaWAQPPtEK4nymYcchMCXU3UM4NFbL5iyie9Ev60Pk1pDnUrEn0XRGQV5_bhJ_O7lCVLHZ0mnR8T3EuPfZgVTLiCRNSgNdEyt1xpr7a0FelYtM6My02Zf1R-yVB-t3jCIG6Y1IqlBTFxXoocLF2B7LubCPe1i8ghTmVgcgHEXdQ3aDaxnXQQAESllBWQgQQ";
@@ -135,7 +136,7 @@ export default function Login() {
                   terminal
                 </span>
                 <h1 className="font-headline-lg text-headline-lg font-bold tracking-tighter text-primary">
-                  CodeIT
+                  <BrandMark />
                 </h1>
               </Link>
             </div>
@@ -191,7 +192,7 @@ export default function Login() {
                 terminal
               </span>
               <span className="font-headline-lg-mobile text-headline-lg-mobile font-bold tracking-tighter text-primary">
-                CodeIT
+                <BrandMark />
               </span>
             </Link>
           </div>
@@ -224,7 +225,7 @@ export default function Login() {
                     type="text"
                     required
                     autoComplete="username"
-                    placeholder="sysadmin@codeit.dev"
+                    placeholder="sysadmin@kodeit.dev"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     className={`glow-input font-body-md h-12 w-full rounded-lg border bg-surface-container pr-4 pl-12 text-on-surface transition-all placeholder:text-outline/50 focus:ring-0 focus:outline-none ${

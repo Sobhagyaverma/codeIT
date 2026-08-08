@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Yjs WebSocket sidecar for CodeIT collaboration. See docs/COLLABORATION_ARCHITECTURE.md",
+  "description": "Yjs WebSocket sidecar for CodeT collaboration. See docs/COLLABORATION_ARCHITECTURE.md",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js"

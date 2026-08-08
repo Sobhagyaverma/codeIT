@@ -59,7 +59,7 @@ export default function Help() {
               </h2>
               <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low/50 p-6">
                 <p className="mb-4 leading-relaxed text-on-surface-variant">
-                  CodeIT&apos;s execution engine expects your program to read
+                  CodeT&apos;s execution engine expects your program to read
                   input from standard input (<code>stdin</code>) and output
                   results to standard output (<code>stdout</code>).
                 </p>

@@ -181,12 +181,9 @@ public class ProfileRepository {
     }
 
     public List<ActivityDayDTO> getHeatmap(Integer userId) {
+        // created_at is timestamptz — bucket activity days in UTC.
         String sql = """
-                SELECT TO_CHAR(
-                           created_at AT TIME ZONE current_setting('TIMEZONE')
-                                      AT TIME ZONE 'UTC',
-                           'YYYY-MM-DD'
-                       ) AS day,
+                SELECT TO_CHAR((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day,
                        COUNT(*) AS count
                 FROM submissions
                 WHERE user_id = ?
@@ -205,9 +202,7 @@ public class ProfileRepository {
 
     public List<LocalDate> getSubmissionDaysUtc(Integer userId) {
         String sql = """
-                SELECT DISTINCT
-                       (created_at AT TIME ZONE current_setting('TIMEZONE')
-                                   AT TIME ZONE 'UTC')::date AS day
+                SELECT DISTINCT (created_at AT TIME ZONE 'UTC')::date AS day
                 FROM submissions
                 WHERE user_id = ?
                   AND created_at IS NOT NULL

@@ -10,8 +10,8 @@ public class MailProperties {
     /** When false, sendHtml no-ops (local/dev without Brevo). */
     private boolean enabled = false;
 
-    /** From header, e.g. {@code CodeIT <noreply@example.com>}. */
-    private String from = "CodeIT <noreply@localhost>";
+    /** From header, e.g. {@code CodeT <noreply@example.com>}. */
+    private String from = "CodeT <noreply@localhost>";
 
     /** Inbox that receives Contact Us notifications. */
     private String inbox = "";

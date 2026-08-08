@@ -36,7 +36,7 @@ export default function PrivateBetaBanner() {
   return (
     <div className="fixed inset-x-0 top-16 z-40 border-b border-primary/30 bg-primary/15 px-4 py-2.5 text-center backdrop-blur-md">
       <p className="font-body-sm inline pr-8 text-sm text-on-surface">
-        Thank you for participating in the CodeIT Private Beta.
+        Thank you for participating in the CodeT Private Beta.
       </p>
       <button
         type="button"

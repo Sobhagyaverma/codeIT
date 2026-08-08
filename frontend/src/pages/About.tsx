@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import AppNav from "../components/AppNav";
+import BrandMark from "../components/BrandMark";
 
 const PILLARS = [
   {
@@ -33,13 +34,13 @@ export default function About() {
         <section className="relative flex flex-col items-center space-y-8 text-center">
           <div className="absolute left-1/2 top-1/2 z-[-1] size-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[100px]" />
           <h1 className="font-headline text-5xl font-extrabold tracking-tight text-primary drop-shadow-[0_0_15px_rgba(183,109,255,0.5)] md:text-6xl">
-            CodeIT
+            <BrandMark />
           </h1>
           <h2 className="max-w-3xl font-headline text-2xl font-bold text-on-surface md:text-3xl">
             Built for the grind, designed for growth.
           </h2>
           <p className="max-w-2xl font-body text-lg text-on-surface-variant">
-            CodeIT combines problem solving, contests, progress tracking, and
+            CodeT combines problem solving, contests, progress tracking, and
             intelligent assistance in one focused environment — practice
             systematically, measure honestly, improve steadily.
           </p>
@@ -69,7 +70,7 @@ export default function About() {
           </h3>
           <p className="font-body text-lg leading-relaxed text-on-surface-variant">
             A dedicated platform for DSA practice — structured, interactive, and
-            user-focused. CodeIT helps you sharpen technical ability and
+            user-focused. CodeT helps you sharpen technical ability and
             analytical thinking through systematic practice and performance
             evaluation.
           </p>
@@ -122,7 +123,7 @@ export default function About() {
                   </span>
                 </div>
                 <p className="mt-2 font-body text-on-surface-variant">
-                  CS undergrad / aspiring AI-ML. Built CodeIT backend + database
+                  CS undergrad / aspiring AI-ML. Built CodeT backend + database
                   (scalable APIs, reliable architecture, data handling).
                 </p>
               </div>
@@ -157,7 +158,7 @@ export default function About() {
       <footer className="mt-auto w-full border-t border-outline-variant/10 bg-surface-container-lowest py-12">
         <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between px-4 md:flex-row md:px-12">
           <div className="mb-6 font-headline text-2xl font-bold text-primary md:mb-0">
-            CodeIT
+            <BrandMark />
           </div>
           <div className="flex gap-6">
             <Link

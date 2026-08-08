@@ -1,4 +1,4 @@
--- CodeIT base schema (reconstructed from Java repositories)
+-- CodeT base schema (reconstructed from Java repositories)
 -- Fresh install:
 --   CREATE DATABASE codeit;
 --   psql -U postgres -d codeit -f schema/schema.sql
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS competitions (
     id                SERIAL PRIMARY KEY,
     title             VARCHAR(255) NOT NULL,
     description       TEXT,
-    start_time        TIMESTAMP NOT NULL,
-    end_time          TIMESTAMP NOT NULL,
+    start_time        TIMESTAMPTZ NOT NULL,
+    end_time          TIMESTAMPTZ NOT NULL,
     created_by        INTEGER NOT NULL REFERENCES users(id),
     status            VARCHAR(20) NOT NULL DEFAULT 'UPCOMING',
     duration_minutes  INTEGER NOT NULL DEFAULT 120
@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS competition_participants (
     id              SERIAL PRIMARY KEY,
     competition_id  INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    joined_at       TIMESTAMP NOT NULL DEFAULT NOW(),
-    started_at      TIMESTAMP,
+    joined_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at      TIMESTAMPTZ,
     session_status  VARCHAR(20) NOT NULL DEFAULT 'JOINED',
     UNIQUE (competition_id, user_id)
 );
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     runtime         DOUBLE PRECISION,
     memory          REAL,
     competition_id  INTEGER REFERENCES competitions(id) ON DELETE SET NULL,
-    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_submissions_user_id ON submissions(user_id);

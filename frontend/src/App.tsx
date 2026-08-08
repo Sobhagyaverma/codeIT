@@ -4,6 +4,7 @@ import SoftPageFade from "./components/SoftPageFade";
 import RequireAdmin from "./components/RequireAdmin";
 import PrivateBetaBanner from "./components/PrivateBetaBanner";
 import FeedbackFab from "./components/FeedbackFab";
+import IntroSplash from "./components/IntroSplash";
 import { NotificationsProvider } from "./context/NotificationsContext";
 import { ToastProvider } from "./context/ToastContext";
 import About from "./pages/About";
@@ -57,87 +58,89 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <NotificationsProvider>
-          <PrivateBetaBanner />
-          <FeedbackFab />
-          <SoftPageFade>
-            <Suspense fallback={<RouteFallback />}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/request-access" element={<RequestAccess />} />
-                <Route path="/verify-email" element={<VerifyEmail />} />
-                <Route path="/forgot-password" element={<ForgotPassword />} />
-                <Route path="/problems" element={<Problems />} />
-                <Route path="/problems/:id" element={<ProblemWorkspace />} />
-                <Route
-                  path="/problems/:id/room/:roomId"
-                  element={<ProblemCollabRoom />}
-                />
-                <Route path="/dsa-sheet" element={<DSASheet />} />
-                <Route
-                  path="/dsa-sheet/:sectionId/:slug"
-                  element={<LessonPage />}
-                />
-                <Route path="/coderoom" element={<CodeRoomHub />} />
-                <Route path="/coderoom/:roomId" element={<CodeRoomWorkspace />} />
-                <Route path="/competitions" element={<Competitions />} />
-                <Route
-                  path="/competitions/quick"
-                  element={<QuickContestCreate />}
-                />
-                <Route
-                  path="/competitions/quick/:id"
-                  element={<QuickContestLobby />}
-                />
-                <Route
-                  path="/competitions/quick/:id/live"
-                  element={<QuickContestLive />}
-                />
-                <Route
-                  path="/competitions/quick/:id/problems/:problemId"
-                  element={<QuickContestProblem />}
-                />
-                <Route path="/competitions/:id" element={<CompetitionRoom />} />
-                <Route path="/friends" element={<Friends />} />
-                <Route path="/inbox" element={<Inbox />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/users/:username" element={<Profile />} />
-                <Route path="/settings/profile" element={<ProfileSettings />} />
-                <Route
-                  path="/admin"
-                  element={
-                    <RequireAdmin>
-                      <AdminDashboard />
-                    </RequireAdmin>
-                  }
-                />
-                <Route
-                  path="/admin/competitions"
-                  element={
-                    <RequireAdmin>
-                      <AdminDashboard />
-                    </RequireAdmin>
-                  }
-                />
-                <Route
-                  path="/admin/competitions/create"
-                  element={
-                    <RequireAdmin>
-                      <AdminDashboard />
-                    </RequireAdmin>
-                  }
-                />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/submissions" element={<SubmissionHistory />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/help" element={<Help />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </SoftPageFade>
+          <IntroSplash>
+            <PrivateBetaBanner />
+            <FeedbackFab />
+            <SoftPageFade>
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/request-access" element={<RequestAccess />} />
+                  <Route path="/verify-email" element={<VerifyEmail />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/problems" element={<Problems />} />
+                  <Route path="/problems/:id" element={<ProblemWorkspace />} />
+                  <Route
+                    path="/problems/:id/room/:roomId"
+                    element={<ProblemCollabRoom />}
+                  />
+                  <Route path="/dsa-sheet" element={<DSASheet />} />
+                  <Route
+                    path="/dsa-sheet/:sectionId/:slug"
+                    element={<LessonPage />}
+                  />
+                  <Route path="/coderoom" element={<CodeRoomHub />} />
+                  <Route path="/coderoom/:roomId" element={<CodeRoomWorkspace />} />
+                  <Route path="/competitions" element={<Competitions />} />
+                  <Route
+                    path="/competitions/quick"
+                    element={<QuickContestCreate />}
+                  />
+                  <Route
+                    path="/competitions/quick/:id"
+                    element={<QuickContestLobby />}
+                  />
+                  <Route
+                    path="/competitions/quick/:id/live"
+                    element={<QuickContestLive />}
+                  />
+                  <Route
+                    path="/competitions/quick/:id/problems/:problemId"
+                    element={<QuickContestProblem />}
+                  />
+                  <Route path="/competitions/:id" element={<CompetitionRoom />} />
+                  <Route path="/friends" element={<Friends />} />
+                  <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/users/:username" element={<Profile />} />
+                  <Route path="/settings/profile" element={<ProfileSettings />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <RequireAdmin>
+                        <AdminDashboard />
+                      </RequireAdmin>
+                    }
+                  />
+                  <Route
+                    path="/admin/competitions"
+                    element={
+                      <RequireAdmin>
+                        <AdminDashboard />
+                      </RequireAdmin>
+                    }
+                  />
+                  <Route
+                    path="/admin/competitions/create"
+                    element={
+                      <RequireAdmin>
+                        <AdminDashboard />
+                      </RequireAdmin>
+                    }
+                  />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/submissions" element={<SubmissionHistory />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/help" element={<Help />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </SoftPageFade>
+          </IntroSplash>
         </NotificationsProvider>
       </ToastProvider>
     </BrowserRouter>

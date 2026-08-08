@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useNotifications } from "../context/NotificationsContext";
 import { useRegistration } from "../context/RegistrationContext";
+import BrandMark from "./BrandMark";
 
 const NAV_LINKS = [
   { to: "/problems", label: "Problems" },
@@ -110,7 +111,7 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
           <span className="material-symbols-outlined text-2xl sm:text-3xl">
             terminal
           </span>
-          CodeIT
+          <BrandMark />
         </Link>
         {privateBeta && (
           <span className="hidden rounded border border-primary/35 bg-primary/10 px-2 py-0.5 font-code-sm text-[10px] font-bold tracking-wider text-primary uppercase lg:inline">

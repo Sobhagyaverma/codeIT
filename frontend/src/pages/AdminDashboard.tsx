@@ -12,6 +12,7 @@ import AdminCompetitionStudio from "./AdminCompetitionStudio";
 import AdminProblems from "./AdminProblems";
 import AdminProblemStudio from "./AdminProblemStudio";
 import AdminPrivateBeta from "./AdminPrivateBeta";
+import BrandMark from "../components/BrandMark";
 
 type View =
   | "overview"
@@ -174,7 +175,7 @@ export default function AdminDashboard() {
         </div>
         <div>
           <h1 className="font-headline-lg text-headline-lg-mobile font-bold tracking-tight text-primary">
-            CodeIT
+            <BrandMark />
           </h1>
           <p className="text-[10px] font-bold uppercase tracking-widest text-outline">
             Command Center
@@ -394,10 +395,10 @@ export default function AdminDashboard() {
           <Link
             to="/"
             className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-sm font-label-md text-on-surface transition-all hover:border-primary/40 hover:bg-surface-container-highest hover:text-primary active:scale-95 sm:px-4"
-            title="Back to CodeIT"
+            title="Back to CodeT"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
-            <span className="hidden sm:inline">Back to CodeIT</span>
+            <span className="hidden sm:inline">Back to CodeT</span>
           </Link>
           {view === "problems" && (
             <div className="flex items-center rounded-md border border-outline-variant bg-surface-container-low p-0.5">
@@ -494,7 +495,7 @@ export default function AdminDashboard() {
                   Content Studio
                 </h2>
                 <p className="font-body-lg max-w-2xl text-on-surface-variant md:text-[18px] md:leading-7">
-                  Manage the pulse of the CodeIT developer ecosystem. Monitor
+                  Manage the pulse of the CodeT developer ecosystem. Monitor
                   ingestion rates, judge queue health, and content pipelines in
                   real-time.
                 </p>

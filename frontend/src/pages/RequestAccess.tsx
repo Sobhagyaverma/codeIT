@@ -68,7 +68,7 @@ export default function RequestAccess() {
           Request Beta Access
         </h1>
         <p className="mb-8 text-on-surface-variant">
-          CodeIT is invite-only while we run the private beta. Tell us a bit
+          CodeT is invite-only while we run the private beta. Tell us a bit
           about yourself and we&apos;ll email an invite if approved.
         </p>
 

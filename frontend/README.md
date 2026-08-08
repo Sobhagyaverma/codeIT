@@ -1,4 +1,4 @@
-# CodeIT · frontend
+# CodeT · frontend
 
 Polished Vite + React + TypeScript + Tailwind app (Stitch-based UI).
 

@@ -177,6 +177,211 @@ a {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
+/* CodeT wordmark — cursive lowercase t, tight to “Code”, extra slant */
+.brand-mark {
+  display: inline-flex;
+  align-items: baseline;
+  letter-spacing: inherit;
+  text-transform: none;
+}
+
+.brand-mark-t {
+  display: inline-block;
+  font-family: "Great Vibes", cursive;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 1.35em;
+  line-height: 0.7;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #f5c518;
+  text-shadow:
+    0 0 6px rgba(245, 197, 24, 0.85),
+    0 0 14px rgba(245, 197, 24, 0.55),
+    0 0 28px rgba(245, 197, 24, 0.35);
+  transform: skewX(-18deg) rotate(-6deg) translate(-0.04em, 0.1em);
+  transform-origin: bottom left;
+  margin-left: 0;
+  margin-right: 0.02em;
+}
+
+/* —— Intro preloader: CodeT ↔ CodeTogether → fade to site —— */
+html.intro-splash-active,
+html.intro-splash-active body {
+  overflow: hidden;
+}
+
+.intro-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #050508;
+  color: #edddf4;
+  transition: opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.intro-splash--fade {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.intro-splash-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.25rem;
+  max-width: 100%;
+}
+
+.intro-mark {
+  display: inline-flex;
+  align-items: baseline;
+  max-width: 100%;
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+  will-change: transform, opacity;
+}
+
+.intro-mark--enter {
+  animation: intro-mark-enter 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.intro-mark--shown {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@keyframes intro-mark-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.intro-mark-code {
+  font-family: "Sora", sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.5rem, 9vw, 4.75rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #ddb7ff;
+}
+
+.intro-mark-script {
+  display: inline-flex;
+  align-items: baseline;
+  margin-left: 0.02em;
+  font-family: "Great Vibes", cursive;
+  font-weight: 400;
+  font-size: clamp(2.75rem, 9.5vw, 5.25rem);
+  line-height: 0.85;
+  color: #f5c518;
+}
+
+.intro-mark-t {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+  transform: skewX(-14deg) rotate(-4deg) translate(0, 0.06em);
+  transform-origin: bottom left;
+  text-shadow:
+    0 0 6px rgba(245, 197, 24, 0.75),
+    0 0 16px rgba(245, 197, 24, 0.4);
+}
+
+.intro-mark-rest {
+  display: inline-flex;
+  align-items: baseline;
+  margin-left: -0.02em;
+}
+
+.intro-mark-letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateX(-0.2em) translateY(0.08em);
+  filter: blur(2px);
+  text-shadow: 0 0 10px rgba(245, 197, 24, 0.35);
+  will-change: opacity, transform, filter;
+}
+
+.intro-mark--expanded .intro-mark-letter {
+  animation: intro-letter-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--i, 0) * 85ms);
+}
+
+.intro-mark--collapsed .intro-mark-letter {
+  animation: intro-letter-out 0.42s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation-delay: calc(var(--ri, 0) * 55ms);
+}
+
+@keyframes intro-letter-in {
+  from {
+    opacity: 0;
+    transform: translateX(-0.22em) translateY(0.1em);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes intro-letter-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-0.12em) translateY(0.06em);
+    filter: blur(2px);
+  }
+}
+
+.intro-splash-skip {
+  position: absolute;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: rgba(237, 221, 244, 0.55);
+  font-family: "Outfit", sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.intro-splash-skip:hover {
+  color: #edddf4;
+  border-color: rgba(168, 85, 247, 0.45);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-mark,
+  .intro-mark-letter,
+  .intro-splash {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /*
   Diameter stays where the old arc bottom was: 60% + 200px.
   Glow lives only above the diameter and fades into page bg (#050508).

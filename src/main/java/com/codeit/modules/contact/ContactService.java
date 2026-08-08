@@ -123,7 +123,7 @@ public class ContactService {
                         "message", nullToDash(msg.getMessage())));
 
         try {
-            mailService.sendHtml(inbox, "[CodeIT Contact] " + msg.getSubject(), html);
+            mailService.sendHtml(inbox, "[CodeT Contact] " + msg.getSubject(), html);
             repository.markSent(id);
         } catch (RuntimeException ex) {
             repository.markFailed(id, ex.getMessage());

@@ -47,7 +47,7 @@ export default function HeroSection() {
 
         <div className="landing-hero-content relative z-20 mx-auto mt-12 flex max-w-5xl flex-col items-center gap-6 px-4 text-center">
           <p className="font-code-sm mb-2 text-[12px] font-semibold tracking-[0.2em] text-[#a855f7] uppercase">
-            {privateBeta ? "CodeIT Private Beta" : "Welcome to CodeIT"}
+            {privateBeta ? "CodeT Private Beta" : "Welcome to CodeT"}
           </p>
           <h1 className="font-headline-lg-mobile text-[48px] leading-[1.1] font-medium tracking-tight text-white drop-shadow-2xl md:font-headline-xl md:text-[84px]">
             Master Competitive <br className="hidden md:block" />
@@ -55,7 +55,7 @@ export default function HeroSection() {
           </h1>
           <p className="font-body-lg mt-4 max-w-3xl text-[16px] font-light text-white/60 md:text-[20px] md:leading-[32px]">
             {privateBeta
-              ? "We're opening CodeIT to a small group of students first. Request access or sign in if you already have an invite."
+              ? "We're opening CodeT to a small group of students first. Request access or sign in if you already have an invite."
               : "Practice coding problems. Learn DSA step by step. Challenge your friends. Compete in live contests. Get AI-powered guidance whenever you're stuck."}
           </p>
 
@@ -123,7 +123,7 @@ export default function HeroSection() {
                 <span className="material-symbols-outlined text-[14px]">
                   lock
                 </span>{" "}
-                codeit.dev/workspace
+                codet.dev/workspace
               </div>
             </div>
 

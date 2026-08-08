@@ -34,8 +34,8 @@ export default function Terms() {
             </h2>
             <div className="space-y-4 pl-11">
               <p>
-                By accessing or using the CodeIT platform, you agree to be bound
-                by these Terms of Service. Use CodeIT exclusively for learning,
+                By accessing or using the CodeT platform, you agree to be bound
+                by these Terms of Service. Use CodeT exclusively for learning,
                 improving your coding skills, and participating in fair
                 competition.
               </p>
@@ -70,7 +70,7 @@ export default function Terms() {
             </h2>
             <div className="space-y-4 pl-11">
               <p>
-                Academic integrity is paramount on CodeIT. Contest submissions{" "}
+                Academic integrity is paramount on CodeT. Contest submissions{" "}
                 <strong className="text-on-surface">
                   must be your own original work
                 </strong>{" "}
@@ -105,7 +105,7 @@ export default function Terms() {
             </h2>
             <div className="space-y-4 pl-11">
               <p>
-                CodeIT is an evolving platform. Features, judging environments,
+                CodeT is an evolving platform. Features, judging environments,
                 and supported languages may change without prior notice.
               </p>
               <p>

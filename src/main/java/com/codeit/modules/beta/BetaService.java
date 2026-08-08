@@ -362,7 +362,7 @@ public class BetaService {
                             "inviteCode", rawCode,
                             "expiresAt", EXPIRY_FMT.format(expiresAt),
                             "registerUrl", registerUrl));
-            mailService.sendHtml(email, "Your CodeIT Private Beta invite", html);
+            mailService.sendHtml(email, "Your CodeT Private Beta invite", html);
             return true;
         } catch (Exception ex) {
             return false;

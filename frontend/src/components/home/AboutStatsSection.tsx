@@ -57,7 +57,7 @@ export default function AboutStatsSection({ stats }: { stats: HomeStats }) {
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div className="flex flex-col justify-center pr-12">
           <p className="font-code-sm mb-4 text-[12px] font-semibold tracking-[0.1em] text-white/50 uppercase">
-            ABOUT CODEIT PLATFORM
+            ABOUT CodeT PLATFORM
           </p>
           <h2 className="font-headline-lg mb-6 text-[36px] leading-[1.2] font-medium text-white">
             Everything You Need To Become A Better Programmer

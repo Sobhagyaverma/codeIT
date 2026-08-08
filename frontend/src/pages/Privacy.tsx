@@ -19,7 +19,7 @@ export default function Privacy() {
         <p className="font-body text-lg text-on-surface-variant">
           Last updated:{" "}
           <span className="font-mono text-sm">2024-05-20</span>. This policy
-          outlines how CodeIT manages your data within our highly secure
+          outlines how CodeT manages your data within our highly secure
           technical environment.
         </p>
       </div>
@@ -32,7 +32,7 @@ export default function Privacy() {
           </h2>
           <div className="space-y-4 font-body text-on-surface-variant">
             <p>
-              CodeIT stores necessary registration account details to maintain
+              CodeT stores necessary registration account details to maintain
               secure access and operational integrity. This minimal dataset
               includes:
             </p>

@@ -91,7 +91,7 @@ export default function NotFound() {
       <footer className="relative z-10 mt-auto w-full border-t border-outline-variant/10 bg-background/80 py-8 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between gap-4 px-4 md:flex-row md:px-12">
           <div className="font-body text-sm text-outline">
-            © {new Date().getFullYear()} CodeIT. All systems operational.
+            © {new Date().getFullYear()} CodeT. All systems operational.
           </div>
           <div className="flex gap-6 font-label text-sm text-on-surface-variant">
             <Link className="transition-colors hover:text-secondary" to="/privacy">

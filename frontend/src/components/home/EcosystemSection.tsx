@@ -24,7 +24,7 @@ export default function EcosystemSection() {
     <section className="reveal relative z-20 mx-auto w-full max-w-[1200px] px-6 py-24">
       <div className="mb-16 text-center">
         <h2 className="font-headline-lg mb-4 text-[32px] font-medium text-white">
-          The CodeIT Ecosystem
+          The CodeT Ecosystem
         </h2>
         <p className="text-[15px] text-white/50">
           Explore our toolkit and shape the future of collaborative coding.

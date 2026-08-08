@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import AppNav from "./AppNav";
+import BrandMark from "./BrandMark";
 
 const LINKS = [
   { to: "/privacy", label: "Privacy", short: "Privacy" },
@@ -66,10 +67,10 @@ export default function LegalShell({
 
       <footer className="relative z-10 mt-auto flex w-full flex-col items-center justify-between gap-4 border-t border-outline-variant/20 bg-surface-container-lowest px-4 py-8 md:flex-row md:px-12">
         <div className="font-headline text-xl font-bold text-primary opacity-80 transition-opacity hover:opacity-100">
-          CodeIT
+          <BrandMark />
         </div>
         <div className="font-body text-sm text-on-surface-variant">
-          © {new Date().getFullYear()} CodeIT. Engineering Excellence.
+          © {new Date().getFullYear()} CodeT. Engineering Excellence.
         </div>
         <div className="flex items-center gap-6">
           {LINKS.map((link) => (

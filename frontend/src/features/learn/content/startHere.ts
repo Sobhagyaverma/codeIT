@@ -431,7 +431,7 @@ export const START_HERE_SECTION: LessonSection = {
         },
         {
           type: "paragraph",
-          text: "On CodeIT, input usually arrives as text from the judge (stdin). Your program reads it, does work, then prints the answer (stdout). Matching the expected output exactly — spaces and newlines included — is part of the job.",
+          text: "On CodeT, input usually arrives as text from the judge (stdin). Your program reads it, does work, then prints the answer (stdout). Matching the expected output exactly — spaces and newlines included — is part of the job.",
         },
         {
           type: "analogy",

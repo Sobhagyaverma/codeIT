@@ -567,7 +567,7 @@ export default function Problems() {
       </main>
 
       <footer className="mt-auto flex w-full flex-col items-center justify-between gap-4 border-t border-outline-variant/10 bg-surface-container-lowest px-margin-desktop py-8 md:flex-row">
-        <div className="text-label-md font-bold text-on-surface">© 2024 CodeIT</div>
+        <div className="text-label-md font-bold text-on-surface">© 2024 CodeT</div>
         <div className="flex gap-6">
           <Link
             to="/privacy"
