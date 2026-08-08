@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="28" fill="#050508"/>
+  <text
+    x="64"
+    y="88"
+    text-anchor="middle"
+    font-family="Sora, Arial Black, Helvetica, sans-serif"
+    font-size="92"
+    font-weight="800"
+    fill="#a855f7"
+  >C</text>
+</svg>
