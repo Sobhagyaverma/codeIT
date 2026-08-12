@@ -1,6 +1,6 @@
 # CodeT · frontend
 
-Polished Vite + React + TypeScript + Tailwind app (Stitch-based UI).
+Vite + React + TypeScript + Tailwind product UI for CodeT.
 
 This is the **primary product UI**. Dev server defaults to port **5175**.
 
@@ -31,7 +31,7 @@ VITE_API_URL=
 VITE_SYNC_WS_URL=
 ```
 
-Auth tokens use `codeit.stitch.*` localStorage keys.
+Auth tokens and session preferences are stored in browser storage (see `src/lib/authStorage.ts`).
 
 **Nginx / Compose:** `deploy/nginx/Dockerfile` builds this app and serves it same-origin with proxies for `/api`, `/ws`, `/sync`.
 
