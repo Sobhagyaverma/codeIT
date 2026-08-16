@@ -276,14 +276,14 @@ export default function AppNav({ activeHint, workspaceActions }: AppNavProps) {
             {privateBeta ? (
               <Link
                 to="/request-access"
-                className="font-label-md rounded-lg bg-primary px-3.5 py-1.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-fixed"
+                className="font-label-md rounded-lg bg-[#a855f7] px-3.5 py-1.5 text-sm font-semibold text-white shadow-[0_0_16px_rgba(168,85,247,0.35)] transition-colors hover:bg-[#9333ea]"
               >
                 Request access
               </Link>
             ) : (
               <Link
                 to="/register"
-                className="font-label-md rounded-lg bg-primary px-3.5 py-1.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-fixed"
+                className="font-label-md rounded-lg bg-[#a855f7] px-3.5 py-1.5 text-sm font-semibold text-white shadow-[0_0_16px_rgba(168,85,247,0.35)] transition-colors hover:bg-[#9333ea]"
               >
                 Register
               </Link>
