@@ -130,6 +130,14 @@ export default function App() {
                       </RequireAdmin>
                     }
                   />
+                  <Route
+                    path="/admin/dsa-sheet"
+                    element={
+                      <RequireAdmin>
+                        <AdminDashboard />
+                      </RequireAdmin>
+                    }
+                  />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/submissions" element={<SubmissionHistory />} />

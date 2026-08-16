@@ -11,12 +11,19 @@ import { useLearnLanguage } from "../features/learn/hooks/useLearnLanguage";
 import { useLessonProgress } from "../features/learn/hooks/useLessonProgress";
 import { lessonProblemIds, type LearnLanguage } from "../features/learn/types";
 import { buildPracticeCatalog } from "../features/practice/adapters";
+import { buildPracticeCatalogFromDsaTree } from "../features/dsa/learnerAdapter";
 import type {
   PracticeModule,
   PracticeProblem,
   PracticeProblemStatus,
 } from "../features/practice/types";
-import { ApiError, getProblems, getUserSubmissions } from "../lib/api";
+import {
+  ApiError,
+  getProblems,
+  getPublicDsaSheets,
+  getPublicDsaSheetTree,
+  getUserSubmissions,
+} from "../lib/api";
 
 type DiffFilter = "ALL" | "EASY" | "MEDIUM" | "HARD";
 type StatusFilter = "ALL" | PracticeProblemStatus;
@@ -387,7 +394,23 @@ export default function DSASheet() {
           }
         }
         if (cancelled) return;
-        setCatalog(buildPracticeCatalog(problems, submissions));
+
+        let catalogData = buildPracticeCatalog(problems, submissions);
+        try {
+          const sheets = await getPublicDsaSheets();
+          const sheet = sheets[0];
+          if (sheet) {
+            const tree = await getPublicDsaSheetTree(sheet.id);
+            catalogData = buildPracticeCatalogFromDsaTree(
+              tree,
+              problems,
+              submissions
+            );
+          }
+        } catch {
+          /* keep topic-alias catalog if public DSA API unavailable */
+        }
+        setCatalog(catalogData);
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -442,7 +465,11 @@ export default function DSASheet() {
     if (!catalog) return [] as PracticeModule[];
     const filters = { difficulty, status, topic };
     return catalog.modules
-      .filter((m) => m.id !== "proving-grounds")
+      .filter(
+        (m) =>
+          m.id !== "proving-grounds" &&
+          m.title !== "The Proving Grounds"
+      )
       .map((module) => {
         const problems = module.problems.filter((p) =>
           matchesFilters(p, filters)
@@ -467,7 +494,9 @@ export default function DSASheet() {
 
   const provingGrounds = useMemo(() => {
     if (!catalog) return null;
-    const mod = catalog.modules.find((m) => m.id === "proving-grounds");
+    const mod = catalog.modules.find(
+      (m) => m.id === "proving-grounds" || m.title === "The Proving Grounds"
+    );
     if (!mod) return null;
     const filters = { difficulty, status, topic };
     const problems = mod.problems.filter((p) => matchesFilters(p, filters));

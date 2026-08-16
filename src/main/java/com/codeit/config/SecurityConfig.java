@@ -113,6 +113,8 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(paths.matcher(HttpMethod.GET, "/api/problems/**"))
                                                 .permitAll()
+                                                .requestMatchers(paths.matcher(HttpMethod.GET, "/api/dsa/**"))
+                                                .permitAll()
                                                 .requestMatchers(paths.matcher(HttpMethod.GET,
                                                                 "/api/submissions/languages"))
                                                 .permitAll()

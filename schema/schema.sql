@@ -222,3 +222,48 @@ CREATE TABLE IF NOT EXISTS room_events (
 
 CREATE INDEX IF NOT EXISTS idx_room_events_room_created
     ON room_events(room_id, created_at ASC);
+
+-- DSA Sheet Manager (Flyway V12)
+CREATE TABLE IF NOT EXISTS dsa_sheets (
+    id           SERIAL PRIMARY KEY,
+    name         VARCHAR(200) NOT NULL,
+    description  TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dsa_folders (
+    id           SERIAL PRIMARY KEY,
+    sheet_id     INTEGER NOT NULL REFERENCES dsa_sheets(id) ON DELETE CASCADE,
+    parent_id    INTEGER REFERENCES dsa_folders(id) ON DELETE CASCADE,
+    name         VARCHAR(200) NOT NULL,
+    description  TEXT,
+    position     INTEGER NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT dsa_folders_name_nonblank CHECK (LENGTH(TRIM(name)) > 0)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_dsa_folders_sibling_name
+    ON dsa_folders (sheet_id, parent_id, LOWER(TRIM(name)))
+    NULLS NOT DISTINCT;
+
+CREATE INDEX IF NOT EXISTS idx_dsa_folders_sheet_parent_pos
+    ON dsa_folders (sheet_id, parent_id, position);
+
+CREATE INDEX IF NOT EXISTS idx_dsa_folders_parent
+    ON dsa_folders (parent_id);
+
+CREATE TABLE IF NOT EXISTS dsa_folder_problems (
+    folder_id   INTEGER NOT NULL REFERENCES dsa_folders(id) ON DELETE CASCADE,
+    problem_id  INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (folder_id, problem_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dsa_folder_problems_folder_pos
+    ON dsa_folder_problems (folder_id, position);
+
+CREATE INDEX IF NOT EXISTS idx_dsa_folder_problems_problem
+    ON dsa_folder_problems (problem_id);

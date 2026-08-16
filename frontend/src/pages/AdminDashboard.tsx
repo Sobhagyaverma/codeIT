@@ -9,6 +9,7 @@ import type { ProblemPublicDTO } from "../lib/authStorage";
 import { useAuth } from "../context/AuthContext";
 import AdminCompetitions from "./AdminCompetitions";
 import AdminCompetitionStudio from "./AdminCompetitionStudio";
+import AdminDsaSheet from "./AdminDsaSheet";
 import AdminProblems from "./AdminProblems";
 import AdminProblemStudio from "./AdminProblemStudio";
 import AdminPrivateBeta from "./AdminPrivateBeta";
@@ -20,7 +21,8 @@ type View =
   | "create-problem"
   | "competitions"
   | "create-competition"
-  | "private-beta";
+  | "private-beta"
+  | "dsa-sheet";
 
 function formatContestWhen(c: Competition): string {
   try {
@@ -57,6 +59,7 @@ export default function AdminDashboard() {
       return "create-competition";
     if (location.pathname.startsWith("/admin/competitions"))
       return "competitions";
+    if (location.pathname.startsWith("/admin/dsa-sheet")) return "dsa-sheet";
     return "overview";
   });
   const [repoViewMode, setRepoViewMode] = useState<"grid" | "list">("grid");
@@ -74,6 +77,8 @@ export default function AdminDashboard() {
       setView("create-competition");
     } else if (location.pathname.startsWith("/admin/competitions")) {
       setView("competitions");
+    } else if (location.pathname.startsWith("/admin/dsa-sheet")) {
+      setView("dsa-sheet");
     } else if (location.pathname === "/admin") {
       /* keep in-page views for problems/overview unless we want reset */
     }
@@ -148,6 +153,7 @@ export default function AdminDashboard() {
     if (next === "competitions") navigate("/admin/competitions");
     else if (next === "create-competition")
       navigate("/admin/competitions/create");
+    else if (next === "dsa-sheet") navigate("/admin/dsa-sheet");
     else if (
       next === "overview" ||
       next === "problems" ||
@@ -237,13 +243,30 @@ export default function AdminDashboard() {
           </span>
           <span className="font-body-md text-body-md">Competitions</span>
         </button>
+        <button
+          type="button"
+          onClick={() => goView("dsa-sheet")}
+          className={`w-full text-left ${navItemClass(view === "dsa-sheet")}`}
+        >
+          <span
+            className="material-symbols-outlined"
+            style={
+              view === "dsa-sheet"
+                ? { fontVariationSettings: "'FILL' 1" }
+                : undefined
+            }
+          >
+            account_tree
+          </span>
+          <span className="font-body-md text-body-md">DSA Manager</span>
+        </button>
         <Link
           to="/dsa-sheet"
           className={navItemClass(false)}
           onClick={() => setMobileNavOpen(false)}
         >
           <span className="material-symbols-outlined">list_alt</span>
-          <span className="font-body-md text-body-md">DSA Sheet</span>
+          <span className="font-body-md text-body-md">View Sheet</span>
         </Link>
         <button
           type="button"
@@ -968,6 +991,8 @@ export default function AdminDashboard() {
             onError={setError}
           />
         )}
+
+        {view === "dsa-sheet" && <AdminDsaSheet />}
 
       </main>
     </div>

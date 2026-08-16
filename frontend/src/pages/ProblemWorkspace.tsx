@@ -20,6 +20,7 @@ import {
 } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 import {
+  clearCodeDraft,
   loadCodeDraft,
   pickPreferredLanguage,
   saveCodeDraft,
@@ -58,8 +59,16 @@ const STARTER: Record<string, string> = {
     "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        // your solution here\n    }\n}\n",
   cpp:
     "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // your solution here\n    return 0;\n}\n",
+  c:
+    "#include <stdio.h>\n\nint main(void) {\n    // your solution here\n    return 0;\n}\n",
   javascript:
     "const lines = require('fs').readFileSync('/dev/stdin', 'utf8').split('\\n');\n// your solution here\n",
+  typescript:
+    "const lines = require('fs').readFileSync('/dev/stdin', 'utf8').split('\\n');\n// your solution here\n",
+  go:
+    "package main\n\nimport (\n\t\"bufio\"\n\t\"fmt\"\n\t\"os\"\n)\n\nfunc main() {\n\t_ = bufio.NewReader(os.Stdin)\n\t// your solution here\n\tfmt.Println()\n}\n",
+  rust:
+    "use std::io::{self, Read};\n\nfn main() {\n    let mut input = String::new();\n    io::stdin().read_to_string(&mut input).unwrap();\n    // your solution here\n}\n",
 };
 
 const FALLBACK_LANGUAGES: LanguageDTO[] = [
@@ -347,6 +356,26 @@ export default function ProblemWorkspace() {
     setPreferredLanguage(lang.slug);
     const draft = loadCodeDraft(problemId, lang.slug);
     setCode(draft ?? STARTER[lang.slug] ?? "");
+  };
+
+  const handleResetCode = () => {
+    if (!language) return;
+    const starter = STARTER[language.slug] ?? "";
+    if (code === starter) {
+      showToast({
+        title: "Already on starter template.",
+        tone: "default",
+        icon: "info",
+      });
+      return;
+    }
+    clearCodeDraft(problemId, language.slug);
+    setCode(starter);
+    showToast({
+      title: "Code reset to starter template.",
+      tone: "success",
+      icon: "restart_alt",
+    });
   };
 
   const requireAuth = (action: string): boolean => {
@@ -838,6 +867,19 @@ export default function ProblemWorkspace() {
                   <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
                     expand_more
                   </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetCode}
+                  disabled={!language || running || submitting}
+                  title="Reset code to starter template"
+                  aria-label="Reset code to starter template"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-low px-3 py-2 text-[12px] font-medium text-on-surface-variant transition-colors hover:border-[#a855f7]/50 hover:text-on-surface disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    restart_alt
+                  </span>
+                  Reset
                 </button>
                 {langOpen && (
                   <div className="pw-lang-menu absolute top-full left-0 z-30 mt-2 max-h-60 min-w-[12rem] overflow-y-auto py-1.5">

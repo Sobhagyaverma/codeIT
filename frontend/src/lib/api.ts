@@ -385,6 +385,142 @@ export const getProblems = () => request<ProblemPublicDTO[]>("/api/problems");
 export const getProblem = (id: number) =>
   request<ProblemPublicDTO>(`/api/problems/${id}`);
 
+/* ── DSA Sheet Manager ─────────────────────────────────────────── */
+
+export type DsaSheetDTO = {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type DsaTreeProblemDTO = {
+  id: number;
+  title: string;
+  difficulty: string;
+  topics: string;
+  position: number;
+};
+
+export type DsaTreeFolderDTO = {
+  id: number;
+  sheetId: number;
+  parentId: number | null;
+  name: string;
+  description: string | null;
+  position: number;
+  createdAt?: string;
+  updatedAt?: string;
+  directProblemCount: number;
+  subfolderCount: number;
+  totalProblemCount: number;
+  children: DsaTreeFolderDTO[];
+  problems: DsaTreeProblemDTO[];
+};
+
+export type AssignProblemsResultDTO = {
+  added: number;
+  alreadyPresent: number[];
+  missing: number[];
+};
+
+export const listDsaSheets = () =>
+  request<DsaSheetDTO[]>("/api/admin/dsa/sheets");
+
+export const getDsaSheetTree = (sheetId: number) =>
+  request<DsaTreeFolderDTO[]>(`/api/admin/dsa/sheets/${sheetId}/tree`);
+
+/** Public learner tree (permitAll). */
+export const getPublicDsaSheets = () =>
+  request<DsaSheetDTO[]>("/api/dsa/sheets");
+
+export const getPublicDsaSheetTree = (sheetId: number) =>
+  request<DsaTreeFolderDTO[]>(`/api/dsa/sheets/${sheetId}/tree`);
+
+export const createDsaFolder = (
+  sheetId: number,
+  body: { name: string; description?: string; parentId?: number | null }
+) =>
+  request<DsaTreeFolderDTO>(`/api/admin/dsa/sheets/${sheetId}/folders`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const updateDsaFolder = (
+  folderId: number,
+  body: { name?: string; description?: string | null }
+) =>
+  request<DsaTreeFolderDTO>(`/api/admin/dsa/folders/${folderId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const deleteDsaFolder = (
+  folderId: number,
+  mode: "UNASSIGN" | "MOVE_TO_PARENT" = "UNASSIGN"
+) =>
+  request<{ ok: boolean }>(
+    `/api/admin/dsa/folders/${folderId}?mode=${encodeURIComponent(mode)}`,
+    { method: "DELETE" }
+  );
+
+export const assignDsaProblems = (folderId: number, problemIds: number[]) =>
+  request<AssignProblemsResultDTO>(
+    `/api/admin/dsa/folders/${folderId}/problems`,
+    {
+      method: "POST",
+      body: JSON.stringify({ problemIds }),
+    }
+  );
+
+export const removeDsaProblem = (folderId: number, problemId: number) =>
+  request<{ ok: boolean }>(
+    `/api/admin/dsa/folders/${folderId}/problems/${problemId}`,
+    { method: "DELETE" }
+  );
+
+export const moveDsaFolder = (
+  folderId: number,
+  body: { parentId: number | null; position?: number }
+) =>
+  request<{ ok: boolean }>(`/api/admin/dsa/folders/${folderId}/move`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const moveDsaProblem = (
+  folderId: number,
+  problemId: number,
+  body: { targetFolderId: number; position?: number }
+) =>
+  request<{ ok: boolean }>(
+    `/api/admin/dsa/folders/${folderId}/problems/${problemId}/move`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }
+  );
+
+export const reorderDsaFolders = (body: {
+  sheetId: number;
+  parentId: number | null;
+  folderIds: number[];
+}) =>
+  request<{ ok: boolean }>("/api/admin/dsa/folders/reorder", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+
+export const reorderDsaProblems = (folderId: number, problemIds: number[]) =>
+  request<{ ok: boolean }>(
+    `/api/admin/dsa/folders/${folderId}/problems/reorder`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ problemIds }),
+    }
+  );
+
 export type LanguageDTO = {
   slug: string;
   name: string;

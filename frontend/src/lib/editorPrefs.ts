@@ -51,6 +51,14 @@ export function saveCodeDraft(
   }
 }
 
+export function clearCodeDraft(problemId: number, languageSlug: string): void {
+  try {
+    localStorage.removeItem(draftKey(problemId, languageSlug));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function loadContestCodeDraft(
   competitionId: number,
   problemId: number,
